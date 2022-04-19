@@ -1,27 +1,33 @@
-Caching Stream Packager
-Casterpak
+CasterPak
+
+The CAshing STrEam [R] PAcKager:
 
 depends on https://www.bento4.com/
 
-Sample file that's delivered to the client from a 3rd party:
+This software only provides HLS Stream packinging, but can easily be enhanced for additional stream packaging technologies.
 
-    https://cdnapisec.kaltura.com/
-    p/1251832/sp/125183200/playManifest/entryId/1_4s1rg2d4/
-    flavorIds/1_pj9w1e1t,1_qrt09hao,1_gyghthqk,1_27nugw2i/
-    format/applehttp/protocol/https/a.m3u8
+The problem it solves is to balance your CPU and Storage costs for streaming Video-on-demand.
 
-https://cdnapisec.kaltura.com/p/1251832/sp/125183200/playManifest/entryId/1_lxeahg4p/flavorIds/1_8zeiqpyv,1_jrew8okq,1_o8uw7xfp/format/applehttp/protocol/https/a.m3u8?referrer=aHR0cHM6Ly93d3cucmZhLm9yZw==&playSessionId=96a6d5c9-0f53-8927-8fcb-76727dd64256&clientTag=html5:v2.92&uiConfId=33053471
+You don't want to store your HLS stream forever, neither do you want to create a stream package for every request.  
+This software provides the utilities to configure how long to store files ready for streaming (streaming cache ttl).
+and creates stream packages on-demand from your encoded renditions if the files don't exist (handle cache miss)
 
-Sample contents of that file
+This software doesn't create master / parent m3u8 manifests of encoded renditions.  That's the job of your encoder.
+However, your encoder should be able to provide a master manifest, and that manifest should provide URL's that this
+sofware will reply to.
+
+Let's say your encoder creates this file of video renditions and this is what you serve to your player:
+
     #EXTM3U
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=622044,RESOLUTION=854x480
-    https://onprem.rfa.org/i/20220404/1251/1_5q8yua9n_1_q2fzuix0_1.mp4/index_0_av.m3u8
+    https://this_application/i/20220404/1251/1_5q8yua9n_1_q2fzuix0_1.mp4/index_0_av.m3u8
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=741318,RESOLUTION=960x540
     https://this_application/i/20220404/1251/1_5q8yua9n_1_t2rfozqd_1.mp4/index_0_av.m3u8
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=1156684,RESOLUTION=1280x720
     https://this_application/i/20220404/1251/1_5q8yua9n_1_rumb24fg_1.mp4/index_0_av.m3u8
 
-Each one of those url's above will be served by this application.
+Each one of those url's above will be served by this application.  We call them 'segment manifests'.
+This application will serve segement manifests and the actual segment data.
 
 If the m3u8 is available on-disk, it's served.  Otherwise, it's created and saved
 
@@ -45,7 +51,7 @@ it will provide an m3u8 'child' playlist of segments like so:
     https://this_application/i/20220324/1251/1_yd2ohzql_1_jj0dd2ah_1.mp4/segment19_0_av.ts
     #EXT-X-ENDLIST
 
-And each one of those .ts files will be available at this application.
+And each one of those .ts files will be available at this application's endpoint until they are removed by the cache cleanup.
 
 Additionally, this package will setup jobs to remove .ts files after they go unaccessed for
 A certain amount of time.
