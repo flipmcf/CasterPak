@@ -57,6 +57,18 @@ Additionally, this package will setup jobs to remove .ts files after they go una
 A certain amount of time.
 
 ----
-Future:
-We will be able to monitor encoded renditions for access times and remove them also
-We should trigger creation of renditions on demand
+Installation:
+
+This is totally in development and doesn't have a python setup yet.  Please contribute.
+
+1. just download / clone this repo
+2. install a python virtual enviornment for it:
+   python3 -m venv .
+3. install flask
+   ./bin/pip install flask
+4. run the application
+   ./bin/python -m flask run
+   
+If you need to configure stuff, read the code and flask documentation for now.   
+
+Things will get better as this package matures.  Welcome to Alpha.
