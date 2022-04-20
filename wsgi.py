@@ -1,3 +1,7 @@
+
+import typing as t
+import os
+
 from flask import Flask
 from flask import abort
 from flask import send_from_directory
@@ -18,13 +22,14 @@ app.config.update(config)
 
 @app.route('/')
 def index():
-    return "homepage"
+    return """ homepage
+           hello from flask
+           """
 
 
 @app.route('/i/<path:the_path>/index_0_av.m3u8')
-def child_manifest(the_path):
+def child_manifest(the_path: t.Union[os.PathLike, str]):
     if not vodhls.validate_path(the_path):
-        app.logger.debug(f"404 for {the_path} not a valid path")
         abort(404)
 
     if not vodhls.manifest_exists(the_path + 'index_0_av.m3u8'):
@@ -41,6 +46,7 @@ def child_manifest(the_path):
                                )
 
 
+# HLS
 @app.route('/i/<path:the_path>/<string:filename>.ts')
 def segment(the_path, filename):
     filepath = the_path + '/' + filename + '.ts'
@@ -48,3 +54,10 @@ def segment(the_path, filename):
                                path=filepath,
                                mimetype="video/MP2T"
                                )
+
+
+# DASH
+@app.route('/i/<path:the_path>/figure/this/out/media.m3u8')
+def dash(the_path):
+    pass
+

@@ -79,3 +79,17 @@ I'm at the point of using Bento4 to create the stream.
 Gripes and notes:
 1) Hosting mp4 files over sshfs seems to corrupt them.  if I ssh them over, they are fine.
 see: https://bugs.launchpad.net/ubuntu/+source/sshfs-fuse/+bug/1949966
+
+Bad: 
+
+    5.13.0-39-generic
+    #44~20.04.1-Ubuntu
+    $ sshfs --version
+    SSHFS version 2.10.0
+    FUSE library version: 2.9.9
+    fusermount version: 2.9.9
+    using FUSE kernel interface version 7.19
+
+Good:
+    Kern 5.4.x
+    Ubuntu 20.04.4
