@@ -72,3 +72,10 @@ This is totally in development and doesn't have a python setup yet.  Please cont
 If you need to configure stuff, read the code and flask documentation for now.   
 
 Things will get better as this package matures.  Welcome to Alpha.
+
+-------
+I'm at the point of using Bento4 to create the stream.
+
+Gripes and notes:
+1) Hosting mp4 files over sshfs seems to corrupt them.  if I ssh them over, they are fine.
+see: https://bugs.launchpad.net/ubuntu/+source/sshfs-fuse/+bug/1949966
