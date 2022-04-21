@@ -30,7 +30,7 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
     if not vodhls.validate_path(dir_name):
         abort(404)
 
-    if not vodhls.manifest_exists(dir_name + 'index_0_av.m3u8'):
+    if not vodhls.manifest_exists(os.path.join(dir_name, 'index_0_av.m3u8')):
         app.logger.debug(f"child manifest for {dir_name} does not exist, creating")
         vodhls.create_manifest_and_segments(dir_name)
 
