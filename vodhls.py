@@ -10,8 +10,12 @@ logger = logging.getLogger('vodhls')
 
 
 class OptionsConfig(object):
-    def __init__(self, config):
-        self.base_config = config
+    """ This is a basic class that turns a dictionary into an object,
+        it's job is to impersonate an optparse.OptionParser instance.
+        We end up passing an instance of this to Mp42Hls
+    """
+    def __init__(self, config_dict):
+        self.base_config = config_dict
 
     def __getattr__(self, item):
         return self.base_config[item]
@@ -39,8 +43,8 @@ def manifest_exists(dir_name: t.Union[os.PathLike, str]) -> bool:
 
 
 def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str]) -> bool:
-    input_file: os.PathLike = os.path.join((config['videoParentPath'], dir_name))
-    output_dir: os.PathLike = os.path.join((config['segmentParentPath'], dir_name))
+    input_file: os.PathLike = os.path.join(config['videoParentPath'], dir_name)
+    output_dir: os.PathLike = os.path.join(config['segmentParentPath'], dir_name)
     hls_config = {
             'exec_dir': "/home/mcfaddenm/Bento4/bin",
             'debug': True,
