@@ -8,6 +8,7 @@ from bento4.mp4utils import Mp42Hls
 import logging
 logger = logging.getLogger('vodhls')
 
+
 class OptionsConfig(object):
     def __init__(self, config):
         self.base_config = config
@@ -17,29 +18,29 @@ class OptionsConfig(object):
 
 
 def validate_path(dir_name):
-    actualPath: os.PathLike = os.path.join(config['videoParentPath'], dir_name)
+    actual_path: os.PathLike = os.path.join(config['videoParentPath'], dir_name)
 
     try:
-        statinfo = os.stat(actualPath)
+        os.stat(actual_path)
     except FileNotFoundError:
-        logger.debug(f"404 for {actualPath} not a valid path")
+        logger.debug(f"404 for {actual_path} not a valid path")
         return False
     return True
 
 
 def manifest_exists(dir_name: t.Union[os.PathLike, str]) -> bool:
-    childManifestPath = config['segmentParentPath'] + dir_name
+    child_manifest_path: os.PathLike = os.path.join(config['segmentParentPath'], dir_name)
 
     try:
-        statinfo = os.stat(childManifestPath)
+        os.stat(child_manifest_path)
     except FileNotFoundError:
         return False
     return True
 
 
 def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str]) -> bool:
-    input_file: os.PathLike = '/'.join((config['videoParentPath'], dir_name))
-    output_dir: os.PathLike = '/'.join((config['segmentParentPath'], dir_name))
+    input_file: os.PathLike = os.path.join((config['videoParentPath'], dir_name))
+    output_dir: os.PathLike = os.path.join((config['segmentParentPath'], dir_name))
     hls_config = {
             'exec_dir': "/home/mcfaddenm/Bento4/bin",
             'debug': True,
