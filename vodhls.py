@@ -55,7 +55,8 @@ def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str]) -> bool:
         'index_filename':            path.join(output_dir, 'index_0_av.m3u8'),
         'segment_filename_template': path.join(output_dir, 'segment-%d.ts'),
         'segment_url_template':      'segment-%d.ts',
-        'show_info':                 True
+        'show_info':                 True,
+        'segment_duration':          "10",
     }
 
     options = OptionsConfig(hls_config)
