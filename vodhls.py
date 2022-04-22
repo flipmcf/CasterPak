@@ -1,6 +1,7 @@
 import typing as t
 import os
 from os import path
+from urllib.parse import urljoin
 
 from config import config
 from bento4.mp4utils import Mp42Hls
@@ -42,7 +43,8 @@ def manifest_exists(dir_name: t.Union[os.PathLike, str]) -> bool:
     return True
 
 
-def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str]) -> bool:
+def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str],
+                                 base_url: str) -> bool:
     input_file: os.PathLike = os.path.join(config['videoParentPath'], dir_name)
     output_dir: os.PathLike = os.path.join(config['segmentParentPath'], dir_name)
     hls_config = {
@@ -54,7 +56,7 @@ def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str]) -> bool:
     kwargs = {
         'index_filename':            path.join(output_dir, 'index_0_av.m3u8'),
         'segment_filename_template': path.join(output_dir, 'segment-%d.ts'),
-        'segment_url_template':      'segment-%d.ts',
+        'segment_url_template':      urljoin(base_url, 'segment-%d.ts'),
         'show_info':                 True,
         'segment_duration':          "10",
     }
