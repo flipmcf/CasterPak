@@ -59,6 +59,7 @@ def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str],
         'segment_url_template':      urljoin(base_url, 'segment-%d.ts'),
         'show_info':                 True,
         'segment_duration':          "10",
+        'allow-cache':               True,
     }
 
     options = OptionsConfig(hls_config)
