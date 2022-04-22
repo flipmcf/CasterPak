@@ -48,7 +48,7 @@ def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str],
     input_file: os.PathLike = os.path.join(config['videoParentPath'], dir_name)
     output_dir: os.PathLike = os.path.join(config['segmentParentPath'], dir_name)
     hls_config = {
-            'exec_dir': "/home/mcfaddenm/Bento4/bin",
+            'exec_dir': config['binaryPath'],
             'debug': True,
             'verbose': False,
             }
