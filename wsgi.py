@@ -18,14 +18,6 @@ app = Flask(__name__)
 
 app.config.update(config)
 
-
-@app.route('/')
-def index():
-    return """ homepage
-           hello from flask
-           """
-
-
 @app.route('/i/<path:dir_name>')
 def mp4_file(dir_name: t.Union[os.PathLike, str]):
     """Path directly to MP4 file, without a stream"""
