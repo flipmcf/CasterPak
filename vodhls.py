@@ -3,9 +3,8 @@ import os
 import logging
 import config
 import datetime
+import cachedb
 from urllib.parse import urljoin
-
-from cachedb import addrecord
 
 
 from bento4.mp4utils import Mp42Hls
@@ -78,7 +77,8 @@ def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str],
         logger.exception("Error creating segment files")
         return False
 
-
+    cachedb.addrecord(filename=input_file,
+           timestamp=datetime.datetime.now(datetime.timezone.utc))
     return True
 
 
