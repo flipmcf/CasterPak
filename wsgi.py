@@ -1,4 +1,3 @@
-
 import typing as t
 import os
 
@@ -11,11 +10,9 @@ from flask import url_for
 import applogging
 
 from config import get_config
-
 import vodhls
 
 app = Flask(__name__)
-
 app.config.update(get_config())
 
 
