@@ -1,10 +1,16 @@
 import typing as t
 import os
-from os import path
-from urllib.parse import urljoin
-from bento4.mp4utils import Mp42Hls
 import logging
 import config
+import datetime
+from urllib.parse import urljoin
+
+from cachedb import addrecord
+
+
+from bento4.mp4utils import Mp42Hls
+
+
 
 logger = logging.getLogger('vodhls')
 config = config.get_config()
@@ -53,8 +59,8 @@ def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str],
             }
 
     kwargs = {
-        'index_filename':            path.join(output_dir, 'index_0_av.m3u8'),
-        'segment_filename_template': path.join(output_dir, 'segment-%d.ts'),
+        'index_filename':            os.path.join(output_dir, 'index_0_av.m3u8'),
+        'segment_filename_template': os.path.join(output_dir, 'segment-%d.ts'),
         'segment_url_template':      urljoin(base_url, 'segment-%d.ts'),
         'show_info':                 True,
         'segment_duration':          "10",
@@ -72,6 +78,7 @@ def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str],
         logger.exception("Error creating segment files")
         return False
 
+
     return True
 
 
@@ -82,4 +89,4 @@ def make_segment_dir(dir_name: t.Union[os.PathLike, str]) -> None:
         logger.error("The segment directory doesn't exist")
         raise FileNotFoundError
 
-    os.makedirs(path.join(config['output']['segmentParentPath'], dir_name))
+    os.makedirs(os.path.join(config['output']['segmentParentPath'], dir_name))
