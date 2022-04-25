@@ -8,7 +8,10 @@ def get_config() -> ConfigParser:
     successfully_read = config.read('config.ini')
 
     if 'config.ini' not in successfully_read:
-        raise FileNotFoundError('config file config.ini not found')
+        raise FileNotFoundError("""
+        config file config.ini not found.
+        Copy config_example.ini to config.ini and configure the application
+        """)
 
 
     return config
