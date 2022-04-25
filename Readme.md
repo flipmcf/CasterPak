@@ -88,14 +88,22 @@ Installation:
 
 This is totally in development and doesn't have a python setup yet.  Please contribute.
 
-1. just download / clone this repo
-2. install a python virtual enviornment for it:
-   python3 -m venv .
-3. install flask
-   ./bin/pip install flask
-4. run the application
-   ./bin/python -m flask run
-   
-If you need to configure stuff, read the code and flask documentation for now.   
+1. download / clone this repo
+2. install a python virtual environment for it:
 
-Things will get better as this package matures.  Welcome to Alpha.
+   `python3 -m venv .`
+
+3. install flask
+
+   `./bin/pip install flask`
+4. configure this application
+   
+   `cp config_example.ini config.ini`
+
+   `vi config.ini`
+   
+5. run the application
+
+   `./bin/python -m flask run`
+   
+
