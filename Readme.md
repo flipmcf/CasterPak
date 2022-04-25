@@ -107,6 +107,23 @@ This is totally in development and doesn't have a python setup yet.  Please cont
    `./bin/python -m flask run`
    
 
+Testing
+
+note that there is a hard coded root path for url's called "i" so all testing must be to http://127.0.0.1/i/path/to/the/files
+This 'feature' may go away in the future.
+
+Place an mp4 file directly under "videoParentPath" or in any subdirectory below "videoParentPath"
+  example videoParentPath: /mnt/media/files/
+  example mp4 file: /mnt/media/files/videos/video.mp4
+
+Request the CasterPak "childManifestFilename" endpoint:
+  curl http://127.0.0.1/i/videos/video.mp4/index_0_av.m3u8
+
+you should get a result that looks like an m3u8 manifest
+you should see a new directory and files created in  'segmentParentPath'
+
+you can also point VLC or any other video player that can open a network path to http://127.0.0.1/i/videos/video.mp4/index_0_av.m3u8 and make sure the video plays.
+
 ----
 versions (should update these)
 - click==8.1.2
