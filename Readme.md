@@ -57,29 +57,31 @@ A certain amount of time.
 
 ----
 
-Dependencies on https://www.bento4.com/
+Install Dependencies:
+
+ 1: Bento4 https://www.bento4.com/
 
  Bento4 binary is required.  Specifically the `mp42hls` command.
  
- At this time it's recommended to use a special version of mp42hls: https://github.com/axiomatic-systems/Bento4/pull/696
+ At this time it's recommended compile and use a special version of mp42hls: https://github.com/axiomatic-systems/Bento4/pull/696
  
  Follow these instrctions to clone the specific branch / Pull Request
    
-   git clone git@github.com:axiomatic-systems/Bento4.git
-   cd Bento4
-   git fetch origin pull/696/head
-   git checkout -b iss693 FETCH_HEAD
+    git clone git@github.com:axiomatic-systems/Bento4.git
+    cd Bento4
+    git fetch origin pull/696/head
+    git checkout -b iss693 FETCH_HEAD
    
  Then complle:
    
-   mkdir cmakebuild
-   cd cmakebuild/
-   cmake -DCMAKE_BUILD_TYPE=Release ..
-   make
+    mkdir cmakebuild
+    cd cmakebuild/
+    cmake -DCMAKE_BUILD_TYPE=Release ..
+    make
    
  And copy the binary mp42hls to your fainal binary install directory
  
-   cp mp42hls /usr/bin/mp42hls  
+    cp mp42hls /usr/bin/mp42hls  
     
     
 Installation:
