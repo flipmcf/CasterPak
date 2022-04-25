@@ -1,6 +1,9 @@
 #IDE's
 .idea
 
+#Installation configuration
+config.ini
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
