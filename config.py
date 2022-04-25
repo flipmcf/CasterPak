@@ -1,7 +1,9 @@
-config = {}
+import configparser
 
-#config['videoParentPath'] = "/mnt/netstorage/143604/kaltura"
-config['videoParentPath'] = "/tmp/mp4files/143604/kaltura"
-config['segmentParentPath'] = "/tmp/segments"
-config['childManifestFilename'] = 'index_0_av.m3u8'
-config['binaryPath'] = '/home/mcfaddenm/Bento4/bin'
+from configparser import ConfigParser
+
+
+def get_config() -> ConfigParser:
+    config: ConfigParser = configparser.ConfigParser()
+    config.read('config.ini')
+    return config

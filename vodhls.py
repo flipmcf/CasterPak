@@ -2,13 +2,12 @@ import typing as t
 import os
 from os import path
 from urllib.parse import urljoin
-
-from config import config
 from bento4.mp4utils import Mp42Hls
-
 import logging
-logger = logging.getLogger('vodhls')
+import config
 
+logger = logging.getLogger('vodhls')
+config = config.get_config()
 
 class OptionsConfig(object):
     """ This is a basic class that turns a dictionary into an object,
@@ -23,7 +22,7 @@ class OptionsConfig(object):
 
 
 def validate_path(dir_name):
-    actual_path: os.PathLike = os.path.join(config['videoParentPath'], dir_name)
+    actual_path: os.PathLike = os.path.join(config['input']['videoParentPath'], dir_name)
 
     try:
         os.stat(actual_path)
@@ -34,7 +33,7 @@ def validate_path(dir_name):
 
 
 def manifest_exists(dir_name: t.Union[os.PathLike, str]) -> bool:
-    child_manifest_path: os.PathLike = os.path.join(config['segmentParentPath'], dir_name)
+    child_manifest_path: os.PathLike = os.path.join(config['output']['segmentParentPath'], dir_name)
 
     try:
         os.stat(child_manifest_path)
@@ -45,10 +44,10 @@ def manifest_exists(dir_name: t.Union[os.PathLike, str]) -> bool:
 
 def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str],
                                  base_url: str) -> bool:
-    input_file: os.PathLike = os.path.join(config['videoParentPath'], dir_name)
-    output_dir: os.PathLike = os.path.join(config['segmentParentPath'], dir_name)
+    input_file: os.PathLike = os.path.join(config['input']['videoParentPath'], dir_name)
+    output_dir: os.PathLike = os.path.join(config['output']['segmentParentPath'], dir_name)
     hls_config = {
-            'exec_dir': config['binaryPath'],
+            'exec_dir': config['bento4']['binaryPath'],
             'debug': True,
             'verbose': False,
             }
@@ -78,9 +77,9 @@ def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str],
 
 def make_segment_dir(dir_name: t.Union[os.PathLike, str]) -> None:
 
-    if not os.path.isdir(config['segmentParentPath']):
+    if not os.path.isdir(config['output']['segmentParentPath']):
         # configuration is wrong.  This path should always exist.
         logger.error("The segment directory doesn't exist")
         raise FileNotFoundError
 
-    os.makedirs(path.join(config['segmentParentPath'], dir_name))
+    os.makedirs(path.join(config['output']['segmentParentPath'], dir_name))

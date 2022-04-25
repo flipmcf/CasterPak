@@ -10,13 +10,13 @@ from flask import url_for
 # setup logging - just import it.
 import applogging
 
-from config import config
+from config import get_config
 
 import vodhls
 
 app = Flask(__name__)
 
-app.config.update(config)
+app.config.update(get_config())
 
 
 @app.route('/i/<path:dir_name>')
@@ -39,11 +39,12 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
         app.logger.debug(f"child manifest for {dir_name} does not exist, creating")
         vodhls.create_manifest_and_segments(dir_name, baseurl)
 
-    app.logger.debug(f"returning {app.config['segmentParentPath']}/{dir_name}/{app.config['childManifestFilename']}")
+    app.logger.debug(f"returning {app.config['output']['segmentParentPath']}/"
+                     f"{dir_name}/{app.config['output']['childManifestFilename']}")
 
-    filepath = dir_name + '/' + config['childManifestFilename']
+    filepath = dir_name + '/' + app.config['output']['childManifestFilename']
 
-    return send_from_directory(directory=app.config['segmentParentPath'],
+    return send_from_directory(directory=app.config['output']['segmentParentPath'],
                                path=filepath,
                                mimetype="application/vnd.apple.mpegurl"
                                )
@@ -53,7 +54,7 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
 @app.route('/i/<path:dir_name>/<string:filename>.ts')
 def segment(dir_name, filename):
     filepath = dir_name + '/' + filename + '.ts'
-    return send_from_directory(directory=app.config['segmentParentPath'],
+    return send_from_directory(directory=app.config['output']['segmentParentPath'],
                                path=filepath,
                                mimetype="video/MP2T"
                                )
