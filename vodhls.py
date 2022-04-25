@@ -84,8 +84,3 @@ def make_segment_dir(dir_name: t.Union[os.PathLike, str]) -> None:
         raise FileNotFoundError
 
     os.makedirs(path.join(config['segmentParentPath'], dir_name))
-
-
-
-
-
