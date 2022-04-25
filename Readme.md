@@ -59,7 +59,7 @@ A certain amount of time.
 
 Install Dependencies:
 
- 1: Bento4 https://www.bento4.com/
+ Bento4 https://www.bento4.com/
 
  Bento4 binary is required.  Specifically the `mp42hls` command.
  
@@ -93,9 +93,9 @@ This is totally in development and doesn't have a python setup yet.  Please cont
 
    `python3 -m venv .`
 
-3. install flask
+3. install python dependencies
 
-   `./bin/pip install flask`
+   `./bin/pip install flask tinydb`
 4. configure this application
    
    `cp config_example.ini config.ini`
@@ -107,3 +107,14 @@ This is totally in development and doesn't have a python setup yet.  Please cont
    `./bin/python -m flask run`
    
 
+----
+versions (should update these)
+- click==8.1.2
+- Flask==2.1.1
+- importlib-metadata==4.11.3
+- itsdangerous==2.1.2
+- Jinja2==3.1.1
+- MarkupSafe==2.1.1
+- tinydb==4.7.0
+- Werkzeug==2.1.1
+- zipp==3.8.0
