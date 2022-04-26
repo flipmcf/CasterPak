@@ -42,6 +42,14 @@ def manifest_exists(dir_name: t.Union[os.PathLike, str]) -> bool:
         return False
     return True
 
+def segment_exists(dir_name: t.Union[os.PathLike, str]) -> bool:
+    segment_path: os.PathLike = os.path.join(config['output']['segmentParentPath'], dir_name)
+
+    try:
+        os.stat(segment_path)
+    except FileNotFoundError:
+        return False
+    return True
 
 def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str],
                                  base_url: str) -> bool:
@@ -54,7 +62,7 @@ def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str],
             }
 
     kwargs = {
-        'index_filename':            os.path.join(output_dir, 'index_0_av.m3u8'),
+        'index_filename':            os.path.join(output_dir, (config['output']['childManifestFilename'])),
         'segment_filename_template': os.path.join(output_dir, 'segment-%d.ts'),
         'segment_url_template':      urljoin(base_url, 'segment-%d.ts'),
         'show_info':                 True,

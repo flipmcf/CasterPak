@@ -31,11 +31,13 @@ def mp4_file(dir_name: t.Union[os.PathLike, str]):
     abort(404)
 
 
+# TODO this hard-codes the childManifestFilename which should be set in config.ini
 @app.route('/i/<path:dir_name>/index_0_av.m3u8')
 def child_manifest(dir_name: t.Union[os.PathLike, str]):
     if not vodhls.validate_path(dir_name):
         abort(404)
 
+    # TODO: refactor duplicate code
     # if there is a servername configured, use absolute url's
     if app.config['output'].get('serverName', None):
         baseurl = url_for('mp4_file', dir_name=dir_name, _external=True)
@@ -44,7 +46,7 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
     else:
         baseurl = ''
 
-    if not vodhls.manifest_exists(os.path.join(dir_name, 'index_0_av.m3u8')):
+    if not vodhls.manifest_exists(os.path.join(dir_name, app.config['output']['childManifestFilename'])):
         app.logger.debug(f"child manifest for {dir_name} does not exist, creating")
         vodhls.create_manifest_and_segments(dir_name, baseurl)
 
@@ -53,7 +55,7 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
 
     filepath = dir_name + '/' + app.config['output']['childManifestFilename']
 
-    #record a successful access for caching
+    # record successful access for caching
     db = cachedb.CacheDB()
     db.addrecord(filename=dir_name)
 
@@ -65,8 +67,26 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
 
 # HLS
 @app.route('/i/<path:dir_name>/<string:filename>.ts')
-def segment(dir_name, filename):
+def segment(dir_name: t.Union[os.PathLike, str], filename):
     filepath = dir_name + '/' + filename + '.ts'
+
+    if not vodhls.segment_exists(filepath):
+        app.logger.info(f"request for segment {filepath} that does not exist. creating manifest")
+
+        # TODO: refactor duplicate code
+        # if there is a servername configured, use absolute url's
+        if app.config['output'].get('serverName', None):
+            baseurl = url_for('mp4_file', dir_name=dir_name, _external=True)
+            baseurl = baseurl + '/'
+        # otherwise, use relative url's
+        else:
+            baseurl = ''
+        vodhls.create_manifest_and_segments(dir_name, baseurl)
+
+    # record successful access for caching
+    db = cachedb.CacheDB()
+    db.addrecord(filename=dir_name)
+
     return send_from_directory(directory=app.config['output']['segmentParentPath'],
                                path=filepath,
                                mimetype="video/MP2T"
