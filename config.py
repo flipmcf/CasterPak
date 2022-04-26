@@ -13,5 +13,4 @@ def get_config() -> ConfigParser:
         Copy config_example.ini to config.ini and configure the application
         """)
 
-
     return config
