@@ -4,6 +4,7 @@ import os
 import shutil
 import sys
 import logging
+import applogging
 
 #set current working directory
 abspath = os.path.abspath(__file__)
@@ -11,7 +12,7 @@ dname = os.path.dirname(abspath)
 os.chdir(dname)
 
 config = config.get_config()
-logger = logging.getLogger('CasterPak cache cleaner')
+logger = logging.getLogger('CasterPak-cleanup')
 
 if config.get('application', 'debug', fallback=False):
     logging.basicConfig(level=logging.DEBUG)
