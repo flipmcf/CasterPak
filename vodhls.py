@@ -3,8 +3,6 @@ import os
 import logging
 import config
 from urllib.parse import urljoin
-
-
 from bento4.mp4utils import Mp42Hls
 
 logger = logging.getLogger('vodhls')
