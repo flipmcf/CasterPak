@@ -13,7 +13,13 @@ from config import get_config
 import vodhls
 
 app = Flask(__name__)
-app.config.update(get_config())
+base_config = get_config()
+app.config.update(base_config)
+if base_config['output'].get('serverName'):
+    app.config['SERVER_NAME'] = base_config['output']['serverName']
+
+if base_config['application'].get('debug'):
+    app.config['DEBUG'] = True
 
 
 @app.route('/i/<path:dir_name>')
@@ -29,8 +35,13 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
     if not vodhls.validate_path(dir_name):
         abort(404)
 
-    baseurl = url_for('mp4_file', dir_name=dir_name, _external=True)
-    baseurl = baseurl + '/'
+    # if there is a servername configured, use absolute url's
+    if app.config['output'].get('serverName', None):
+        baseurl = url_for('mp4_file', dir_name=dir_name, _external=True)
+        baseurl = baseurl + '/'
+    # otherwise, use relative url's
+    else:
+        baseurl = ''
 
     if not vodhls.manifest_exists(os.path.join(dir_name, 'index_0_av.m3u8')):
         app.logger.debug(f"child manifest for {dir_name} does not exist, creating")
