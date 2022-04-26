@@ -105,7 +105,39 @@ This is totally in development and doesn't have a python setup yet.  Please cont
 5. run the application
 
    `./bin/python -m flask run`
-   
+
+Of course, this is running a development flask instance, you should configure a real wsgi server to host this flask application in a production environment.
+Not sure?  Use nginx and gunicorn.  Google it.  Tons of tutorials
+
+Setting up the cleanup task
+
+What caching server is complete without deleting old stuff?
+
+look at 'crontab.tpl' - it's your basic crontab entry.  add it via 'crontab -e' as the user that will be running the flask application
+it's configured to run cleanup every 5 minutes, but you can tune it as you wish.
+
+create a file /var/log/casterpak.log and give the application user rights to write to it for logging.
+
+To watch it in action, get a few terminal windows open.
+
+1. you can watch the actual cache of segment files.  If you configured to write your segments to /tmp/segments, run this command:
+
+     `watch tree -L /tmp/segments`
+
+And leave it open - as requests happen, you'll see the files fill up.
+
+2. you can watch the cache database - this tells what files were created when.
+
+    `watch date +%s && cat cacheDB.json`
+
+3. you can watch the log (turn on debug in config.ini for best results):
+
+    `tail -f /var/log/casterpak.log`
+
+and it's always nice to do some requests to fill up the cache.
+
+    curl http://localhost:5000/i/video.mp4/index_0_av.m3u8
+
 
 Testing
 

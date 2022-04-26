@@ -9,9 +9,9 @@ class CacheDB(object):
         if timestamp is None:
             timestamp = datetime.datetime.now(datetime.timezone.utc)
 
-        File = Query()
+        Files = Query()
         self.db.upsert({'f': filename, 't': int(timestamp.timestamp())},
-                       File.f == filename)
+                       Files.f == filename)
 
     def find(self, age_in_minutes):
         Files = Query()
@@ -19,7 +19,9 @@ class CacheDB(object):
         def test_func(s):
             return s < (int(datetime.datetime.now().timestamp()) - age_in_minutes*60)
 
-        return self.db.search(Files.t.test(test_func))
+        rows = self.db.search(Files.t.test(test_func))
+
+        return [row['f'] for row in rows]
 
     def delrecord(self, filename):
         Files = Query()
