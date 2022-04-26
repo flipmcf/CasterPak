@@ -4,6 +4,9 @@
 #Installation configuration
 config.ini
 
+#local database
+cacheDB.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

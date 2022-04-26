@@ -11,6 +11,7 @@ import applogging
 
 from config import get_config
 import vodhls
+import cachedb
 
 app = Flask(__name__)
 base_config = get_config()
@@ -51,6 +52,10 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
                      f"{dir_name}/{app.config['output']['childManifestFilename']}")
 
     filepath = dir_name + '/' + app.config['output']['childManifestFilename']
+
+    #record a successful access for caching
+    db = cachedb.CacheDB()
+    db.addrecord(filename=dir_name)
 
     return send_from_directory(directory=app.config['output']['segmentParentPath'],
                                path=filepath,
