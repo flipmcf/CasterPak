@@ -81,7 +81,10 @@ def segment(dir_name: t.Union[os.PathLike, str], filename):
         # otherwise, use relative url's
         else:
             baseurl = ''
-        vodhls.create_manifest_and_segments(dir_name, baseurl)
+
+        retcode = vodhls.create_manifest_and_segments(dir_name, baseurl)
+        if not retcode:
+            abort(500, "failure creating stream")
 
     # record successful access for caching
     db = cachedb.CacheDB()
