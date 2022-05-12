@@ -1,9 +1,9 @@
-CasterPak
+# CasterPak
 
-The CAshing STrEam [R] PAcKager:
+## The CAshing STrEam [R] PAcKager:
 
 
-This software only provides HLS Stream packinging, but can easily be enhanced for additional stream packaging technologies.
+This software only provides HLS Stream packaging, but can easily be enhanced for additional stream packaging technologies.
 
 The problem it solves is to balance your CPU and Storage costs for streaming Video-on-demand.
 
@@ -13,7 +13,7 @@ and creates stream packages on-demand from your encoded renditions if the files 
 
 This software doesn't create master / parent m3u8 manifests of encoded renditions.  That's the job of your encoder.
 However, your encoder should be able to provide a master manifest, and that manifest should provide URL's that this
-sofware will reply to.
+software will reply to.
 
 Let's say your encoder creates this file of video renditions and this is what you serve to your player:
 
@@ -26,11 +26,11 @@ Let's say your encoder creates this file of video renditions and this is what yo
     https://this_application/i/20220404/1251/1_5q8yua9n_1_rumb24fg_1.mp4/index_0_av.m3u8
 
 Each one of those url's above will be served by this application.  We call them 'segment manifests'.
-This application will serve segement manifests and the actual segment data.
+This application will serve segment manifests and the actual segment data.
 
 If the m3u8 is available on-disk, it's served.  Otherwise, it's created and saved
 
-it will provide an m3u8 'child' playlist of segments like so:
+it will provide a m3u8 'child' playlist of segments like so:
 
     #EXTM3U
     #EXT-X-TARGETDURATION:10
@@ -57,7 +57,7 @@ A certain amount of time.
 
 ----
 
-Install Dependencies:
+### Install Dependencies:
 
  Bento4 https://www.bento4.com/
 
@@ -65,26 +65,26 @@ Install Dependencies:
  
  At this time it's recommended compile and use a special version of mp42hls: https://github.com/axiomatic-systems/Bento4/pull/696
  
- Follow these instrctions to clone the specific branch / Pull Request
+ Follow these instructions to clone the specific branch / Pull Request
    
     git clone git@github.com:axiomatic-systems/Bento4.git
     cd Bento4
     git fetch origin pull/696/head
     git checkout -b iss693 FETCH_HEAD
    
- Then complle:
+ Then compile:
    
     mkdir cmakebuild
     cd cmakebuild/
     cmake -DCMAKE_BUILD_TYPE=Release ..
     make
    
- And copy the binary mp42hls to your fainal binary install directory
+ And copy the binary mp42hls to your final binary installation directory
  
     cp mp42hls /usr/bin/mp42hls  
     
     
-Installation:
+### Installation
 
 This is totally in development and doesn't have a python setup yet.  Please contribute.
 
@@ -139,7 +139,19 @@ and it's always nice to do some requests to fill up the cache.
     curl http://localhost:5000/i/video.mp4/index_0_av.m3u8
 
 
-Testing
+## System Setup
+
+Well, there is a systemd unit config 'casterpak.service'.
+
+Open it, edit it to best suit your paths where you installed casterpak and your wsgi server.
+
+then `sudo ln -s /path/to/casterpak.service /etc/systemd/service/casterpak.service`
+
+if you did everything at least half-right, then `sudo systemctl start casterpak.service` might actually work
+
+As you can tell, this part isn't really built well yet.   Read some docs on systemd or whatever your system uses to manage daemons 
+
+## Testing
 
 note that there is a hard coded root path for url's called "i" so all testing must be to http://127.0.0.1/i/path/to/the/files
 This 'feature' may go away in the future.
