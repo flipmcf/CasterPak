@@ -6,7 +6,8 @@ After=network.target auditd.service
 [Service]
 WorkingDirectory=/home/casterpak/CasterPak
 ExecStart=/home/casterpak/env/bin/python3 -m gunicorn --workers 3 --log-file=/var/log/casterpak.log --bind unix:/home/casterpak/CasterPak/casterpak.sock -m 777 casterpak:app
-
+user=casterpak
+group=casterpak
 
 [Install]
 Alias=casterpak.service
