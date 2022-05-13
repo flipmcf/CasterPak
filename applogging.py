@@ -11,8 +11,8 @@ if config.get('application', 'debug') is True:
 dictConfig({
     'version': 1,
     'formatters': {
-        'default': { 'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',},
-        'cleanup': { 'format': '[%(asctime)s] %(levelname)s CasterPak Cleanup: %(message)s',}
+        'default': {'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',},
+        'cleanup': {'format': '[%(asctime)s] %(levelname)s CasterPak Cleanup: %(message)s',}
     },
     'handlers': {
         'wsgi': {
@@ -25,12 +25,11 @@ dictConfig({
             'stream': 'ext://flask.logging.wsgi_errors_stream',
             'formatter': 'cleanup'
             },
-
-        'root': {
-            'level': level,
-            'handlers': ['wsgi']
-            },
-    }
+    },
+    'root': {
+        'level': level,
+        'handlers': ['wsgi']
+    },
 })
 
 gunicorn_logger = logging.getLogger('gunicorn.error')
