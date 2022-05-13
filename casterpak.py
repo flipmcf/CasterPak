@@ -15,14 +15,6 @@ import cachedb
 
 app = Flask(__name__)
 
-if __name__ != '__main__':
-    # assuming we are being imported by gunicorn or some other wsgi thread manager
-    import logging
-    gunicorn_logger = logging.getLogger('gunicorn.error')
-    app.logger.handlers = gunicorn_logger.handlers
-    app.logger.setLevel(gunicorn_logger.level)
-
-
 base_config = get_config()
 app.config.update(base_config)
 if base_config['output'].get('serverName'):
