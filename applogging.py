@@ -5,7 +5,7 @@ from config import get_config
 config = get_config()
 
 level = "INFO"
-if config.get('application', 'debug'):
+if config.get('application', 'debug') is True:
     level = "DEBUG"
 
 dictConfig({
@@ -21,7 +21,7 @@ dictConfig({
         'stream': 'ext://flask.logging.wsgi_errors_stream',
         'formatter': 'default'
     },
-                'CasterPak-cleanup':{
+        'CasterPak-cleanup':{
         'class': 'logging.StreamHandler',
         'stream': 'ext://flask.logging.wsgi_errors_stream',
         'formatter': 'cleanup'}
