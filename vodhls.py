@@ -8,6 +8,7 @@ from bento4.mp4utils import Mp42Hls
 logger = logging.getLogger('vodhls')
 config = config.get_config()
 
+
 class OptionsConfig(object):
     """ This is a basic class that turns a dictionary into an object,
         it's job is to impersonate an optparse.OptionParser instance.
@@ -40,6 +41,7 @@ def manifest_exists(dir_name: t.Union[os.PathLike, str]) -> bool:
         return False
     return True
 
+
 def segment_exists(dir_name: t.Union[os.PathLike, str]) -> bool:
     segment_path: os.PathLike = os.path.join(config['output']['segmentParentPath'], dir_name)
 
@@ -48,6 +50,7 @@ def segment_exists(dir_name: t.Union[os.PathLike, str]) -> bool:
     except FileNotFoundError:
         return False
     return True
+
 
 def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str],
                                  base_url: str) -> bool:
