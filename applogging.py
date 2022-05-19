@@ -1,5 +1,3 @@
-import logging
-from logging.config import dictConfig
 from config import get_config
 
 config = get_config()
@@ -8,7 +6,7 @@ level = "INFO"
 if config.get('application', 'debug') is True:
     level = "DEBUG"
 
-dictConfig({
+CASTERPAK_DEFAULT_LOGGING_CONFIG = {
     'version': 1,
     'formatters': {
         'default': {'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',},
@@ -20,6 +18,11 @@ dictConfig({
             'stream': 'ext://flask.logging.wsgi_errors_stream',
             'formatter': 'default'
             },
+        'vodhls': {
+            'class': 'logging.StreamHandler',
+            'stream': 'ext://flask.logging.wsgi_errors_stream',
+            'formatter': 'cleanup'
+            },
         'CasterPak-cleanup': {
             'class': 'logging.StreamHandler',
             'stream': 'ext://flask.logging.wsgi_errors_stream',
@@ -30,7 +33,4 @@ dictConfig({
         'level': level,
         'handlers': ['wsgi']
     },
-})
-
-gunicorn_logger = logging.getLogger('gunicorn.error')
-logging.handlers = gunicorn_logger.handlers
+}
