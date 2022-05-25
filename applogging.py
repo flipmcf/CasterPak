@@ -9,8 +9,8 @@ if config.get('application', 'debug') is True:
 CASTERPAK_DEFAULT_LOGGING_CONFIG = {
     'version': 1,
     'formatters': {
-        'default': {'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',},
-        'cleanup': {'format': '[%(asctime)s] %(levelname)s CasterPak Cleanup: %(message)s',}
+        'default': {'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s', },
+        'cleanup': {'format': '[%(asctime)s] %(levelname)s CasterPak Cleanup: %(message)s', }
     },
     'handlers': {
         'wsgi': {
@@ -21,7 +21,7 @@ CASTERPAK_DEFAULT_LOGGING_CONFIG = {
         'vodhls': {
             'class': 'logging.StreamHandler',
             'stream': 'ext://flask.logging.wsgi_errors_stream',
-            'formatter': 'cleanup'
+            'formatter': 'default'
             },
         'CasterPak-cleanup': {
             'class': 'logging.StreamHandler',

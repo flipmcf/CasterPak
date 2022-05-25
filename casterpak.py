@@ -29,6 +29,13 @@ def setup_app(app):
     if not os.path.isdir(app.config['output']['segmentParentPath']):
         os.mkdir(app.config['output']['segmentParentPath'])
 
+    #setup logging
+    gunicorn_error_logger = logging.getLogger('gunicorn.error')
+    app.logger.handlers.extend(gunicorn_error_logger.handlers)
+    #app.logger.setlevel(gunicorn_error_logger.log_level)
+    app.logger.debug("Debug Enabled")
+    app.logger.info("Info log Enabled")
+
 
 setup_app(app)
 
