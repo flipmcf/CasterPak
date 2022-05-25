@@ -30,12 +30,20 @@ def setup_app(app):
     if not os.path.isdir(app.config['output']['segmentParentPath']):
         os.mkdir(app.config['output']['segmentParentPath'])
 
-    #setup logging
+
+def setup_gunicorn_logging():
+    vodhls_logger = logging.getLogger('vodhls')
     gunicorn_error_logger = logging.getLogger('gunicorn.error')
-    app.logger.handlers.extend(gunicorn_error_logger.handlers)
-    #app.logger.setlevel(gunicorn_error_logger.log_level)
+
+    app.logger.handlers = gunicorn_error_logger.handlers
+    vodhls_logger.handlers = gunicorn_error_logger.handlers
+
     app.logger.debug("Debug Enabled")
     app.logger.info("Info log Enabled")
+
+
+if __name__ != "__main__":
+   setup_gunicorn_logging()
 
 
 setup_app(app)
