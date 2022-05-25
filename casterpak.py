@@ -26,10 +26,9 @@ def setup_app(app):
         app.config['DEBUG'] = True
 
     # initialize segment directory
-    try:
-        os.stat(app.config['output']['segmentParentPath'])
-    except FileNotFoundError:
+    if not os.path.isdir(app.config['output']['segmentParentPath']):
         os.mkdir(app.config['output']['segmentParentPath'])
+
 
 setup_app(app)
 
