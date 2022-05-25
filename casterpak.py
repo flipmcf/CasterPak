@@ -16,8 +16,8 @@ import cachedb
 
 app = Flask(__name__)
 
-
-def setup_app(app):
+app_config = get_config()
+def setup_app(app, base_config):
     base_config = get_config()
     app.config.update(base_config)
     if base_config['output'].get('serverName'):
@@ -31,22 +31,26 @@ def setup_app(app):
         os.mkdir(app.config['output']['segmentParentPath'])
 
 
-def setup_gunicorn_logging():
+def setup_gunicorn_logging(base_config):
     vodhls_logger = logging.getLogger('vodhls')
     gunicorn_error_logger = logging.getLogger('gunicorn.error')
 
     app.logger.handlers = gunicorn_error_logger.handlers
     vodhls_logger.handlers = gunicorn_error_logger.handlers
 
+    if base_config['application'].get('debug'):
+        gunicorn_error_logger.setLevel(logging.DEBUG)
+
     app.logger.debug("Debug Enabled")
     app.logger.info("Info log Enabled")
 
 
+
 if __name__ != "__main__":
-   setup_gunicorn_logging()
+   setup_gunicorn_logging(app_config)
 
 
-setup_app(app)
+setup_app(app_config)
 
 @app.route('/i/<path:dir_name>')
 def mp4_file(dir_name: t.Union[os.PathLike, str]):
