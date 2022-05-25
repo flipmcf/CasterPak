@@ -14,11 +14,8 @@ from config import get_config
 import vodhls
 import cachedb
 
-app = Flask(__name__)
 
-app_config = get_config()
 def setup_app(app, base_config):
-    base_config = get_config()
     app.config.update(base_config)
     if base_config['output'].get('serverName'):
         app.config['SERVER_NAME'] = base_config['output']['serverName']
@@ -45,12 +42,13 @@ def setup_gunicorn_logging(base_config):
     app.logger.info("Info log Enabled")
 
 
+app = Flask(__name__)
+app_config = get_config()
 
 if __name__ != "__main__":
-   setup_gunicorn_logging(app_config)
+    setup_gunicorn_logging(app_config)
 
-
-setup_app(app_config)
+setup_app(app, app_config)
 
 @app.route('/i/<path:dir_name>')
 def mp4_file(dir_name: t.Union[os.PathLike, str]):
