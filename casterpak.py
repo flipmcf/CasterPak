@@ -15,14 +15,23 @@ import cachedb
 
 app = Flask(__name__)
 
-base_config = get_config()
-app.config.update(base_config)
-if base_config['output'].get('serverName'):
-    app.config['SERVER_NAME'] = base_config['output']['serverName']
 
-if base_config['application'].get('debug'):
-    app.config['DEBUG'] = True
+def setup_app(app):
+    base_config = get_config()
+    app.config.update(base_config)
+    if base_config['output'].get('serverName'):
+        app.config['SERVER_NAME'] = base_config['output']['serverName']
 
+    if base_config['application'].get('debug'):
+        app.config['DEBUG'] = True
+
+    # initialize segment directory
+    try:
+        os.stat(app.config['output']['segmentParentPath'])
+    except FileNotFoundError:
+        os.mkdir(app.config['output']['segmentParentPath'])
+
+setup_app(app)
 
 @app.route('/i/<path:dir_name>')
 def mp4_file(dir_name: t.Union[os.PathLike, str]):
