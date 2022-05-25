@@ -8,6 +8,7 @@ from flask import url_for
 
 # setup logging - just import it.
 import applogging
+import logging
 
 from config import get_config
 import vodhls
