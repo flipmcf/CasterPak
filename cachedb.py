@@ -2,8 +2,8 @@ import datetime
 from tinydb import TinyDB, Query
 
 class CacheDB(object):
-    def __init__(self):
-        self.db = TinyDB('cacheDB.json')
+    def __init__(self, dbname='cacheDB.json'):
+        self.db = TinyDB(dbname)
 
     def addrecord(self, filename=None,timestamp=None):
         if timestamp is None:
