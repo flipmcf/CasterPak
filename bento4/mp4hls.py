@@ -29,11 +29,16 @@ from mp4utils import Base64Encode,\
                      PrintErrorAndExit,\
                      MakeNewDir
 
+import logging
+logger = logging.getLogger(__name__)
+
 # setup main options
 VERSION = "1.2.0"
 SDK_REVISION = '639'
 SCRIPT_PATH = path.abspath(path.dirname(__file__))
 sys.path += [SCRIPT_PATH]
+
+
 
 #############################################
 def CreateSubtitlesPlaylist(playlist_filename, webvtt_filename, duration):
@@ -107,7 +112,7 @@ def AnalyzeSources(options, media_sources):
             PrintErrorAndExit('ERROR: media file ' + media_file + ' does not exist')
 
         # get the file info
-        print('Parsing media file', media_file)
+        logger.debug('Parsing media file', media_file)
         mp4_file = Mp4File(Options, media_source)
         media_source.mp4_file = mp4_file
 
@@ -187,7 +192,7 @@ def SelectAudioTracks(options, media_sources):
 #############################################
 def ProcessSource(options, media_info, out_dir):
     if options.verbose:
-        print('Processing', media_info['source'].filename)
+        logger.info('Processing', media_info['source'].filename)
 
     file_extension = media_info.get('file_extension', 'ts')
 
@@ -247,7 +252,7 @@ def ProcessSource(options, media_info, out_dir):
                         media_info['source'].filename,
                         **kwargs)
     if options.verbose:
-        print(json_info.decode('utf-8'))
+        logger.info(json_info.decode('utf-8'))
 
     media_info['info'] = json.loads(json_info, strict=False)
 
@@ -423,8 +428,8 @@ def OutputHls(options, media_sources):
             })
 
         if options.debug:
-            print('Audio Groups:')
-            print(audio_groups)
+            logger.debug('Audio Groups:')
+            logger.debug(audio_groups)
 
     else:
         audio_groups = [{

@@ -17,6 +17,9 @@ import fractions
 import xml.sax.saxutils as saxutils
 import base64
 
+import logging
+logger = logging.getLogger(__name__)
+
 LanguageCodeMap = {
     'aar': 'aa', 'abk': 'ab', 'afr': 'af', 'aka': 'ak', 'alb': 'sq', 'amh': 'am', 'ara': 'ar', 'arg': 'an',
     'arm': 'hy', 'asm': 'as', 'ava': 'av', 'ave': 'ae', 'aym': 'ay', 'aze': 'az', 'bak': 'ba', 'bam': 'bm',
@@ -232,7 +235,7 @@ LanguageNames = {
 }
 
 def PrintErrorAndExit(message):
-    sys.stderr.write(message+'\n')
+    logger.error(message+'\n')
     sys.exit(1)
 
 def XmlDuration(d):
@@ -278,13 +281,13 @@ def Bento4Command(options, name, *args, **kwargs):
 
     cmd += args
     if options.debug:
-        print('COMMAND: ', " ".join(cmd), cmd)
+        logger.debug('COMMAND: ', " ".join(cmd), cmd)
     try:
         try:
             return check_output(cmd)
         except OSError as e:
             if options.debug:
-                print('executable ' + executable + ' not found in exec_dir, trying with PATH')
+                logger.debug('executable ' + executable + ' not found in exec_dir, trying with PATH')
             cmd[0] = path.basename(cmd[0])
             return check_output(cmd)
     except CalledProcessError as e:
@@ -506,7 +509,7 @@ class Mp4File:
 
         filename = media_source.filename
         if options.debug:
-            print('Processing MP4 file', filename)
+            logger.debug('Processing MP4 file', filename)
 
         # by default, the media name is the basename of the source file
         self.media_name = path.basename(filename)
@@ -524,7 +527,7 @@ class Mp4File:
                     self.segments[-1].append(atom)
         #print self.segments
         if options.debug:
-            print('  found', len(self.segments), 'segments')
+            logger.debug('  found', len(self.segments), 'segments')
 
         for track in self.info['tracks']:
             self.tracks[track['id']] = Mp4Track(self, track)
@@ -641,14 +644,16 @@ class Mp4File:
         # print debug info if requested
         if options.debug:
             for track in self.tracks.values():
-                print('Track ID                     =', track.id)
-                print('    Segment Count            =', len(track.segment_durations))
-                print('    Type                     =', track.type)
-                print('    Sample Count             =', track.total_sample_count)
-                print('    Average segment bitrate  =', track.average_segment_bitrate)
-                print('    Max segment bitrate      =', track.max_segment_bitrate)
-                print('    Required bandwidth       =', int(track.bandwidth))
-                print('    Average segment duration =', track.average_segment_duration)
+                logger.debug('Track ID                     =', track.id)
+                logger.debug('    Segment Count            =', len(track.segment_durations))
+                logger.debug('    Type                     =', track.type)
+                logger.debug('    Sample Count             =', track.total_sample_count)
+                logger.debug('    Average segment bitrate  =', track.average_segment_bitrate)
+                logger.debug('    Max segment bitrate      =', track.max_segment_bitrate)
+                logger.debug('    Required bandwidth       =', int(track.bandwidth))
+                logger.debug('    Average segment duration =', track.average_segment_duration)
+
+
 
     def find_track_by_id(self, track_id_to_find):
         for track_id in self.tracks:
@@ -740,7 +745,7 @@ def MakePsshBoxV1(system_id, kids, payload):
 
 def GetEncryptionKey(options, spec):
     if options.debug:
-        print('Resolving KID and Key from spec:', spec)
+        logger.debug('Resolving KID and Key from spec:', spec)
     if spec.startswith('skm:'):
         import skm
         return skm.ResolveKey(options, spec[4:])
