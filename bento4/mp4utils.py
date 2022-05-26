@@ -722,8 +722,8 @@ def ComputeBandwidth(buffer_time, sizes, durations):
 def MakeNewDir(dir, exit_if_exists=False, severity=None, recursive=False):
     if path.exists(dir):
         if severity:
-            sys.stderr.write(severity+': ')
-            sys.stderr.write('directory "'+dir+'" already exists\n')
+            logger.error(severity+': ')
+            logger.error('directory "'+dir+'" already exists\n')
         if exit_if_exists:
             sys.exit(1)
     elif recursive:
