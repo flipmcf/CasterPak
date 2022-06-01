@@ -7,7 +7,7 @@ __copyright__ = 'Copyright 2011-2020 Axiomatic Systems, LLC.'
 import sys
 import os
 import os.path as path
-from subprocess import check_output, CalledProcessError
+from subprocess import check_output, CalledProcessError, STDOUT
 import json
 import io
 import struct
@@ -284,12 +284,12 @@ def Bento4Command(options, name, *args, **kwargs):
         logger.debug('COMMAND: ', " ".join(cmd), cmd)
     try:
         try:
-            return check_output(cmd)
+            return check_output(cmd, stderr=STDOUT)
         except OSError as e:
             if options.debug:
                 logger.debug('executable ' + executable + ' not found in exec_dir, trying with PATH')
             cmd[0] = path.basename(cmd[0])
-            return check_output(cmd)
+            return check_output(cmd, stderr=STDOUT)
     except CalledProcessError as e:
         message = "binary tool failed with error %d" % e.returncode
         if options.verbose:
