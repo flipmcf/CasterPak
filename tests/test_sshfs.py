@@ -1,6 +1,7 @@
 import hashlib
 import os
 import random
+import argparse
 
 """ Let's work sshfs and really see if it's fixed
 
@@ -21,27 +22,30 @@ logger = logging.getLogger('test_sshfs')
 ch = logging.StreamHandler()
 logger.addHandler(ch)
 
-#logger.setLevel(logging.DEBUG)
-logger.debug("debug enabled")
 
 sshfs_drive = "/mnt/netstorage"
 common_path = "/143604/kaltura"
-identity_file="path/to/ssh_key"
+identity_file=""
 temp_destination = '.'
 
-def run_test(rootdir_cache):
+def run_test(dirlist, args):
+    hashalgo = hashlib.md5
     logger.debug(f'reading {sshfs_drive}{common_path}')
-    sshfs_filename = get_rand_file(f"{sshfs_drive}{common_path}", prepaths=rootdir_cache)
+
+    sshfs_filename = get_rand_file(f"{sshfs_drive}{common_path}", prepaths=dirlist)
 
     logger.debug(f'hashing {sshfs_filename}')
-    sshfs_hash = hash(sshfs_filename, chunk_size=65536)
+    sshfs_hash = hash(sshfs_filename, chunk_size=65536, algo=hashalgo)
 
     remote_filename = os.path.relpath(sshfs_filename, sshfs_drive)
 
+    logger.debug(f'copying {remote_filename} to {temp_destination}')
     copied_filename = copy_file(remote_filename, temp_destination)
-    copied_hash = hash(copied_filename, chunk_size=65536)
-    logger.info(f"{sshfs_hash} == {copied_hash}")
 
+    logger.debug(f'hashing {copied_filename}')
+    copied_hash = hash(copied_filename, chunk_size=65536, algo=hashalgo)
+
+    logger.info(f"{sshfs_hash} == {copied_hash}")
     if sshfs_hash == copied_hash:
         print(f"{remote_filename} Passed")
         retval = 0
@@ -73,9 +77,12 @@ def get_rand_file(parent, prepaths=None):
         return get_rand_file(rand_path)
 
 
-def hash(filename, chunk_size=8192):
+def hash(filename, chunk_size=8192, algo=None):
+    if algo is None:
+        algo = hashlib.blake2b
+
     with open(filename, "rb") as f:
-        file_hash = hashlib.blake2b()
+        file_hash = algo()
         while chunk := f.read(chunk_size):
             file_hash.update(chunk)
 
@@ -85,6 +92,7 @@ def hash(filename, chunk_size=8192):
 def copy_file(filename, dest):
 
     scp_command = f"scp -oHostKeyAlgorithms=+ssh-dss -i {identity_file} sshacs@rfa.scp.upload.akamai.com:{filename} {dest}"
+    logger.debug(scp_command)
     os.system(scp_command)
     return os.path.join(dest, os.path.basename(filename))
 
@@ -94,6 +102,21 @@ def cleanup(filename, dest):
 
 
 if __name__ == "__main__":
-    rootdir_cache = os.listdir(f"{sshfs_drive}{common_path}")
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--debug', action="store_true")
+    parser.add_argument('--dirlist')
+    args = parser.parse_args()
+
+    if not args.dirlist:
+        dirlist = os.listdir(f"{sshfs_drive}{common_path}")
+    else:
+        with open(args.dirlist) as f:
+            dirlist = [line.strip() for line in f.readlines()]
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+
+    logger.debug("debug enabled")
     while True:
-        run_test(rootdir_cache)
+        run_test(dirlist, args)
