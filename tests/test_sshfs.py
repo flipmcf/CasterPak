@@ -18,15 +18,15 @@ import random
 import logging
 
 logger = logging.getLogger('test_sshfs')
-logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 logger.addHandler(ch)
 
-# logger.debug("debug enabled")
+#logger.setLevel(logging.DEBUG)
+logger.debug("debug enabled")
 
 sshfs_drive = "/mnt/netstorage"
 common_path = "/143604/kaltura"
-identity_file="/home/mcfaddenm/.ssh/netstorage"
+identity_file="path/to/ssh_key"
 temp_destination = '.'
 
 def run_test(rootdir_cache):
@@ -40,6 +40,7 @@ def run_test(rootdir_cache):
 
     copied_filename = copy_file(remote_filename, temp_destination)
     copied_hash = hash(copied_filename)
+    logger.info(f"{sshfs_hash} == {copied_hash}")
 
     if sshfs_hash == copied_hash:
         print(f"{remote_filename} Passed")
