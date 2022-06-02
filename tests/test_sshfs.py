@@ -34,12 +34,12 @@ def run_test(rootdir_cache):
     sshfs_filename = get_rand_file(f"{sshfs_drive}{common_path}", prepaths=rootdir_cache)
 
     logger.debug(f'hashing {sshfs_filename}')
-    sshfs_hash = hash(sshfs_filename)
+    sshfs_hash = hash(sshfs_filename, chunk_size=65536)
 
     remote_filename = os.path.relpath(sshfs_filename, sshfs_drive)
 
     copied_filename = copy_file(remote_filename, temp_destination)
-    copied_hash = hash(copied_filename)
+    copied_hash = hash(copied_filename, chunk_size=65536)
     logger.info(f"{sshfs_hash} == {copied_hash}")
 
     if sshfs_hash == copied_hash:
@@ -73,10 +73,10 @@ def get_rand_file(parent, prepaths=None):
         return get_rand_file(rand_path)
 
 
-def hash(filename):
+def hash(filename, chunk_size=8192):
     with open(filename, "rb") as f:
         file_hash = hashlib.blake2b()
-        while chunk := f.read(8192):
+        while chunk := f.read(chunk_size):
             file_hash.update(chunk)
 
     return file_hash.hexdigest()
