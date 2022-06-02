@@ -66,7 +66,6 @@ def create_manifest_and_segments(dir_name: t.Union[os.PathLike, str],
         'index_filename':            os.path.join(output_dir, (config['output']['childManifestFilename'])),
         'segment_filename_template': os.path.join(output_dir, 'segment-%d.ts'),
         'segment_url_template':      urljoin(base_url, 'segment-%d.ts'),
-        'show_info':                 True,
         'segment_duration':          "10",
         'allow-cache':               True,
     }
