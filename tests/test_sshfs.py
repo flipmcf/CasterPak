@@ -47,10 +47,12 @@ def run_test(dirlist, args):
 
     logger.info(f"{sshfs_hash} == {copied_hash}")
     if sshfs_hash == copied_hash:
-        print(f"{remote_filename} Passed")
+        logger.info(f"{remote_filename} Passed")
         retval = 0
     else:
-        print(f"{remote_filename} Error")
+        logger.error(f"{remote_filename} Error")
+        logger.error(f"{sshfs_hash}   {sshfs_filename}")
+        logger.error(f"{copied_hash}   {copied_filename}")
         retval = 1
 
     cleanup(copied_filename, temp_destination)
@@ -108,14 +110,16 @@ if __name__ == "__main__":
     parser.add_argument('--dirlist')
     args = parser.parse_args()
 
-    if not args.dirlist:
-        dirlist = os.listdir(f"{sshfs_drive}{common_path}")
-    else:
-        with open(args.dirlist) as f:
-            dirlist = [line.strip() for line in f.readlines()]
-
     if args.debug:
         logger.setLevel(logging.DEBUG)
+
+    if not args.dirlist:
+        logger.debug(f"reading {sshfs_drive}{common_path} to pre-determine paths to try")
+        dirlist = os.listdir(f"{sshfs_drive}{common_path}")
+    else:
+        logger.debug(f"reading {args.dirlist}")
+        with open(args.dirlist) as f:
+            dirlist = [line.strip() for line in f.readlines() if line]
 
     logger.debug("debug enabled")
     while True:
