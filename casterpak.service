@@ -6,8 +6,8 @@ After=network.target auditd.service
 [Service]
 WorkingDirectory=/home/casterpak/CasterPak
 ExecStart=/home/casterpak/env/bin/python3 -m gunicorn
-user=casterpak
-group=casterpak
+User=casterpak
+Group=casterpak
 
 [Install]
 Alias=casterpak.service
