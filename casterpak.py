@@ -27,6 +27,11 @@ def setup_app(app, base_config):
     if not os.path.isdir(app.config['output']['segmentParentPath']):
         os.mkdir(app.config['output']['segmentParentPath'])
 
+    # initialize input cache directory
+    if app.config['cache']['cache_input']:
+        if not os.path.isdir(app.config['input']['videoCachePath']):
+            os.mkdir(app.config['input']['videoCachePath'])
+
 
 def setup_gunicorn_logging(base_config):
     vodhls_logger = logging.getLogger('vodhls')
