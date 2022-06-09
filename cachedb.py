@@ -1,6 +1,7 @@
 import datetime
 from tinydb import TinyDB, Query
 
+
 class CacheDB(object):
     def __init__(self, dbname='cacheDB.json'):
         self.db = TinyDB(dbname)
