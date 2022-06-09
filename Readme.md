@@ -39,7 +39,7 @@ it will provide a m3u8 'child' playlist of segments like so:
     #EXT-X-VERSION:3
     #EXT-X-MEDIA-SEQUENCE:1
     #EXTINF:10.000,
-    https://cloudstorage.rfa.org/i/20220324/1251/1_yd2ohzql_1_pnkbhq6w_1.mp4/segment1_0_av.ts
+    https://this_application/i/20220324/1251/1_yd2ohzql_1_pnkbhq6w_1.mp4/segment1_0_av.ts
     #EXTINF:10.000,
     https://this_application/i/20220324/1251/1_yd2ohzql_1_pnkbhq6w_1.mp4/segment2_0_av.ts
     #EXTINF:10.000,
