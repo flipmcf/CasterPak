@@ -28,7 +28,7 @@ class CacheCleaner(object):
         return 0
 
     def get_old_files(self):
-        return self.db.find(int(config['cache']['age']))
+        return self.db.find(int(config['cache']['segment_file_age']))
 
     def delete(self, file):
         logger.debug(f"asked to delete {file}")
