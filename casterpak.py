@@ -80,7 +80,9 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
 
     if not vodhls.manifest_exists(os.path.join(dir_name, app.config['output']['childManifestFilename'])):
         app.logger.debug(f"child manifest for {dir_name} does not exist, creating")
-        vodhls.create_manifest_and_segments(dir_name, baseurl)
+
+        if not vodhls.create_manifest_and_segments(dir_name, baseurl):
+            abort(500)
 
     app.logger.debug(f"returning {app.config['output']['segmentParentPath']}/"
                      f"{dir_name}/{app.config['output']['childManifestFilename']}")
