@@ -89,27 +89,47 @@ A certain amount of time.
 This is totally in development and doesn't have a python setup yet.  Please contribute.
 
 1. download / clone this repo
+
 2. install a python virtual environment for it:
 
    `python3 -m venv .`
 
+
 3. install python dependencies
 
    `./bin/pip install flask tinydb`
+
+
 4. configure this application
    
    `cp config_example.ini config.ini`
 
    `vi config.ini`
    
-5. run the application
+
+5. run the application (development and testing)
 
    `./bin/python -m flask run`
 
-Of course, this is running a development flask instance, you should configure a real wsgi server to host this flask application in a production environment.
-Not sure?  Use nginx and gunicorn.  Google it.  Tons of tutorials
 
-Setting up the cleanup task
+6. configure gunicorn
+
+   `vi gunicorn.conf.py`
+
+
+7. run the application (production)
+
+   `./bin/python -m gunicorn `
+
+   It's up to the user to setup a web proxy with nginx or any other webserver.  See documentation here https://flask.palletsprojects.com/en/2.1.x/deploying/uwsgi/
+
+
+
+8. setup a systemd service. see the example casterpak.service unit file and see systemd documentation.
+
+
+
+### Setting up the cache cleanup task
 
 What caching server is complete without deleting old stuff?
 
