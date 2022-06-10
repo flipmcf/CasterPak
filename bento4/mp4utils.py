@@ -235,7 +235,7 @@ LanguageNames = {
 }
 
 def PrintErrorAndExit(message):
-    logger.error(message+'\n')
+    logger.error(f'{message}\n')
     sys.exit(1)
 
 def XmlDuration(d):
@@ -281,13 +281,13 @@ def Bento4Command(options, name, *args, **kwargs):
 
     cmd += args
     if options.debug:
-        logger.debug('COMMAND: ', " ".join(cmd), cmd)
+        logger.debug(f'COMMAND: {" ".join(cmd)}')
     try:
         try:
             return check_output(cmd, stderr=STDOUT)
         except OSError as e:
             if options.debug:
-                logger.debug('executable ' + executable + ' not found in exec_dir, trying with PATH')
+                logger.debug(f'executable {executable} not found in exec_dir, trying with PATH')
             cmd[0] = path.basename(cmd[0])
             return check_output(cmd, stderr=STDOUT)
     except CalledProcessError as e:
@@ -296,7 +296,7 @@ def Bento4Command(options, name, *args, **kwargs):
             message += " - " + str(cmd)
         raise Exception(message)
     except OSError as e:
-        raise Exception('executable "'+name+'" not found, ensure that it is in your path or in the directory '+options.exec_dir)
+        raise Exception(f'executable {name} not found, ensure that it is in your path or in the directory {options.exec_dir}')
 
 
 def Mp4Info(options, filename, *args, **kwargs):
@@ -509,7 +509,7 @@ class Mp4File:
 
         filename = media_source.filename
         if options.debug:
-            logger.debug('Processing MP4 file', filename)
+            logger.debug(f'Processing MP4 file {filename}')
 
         # by default, the media name is the basename of the source file
         self.media_name = path.basename(filename)
@@ -527,7 +527,7 @@ class Mp4File:
                     self.segments[-1].append(atom)
         #print self.segments
         if options.debug:
-            logger.debug('  found', len(self.segments), 'segments')
+            logger.debug(f'  found {len(self.segments)} segments')
 
         for track in self.info['tracks']:
             self.tracks[track['id']] = Mp4Track(self, track)
@@ -644,14 +644,14 @@ class Mp4File:
         # print debug info if requested
         if options.debug:
             for track in self.tracks.values():
-                logger.debug('Track ID                     =', track.id)
-                logger.debug('    Segment Count            =', len(track.segment_durations))
-                logger.debug('    Type                     =', track.type)
-                logger.debug('    Sample Count             =', track.total_sample_count)
-                logger.debug('    Average segment bitrate  =', track.average_segment_bitrate)
-                logger.debug('    Max segment bitrate      =', track.max_segment_bitrate)
-                logger.debug('    Required bandwidth       =', int(track.bandwidth))
-                logger.debug('    Average segment duration =', track.average_segment_duration)
+                logger.debug(f'Track ID                     ={track.id}')
+                logger.debug(f'    Segment Count            ={ len(track.segment_durations)}')
+                logger.debug(f'    Type                     ={track.type}')
+                logger.debug(f'    Sample Count             ={track.total_sample_count}')
+                logger.debug(f'    Average segment bitrate  ={track.average_segment_bitrate}')
+                logger.debug(f'    Max segment bitrate      ={track.max_segment_bitrate}')
+                logger.debug(f'    Required bandwidth       ={int(track.bandwidth)}')
+                logger.debug(f'    Average segment duration ={track.average_segment_duration}')
 
 
 
@@ -722,8 +722,8 @@ def ComputeBandwidth(buffer_time, sizes, durations):
 def MakeNewDir(dir, exit_if_exists=False, severity=None, recursive=False):
     if path.exists(dir):
         if severity:
-            logger.error(severity+': ')
-            logger.error('directory "'+dir+'" already exists\n')
+            logger.error(f'{severity}: ')
+            logger.error(f'directory "{dir}" already exists\n')
         if exit_if_exists:
             sys.exit(1)
     elif recursive:
@@ -745,7 +745,7 @@ def MakePsshBoxV1(system_id, kids, payload):
 
 def GetEncryptionKey(options, spec):
     if options.debug:
-        logger.debug('Resolving KID and Key from spec:', spec)
+        logger.debug(f'Resolving KID and Key from spec: {spec}')
     if spec.startswith('skm:'):
         import skm
         return skm.ResolveKey(options, spec[4:])
