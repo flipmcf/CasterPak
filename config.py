@@ -3,10 +3,11 @@ import configparser
 
 from configparser import ConfigParser
 
-#set current working directory
+# set current working directory
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
 os.chdir(dname)
+
 
 def get_config() -> ConfigParser:
     config: ConfigParser = configparser.ConfigParser()
