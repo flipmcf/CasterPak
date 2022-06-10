@@ -3,16 +3,16 @@ from tinydb import TinyDB, Query
 
 
 class CacheDB(object):
-    def __init__(self, dbname='cacheDB.json', cachetype=None):
+    def __init__(self, dbname='cacheDB.json', cache_name=None):
         """create a new instance of a CacheDB
-           in the case of holding multuple caches (like input file cache and output file cache)
+           in the case of holding multiple caches (like input file cache and output file cache)
            a 'cachetype' can be passed to differentiate different caches
         """
         db = TinyDB(dbname)
-        if cachetype is None:
+        if cache_name is None:
             self.db = db
         else:
-            self.db = db.table(cachetype)
+            self.db = db.table(cache_name)
 
     def addrecord(self, filename=None, timestamp=None):
         if timestamp is None:
