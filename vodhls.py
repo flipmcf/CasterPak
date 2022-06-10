@@ -172,9 +172,15 @@ class VODHLSManager(object):
         return True
 
     def segment_exists(self, segment_filename: t.Union[os.PathLike, str]) -> bool:
+        """
+        :param segment_filename: a filename of a segment, (not a full path).
+           eg: 'segment-169.ts
+        :return: bool - True if the file already exists on the filesystem
+        """
         segment_path = os.path.join(self.output_dir, segment_filename)
 
         try:
+            logger.debug(f"stat: {segment_path}")
             os.stat(segment_path)
         except FileNotFoundError:
             return False

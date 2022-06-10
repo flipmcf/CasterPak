@@ -120,7 +120,8 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
 # HLS
 @app.route('/i/<path:dir_name>/<string:filename>.ts')
 def segment(dir_name: t.Union[os.PathLike, str], filename):
-    filepath = dir_name + '/' + filename + '.ts'
+    filename = filename + '.ts'
+    filepath = dir_name + '/' + filename
 
     # create instance of vodhls manager
     try:
