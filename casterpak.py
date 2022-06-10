@@ -3,7 +3,7 @@ import os
 
 from flask import Flask
 from flask import abort
-from flask import send_from_directory
+from flask import send_from_directory, send_file
 from flask import url_for
 
 # setup logging - just import it.
@@ -82,6 +82,7 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
     try:
         hls_manager = vodhls.VODHLSManager(dir_name)
     except FileNotFoundError:
+        app.logger.info(f'hls_manager failed to initialize for {dir_name}')
         abort(404)
         return
 
@@ -112,10 +113,8 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
     db = cachedb.CacheDB()
     db.addrecord(filename=dir_name)
 
-    return send_from_directory(directory=app.config['output']['segmentParentPath'],
-                               path=child_manifest_filename,
-                               mimetype="application/vnd.apple.mpegurl"
-                               )
+    return send_file(child_manifest_filename,
+                     mimetype="application/vnd.apple.mpegurl")
 
 
 # HLS
