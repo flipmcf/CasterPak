@@ -9,6 +9,7 @@ from flask import url_for
 # setup logging - just import it.
 import applogging
 import logging
+from logging.config import dictConfig
 
 from config import get_config
 import vodhls
@@ -16,21 +17,32 @@ import cachedb
 
 
 def setup_app(app, base_config):
+    from logging.config import dictConfig
+    logging_config = applogging.CASTERPAK_DEFAULT_LOGGING_CONFIG
+    dictConfig(logging_config)
+
+    if base_config.getboolean('application', 'debug'):
+        app.config['DEBUG'] = True
+        app.logger.debug(f"flask debugging on")
+
     app.config.update(base_config)
     if base_config['output'].get('serverName'):
         app.config['SERVER_NAME'] = base_config['output']['serverName']
-
-    if base_config['application'].get('debug'):
-        app.config['DEBUG'] = True
+    app.logger.info(f"server name: {app.config['SERVER_NAME']}")
 
     # initialize segment directory
     if not os.path.isdir(app.config['output']['segmentParentPath']):
         os.mkdir(app.config['output']['segmentParentPath'])
+        app.logger.debug(f"created new output directory {app.config['output']['segmentParentPath']}")
+    app.logger.info(f"output directory set to {app.config['output']['segmentParentPath']}")
 
     # initialize input cache directory
-    if app.config['cache']['cache_input']:
+    if app.config['cache'].getboolean('cache_input'):
         if not os.path.isdir(app.config['input']['videoCachePath']):
             os.mkdir(app.config['input']['videoCachePath'])
+            app.logger.debug(f"created new input cache directory {app.config['input']['videoCachePath']}")
+        app.logger.info("input caching enabled")
+        app.logger.info(f"input caching to {app.config['input']['videoCachePath']}")
 
 
 def setup_gunicorn_logging(base_config):
@@ -40,20 +52,20 @@ def setup_gunicorn_logging(base_config):
     app.logger.handlers = gunicorn_error_logger.handlers
     vodhls_logger.handlers = gunicorn_error_logger.handlers
 
-    if base_config['application'].get('debug'):
+    if base_config['application'].getboolean('debug'):
         gunicorn_error_logger.setLevel(logging.DEBUG)
 
     app.logger.debug("Debug Enabled")
     app.logger.info("Info log Enabled")
 
+app_config = get_config()
 
 app = Flask(__name__)
-app_config = get_config()
+setup_app(app, app_config)
 
 if __name__ != "__main__":
     setup_gunicorn_logging(app_config)
 
-setup_app(app, app_config)
 
 @app.route('/i/<path:dir_name>')
 def mp4_file(dir_name: t.Union[os.PathLike, str]):
@@ -66,8 +78,12 @@ def mp4_file(dir_name: t.Union[os.PathLike, str]):
 # TODO this hard-codes the childManifestFilename which should be set in config.ini
 @app.route('/i/<path:dir_name>/index_0_av.m3u8')
 def child_manifest(dir_name: t.Union[os.PathLike, str]):
-    if not vodhls.validate_path(dir_name):
+    # create instance of vodhls manager
+    try:
+        hls_manager = vodhls.VODHLSManager(dir_name)
+    except FileNotFoundError:
         abort(404)
+        return
 
     # TODO: refactor duplicate code
     # if there is a servername configured, use absolute url's
@@ -78,23 +94,26 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
     else:
         baseurl = ''
 
-    if not vodhls.manifest_exists(os.path.join(dir_name, app.config['output']['childManifestFilename'])):
-        app.logger.debug(f"child manifest for {dir_name} does not exist, creating")
+    hls_manager.set_baseurl(baseurl)
 
-        if not vodhls.create_manifest_and_segments(dir_name, baseurl):
+    # cache check
+    if not hls_manager.manifest_exists():
+        try:
+            child_manifest_filename = hls_manager.create()
+        except vodhls.EncodingError:
             abort(500)
+            return
+    else:
+        child_manifest_filename = hls_manager.output_manifest_filename
 
-    app.logger.debug(f"returning {app.config['output']['segmentParentPath']}/"
-                     f"{dir_name}/{app.config['output']['childManifestFilename']}")
-
-    filepath = dir_name + '/' + app.config['output']['childManifestFilename']
+    app.logger.debug(f"returning {child_manifest_filename}")
 
     # record successful access for caching
     db = cachedb.CacheDB()
     db.addrecord(filename=dir_name)
 
     return send_from_directory(directory=app.config['output']['segmentParentPath'],
-                               path=filepath,
+                               path=child_manifest_filename,
                                mimetype="application/vnd.apple.mpegurl"
                                )
 
@@ -104,7 +123,14 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
 def segment(dir_name: t.Union[os.PathLike, str], filename):
     filepath = dir_name + '/' + filename + '.ts'
 
-    if not vodhls.segment_exists(filepath):
+    # create instance of vodhls manager
+    try:
+        hls_manager = vodhls.VODHLSManager(dir_name)
+    except FileNotFoundError:
+        abort(404)
+        return
+
+    if not hls_manager.segment_exists(filename):
         app.logger.info(f"request for segment {filepath} that does not exist. creating manifest")
 
         # TODO: refactor duplicate code
@@ -116,9 +142,12 @@ def segment(dir_name: t.Union[os.PathLike, str], filename):
         else:
             baseurl = ''
 
-        retcode = vodhls.create_manifest_and_segments(dir_name, baseurl)
-        if not retcode:
-            abort(500, "failure creating stream")
+        hls_manager.set_baseurl(baseurl)
+        try:
+            child_manifest_filename = hls_manager.create()
+        except vodhls.EncodingError:
+            abort(500)
+            return
 
     # record successful access for caching
     db = cachedb.CacheDB()
