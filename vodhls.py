@@ -11,6 +11,7 @@ import cachedb
 logger = logging.getLogger('vodhls')
 
 
+
 class EncodingError(Exception):
     """ this error says something in the encoding binaries went wrong
     """
@@ -47,10 +48,11 @@ class VODHLSManager(object):
         try:
             os.stat(self.source_file)
         except FileNotFoundError:
+            logger.info(f'{self.source_file} not found')
             raise
 
         # are we caching input files?
-        if self.config['cache']['cache_input']:
+        if self.config['cache'].getboolean('cache_input'):
             try:
                 os.stat(self.cached_filename)
             except FileNotFoundError:
@@ -63,6 +65,8 @@ class VODHLSManager(object):
         # No Input File Caching
         else:
             self.process_file = self.source_file
+
+        logger.info(f"vldhls manager created for {self.filename}")
 
     def create(self) -> t.Union[os.PathLike, str]:
         """
@@ -144,6 +148,8 @@ class VODHLSManager(object):
         return os.path.join(self.output_dir, filename)
 
     def copy_and_cache(self):
+        logger.debug(f"copy {self.source_file}, {self.cached_filename}")
+        os.makedirs(os.path.dirname(self.cached_filename), exist_ok=True)
         shutil.copy(self.source_file, self.cached_filename)
 
     def set_baseurl(self, baseurl):
@@ -151,12 +157,12 @@ class VODHLSManager(object):
 
     def make_segment_dir(self) -> None:
 
-        if not os.path.isdir(self.config['output']['segmentParentPath']):
+        if not os.path.isdir(self.output_dir):
             # configuration is wrong.  This path should always exist.
             logger.error("The segment directory doesn't exist")
             raise FileNotFoundError
-
-        os.makedirs(os.path.join(config['output']['segmentParentPath'], self.filename))
+        logger.debug(f"creating new directory {self.output_dir} ")
+        os.makedirs(os.path.join(self.output_dir, self.filename))
 
     def manifest_exists(self) -> bool:
         try:
