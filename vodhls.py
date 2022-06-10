@@ -116,6 +116,10 @@ class VODHLSManager(object):
 
     @property
     def output_dir(self) -> t.Union[os.PathLike, str]:
+        """
+        :return:  the directory name that will contain the child playlist .m3u8 and segments
+        This is the full path to the specific hls stream of the input file.
+        """
         try:
             path = self.config['output']['segmentParentPath']
         except KeyError:
@@ -157,12 +161,13 @@ class VODHLSManager(object):
 
     def make_segment_dir(self) -> None:
 
-        if not os.path.isdir(self.output_dir):
+        if not os.path.isdir(self.config['output']['segmentParentPath']):
             # configuration is wrong.  This path should always exist.
-            logger.error("The segment directory doesn't exist")
+            logger.error(f"The configured segment directory {self.config['output']['segmentParentPath']} doesn't exist")
             raise FileNotFoundError
-        logger.debug(f"creating new directory {self.output_dir} ")
-        os.makedirs(os.path.join(self.output_dir, self.filename))
+
+        logger.debug(f"creating new segment directory {os.path.join(self.output_dir)} ")
+        os.makedirs(os.path.join(self.output_dir))
 
     def manifest_exists(self) -> bool:
         try:
