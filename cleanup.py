@@ -4,7 +4,6 @@ import os
 import shutil
 import sys
 import logging
-import applogging
 
 config = config.get_config()
 logger = logging.getLogger('CasterPak-cleanup')
