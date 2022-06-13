@@ -37,7 +37,12 @@ def setup_app(app, base_config):
     app.logger.info(f"output directory set to {app.config['output']['segmentParentPath']}")
 
     # initialize input cache directory
-    if app.config['cache'].getboolean('cache_input'):
+    if app.config['input']['input_type'] == 'filesystem' and \
+            app.config['filesystem'].getboolean('cache_input') is False:
+        app.logger.debug("input caching disabled")
+        pass
+
+    else:
         if not os.path.isdir(app.config['input']['videoCachePath']):
             os.mkdir(app.config['input']['videoCachePath'])
             app.logger.debug(f"created new input cache directory {app.config['input']['videoCachePath']}")
@@ -80,11 +85,13 @@ def mp4_file(dir_name: t.Union[os.PathLike, str]):
 def child_manifest(dir_name: t.Union[os.PathLike, str]):
     # create instance of vodhls manager
     try:
-        hls_manager = vodhls.VODHLSManager(dir_name)
+        hls_manager = vodhls.VODHLSFactory(dir_name)
     except FileNotFoundError:
         app.logger.info(f'hls_manager failed to initialize for {dir_name}')
         abort(404)
         return
+    except (NotImplementedError, ValueError) as e:
+        app.logger.info(f'{str(e)}')
 
     # TODO: refactor duplicate code
     # if there is a servername configured, use absolute url's
