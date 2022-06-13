@@ -52,7 +52,7 @@ class CacheCleaner(object):
                 os.rmdir(parent_dir)
             except OSError:
                 logger.debug(f"{parent_dir} not empty, done")
-                #directory not empty
+                # directory not empty
                 empty = False
 
             path = os.path.split(path[0])
@@ -65,5 +65,4 @@ if __name__ == "__main__":
         sys.exit(cleaner.clean())
     except Exception as err:
         logger.error(f'CasterPak exited with Error: \n {err}')
-        raise
         sys.exit(1)
