@@ -50,21 +50,8 @@ class CacheCleaner(object):
             logger.debug(f"{segment_dir} not found")
         self.segment_db.delrecord(file)
 
-        # and try to remove the parent directories
-        path = os.path.split(file)
-        empty: bool = True
-        logger.debug("cleaning empty parent directories")
-        while empty and len(path[0]):
-            parent_dir = os.path.join(self.output_dir, path[0])
-            try:
-                logger.debug(f"rmdir {parent_dir}")
-                os.rmdir(parent_dir)
-            except OSError:
-                logger.debug(f"{parent_dir} not empty, done")
-                # directory not empty
-                empty = False
-
-            path = os.path.split(path[0])
+        parent_dir = os.path.dirname(file)
+        self.clean_empty_parents(self.output_dir, parent_dir)
 
     def delete_input(self, file):
         logger.debug(f"asked to delete input file {file}")
@@ -77,21 +64,36 @@ class CacheCleaner(object):
             logger.debug(f"{delete_file} not found")
         self.input_file_db.delrecord(file)
 
-        # and try to remove the parent directories
-        path = os.path.split(file)
-        empty: bool = True
-        logger.debug("cleaning empty parent directories")
-        while empty and len(path[0]):
-            parent_dir = os.path.join(self.input_dir, path[0])
-            try:
-                logger.debug(f"rmdir {parent_dir}")
-                os.rmdir(parent_dir)
-            except OSError:
-                logger.debug(f"{parent_dir} not empty, done")
-                # directory not empty
-                empty = False
+        parent_dir = os.path.dirname(file)
+        self.clean_empty_parents(self.input_dir, parent_dir)
 
-            path = os.path.split(path[0])
+    @staticmethod
+    def clean_empty_parents(dir_root, sub_dir):
+        """
+
+        :param dir_root: directory root to delete empty dirs up to.
+        only subdirectories of dir_root will be removed, dir_root will never be removed
+
+        :param sub_dir:  directory path to check if empty, and remove directory if it is empty
+
+        :return: None
+
+        if sub_dir is found empty, it will be removed.
+        If it's removed, repeat the process on each parent until 'dir_root' is reached.
+        This ensures that empty directories don't clog up the cache.
+        """
+        empty: bool = True  # Assume empty to always enter the loop at least once - 'do while'
+        logger.debug("cleaning empty directories")
+        while empty and len(sub_dir):
+            dir_path = os.path.join(dir_root, sub_dir)
+            logger.debug(f"rmdir {dir_path}")
+            try:
+                os.rmdir(dir_path)
+            except OSError:
+                logger.debug(f"{dir_path} not empty, done")
+                empty = False
+            else:
+                sub_dir = os.path.dirname(sub_dir)
 
 
 if __name__ == "__main__":
