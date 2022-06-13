@@ -11,7 +11,6 @@ import cachedb
 logger = logging.getLogger('vodhls')
 
 
-
 class EncodingError(Exception):
     """ this error says something in the encoding binaries went wrong
     """
@@ -36,7 +35,7 @@ class OptionsConfig(object):
 
 class VODHLSManager(object):
     config = config.get_config()
-    db = cachedb.CacheDB(cache_name='inputfile')
+    db = cachedb.CacheDB(cache_name=cachedb.INPUT_FILE_CACHE)
 
     def __init__(self, filename):
         self.base_url = ''
@@ -60,7 +59,7 @@ class VODHLSManager(object):
                 self.copy_and_cache()
             finally:
                 self.process_file = self.cached_filename
-                self.db.addrecord(filename=self.cached_filename, timestamp=None)
+                self.db.addrecord(filename=self.filename, timestamp=None)
 
         # No Input File Caching
         else:

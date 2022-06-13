@@ -110,7 +110,7 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
     app.logger.debug(f"returning {child_manifest_filename}")
 
     # record successful access for caching
-    db = cachedb.CacheDB()
+    db = cachedb.CacheDB(cache_name=cachedb.SEGMENT_FILE_CACHE)
     db.addrecord(filename=dir_name)
 
     return send_file(child_manifest_filename,
@@ -150,7 +150,7 @@ def segment(dir_name: t.Union[os.PathLike, str], filename):
             return
 
     # record successful access for caching
-    db = cachedb.CacheDB()
+    db = cachedb.CacheDB(cache_name=cachedb.SEGMENT_FILE_CACHE)
     db.addrecord(filename=dir_name)
 
     return send_from_directory(directory=app.config['output']['segmentParentPath'],
