@@ -1,6 +1,10 @@
 import datetime
 from tinydb import TinyDB, Query
 
+# cache names
+SEGMENT_FILE_CACHE = None
+INPUT_FILE_CACHE = 'inputfile'
+
 
 class CacheDB(object):
     def __init__(self, dbname='cacheDB.json', cache_name=None):
