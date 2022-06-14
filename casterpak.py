@@ -12,7 +12,8 @@ import logging
 from logging.config import dictConfig
 
 from config import get_config
-import vodhls
+from vodhls import EncodingError
+from vodhls.factory import VODHLSFactory
 import cachedb
 
 
@@ -85,13 +86,14 @@ def mp4_file(dir_name: t.Union[os.PathLike, str]):
 def child_manifest(dir_name: t.Union[os.PathLike, str]):
     # create instance of vodhls manager
     try:
-        hls_manager = vodhls.VODHLSFactory(dir_name)
+        hls_manager = VODHLSFactory(dir_name)
     except FileNotFoundError:
         app.logger.info(f'hls_manager failed to initialize for {dir_name}')
         abort(404)
         return
     except (NotImplementedError, ValueError) as e:
         app.logger.info(f'{str(e)}')
+        abort(500)
 
     # TODO: refactor duplicate code
     # if there is a servername configured, use absolute url's
@@ -108,7 +110,7 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
     if not hls_manager.manifest_exists():
         try:
             child_manifest_filename = hls_manager.create()
-        except vodhls.EncodingError:
+        except EncodingError:
             abort(500)
             return
     else:
@@ -132,7 +134,7 @@ def segment(dir_name: t.Union[os.PathLike, str], filename):
 
     # create instance of vodhls manager
     try:
-        hls_manager = vodhls.VODHLSManager(dir_name)
+        hls_manager = VODHLSFactory(dir_name)
     except FileNotFoundError:
         abort(404)
         return
@@ -171,3 +173,4 @@ def segment(dir_name: t.Union[os.PathLike, str], filename):
 def dash(dir_name):
     app.logger.debug(f"calling dash with {dir_name}")
     raise NotImplementedError
+

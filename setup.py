@@ -7,6 +7,7 @@ setup(name='CasterPak',
       py_modules=['casterpak'],
       install_requires=['flask',
                         'tinydb',
+                        'requests',
                         'gunicorn',
                         ]
       )

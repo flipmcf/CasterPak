@@ -1,25 +1,16 @@
 import typing as t
 import os
-import shutil
 import logging
 
 from urllib.parse import urljoin
 from bento4.mp4utils import Mp42Hls
 
 import cachedb
+from . import EncodingError, ConfigurationError
 from config import get_config
+
+
 logger = logging.getLogger('vodhls')
-
-
-class EncodingError(Exception):
-    """ this error says something in the encoding binaries went wrong
-    """
-    pass
-
-
-class ConfigurationError(Exception):
-    pass
-
 
 class OptionsConfig(object):
     """ This is a basic class that turns a dictionary into an object,
@@ -31,21 +22,6 @@ class OptionsConfig(object):
 
     def __getattr__(self, item):
         return self.base_config[item]
-
-def VODHLSFactory(filename):
-    """ Factory that returns an instance of an VODHLSManager depending on configuration
-    """
-    config = get_config()
-
-    input_type = config['input'].get('input_type', 'filesystem')
-
-    if input_type == 'filesystem':
-        return VODHLSManager_filesystem(filename)
-    elif input_type == 'ftp':
-        # return VODHLSManager_ftp(filename)
-        raise NotImplementedError(f'{input_type} not implemented')
-    else:
-        raise ValueError(f'unknown input_type {input_type}')
 
 
 class VODHLSManager_Base(object):
@@ -62,7 +38,9 @@ class VODHLSManager_Base(object):
         # always remember that the input filename for mp4 file
         # becomes the output directory name for the hls files
         self.filename = filename
-        logger.info(f"vldhls filesystem manager for {self.filename}")
+
+        #make a note to the cache database that the input file has been touched
+        self.db.addrecord(filename=self.filename, timestamp=None)
 
     def fetch_and_cache(self):
         """ This is where the input file is moved to the local filesystem if necessary
@@ -70,8 +48,22 @@ class VODHLSManager_Base(object):
         """
         raise NotImplementedError("Base Class Exception")
 
-    def set_baseurl(self, baseurl):
+    def set_baseurl(self, baseurl) -> None:
+        """
+        :param baseurl: a base url to write to each segment file,
+         making the manifest a collection of absolute url's to each segment
+
+        """
         self.base_url = baseurl
+
+    def manage_input_file(self) -> None:
+        try:
+            os.stat(self.input_file)
+        except FileNotFoundError:
+            logger.debug(f"Input File cache miss for {self.input_file}")
+            self.fetch_and_cache()
+        finally:
+            self.db.addrecord(filename=self.filename, timestamp=None)
 
     def create(self) -> t.Union[os.PathLike, str]:
         """
@@ -80,6 +72,9 @@ class VODHLSManager_Base(object):
         :return:
         a path to the output HLS child manifest file (.m3u8)
         """
+
+        # make sure input file is available.
+        self.manage_input_file()
 
         hls_config = {
             'exec_dir': self.config['bento4']['binaryPath'],
@@ -166,51 +161,6 @@ class VODHLSManager_Base(object):
 
         return os.path.join(self.output_dir, filename)
 
-
-class VODHLSManager_filesystem(VODHLSManager_Base):
-    """
-    Implements filesystem-input based VODHLS Manager
-    """
-
-    def __init__(self, filename):
-        super(VODHLSManager_filesystem, self).__init__(filename)
-
-        try:
-            os.stat(self.source_file)
-        except FileNotFoundError:
-            logger.info(f'{self.source_file} not found')
-            raise
-
-        if self.input_cache_enabled:
-            try:
-                os.stat(self.cached_filename)
-            except FileNotFoundError:
-                logger.debug(f"Input File cache miss for {self.cached_filename}")
-                self.fetch_and_cache()
-            finally:
-                self.input_file = self.cached_filename
-                self.db.addrecord(filename=self.filename, timestamp=None)
-
-        # No Input File Caching
-        else:
-            self.input_file = self.source_file
-
-    def fetch_and_cache(self):
-        logger.debug(f"copy {self.source_file}, {self.cached_filename}")
-        os.makedirs(os.path.dirname(self.cached_filename), exist_ok=True)
-        shutil.copy(self.source_file, self.cached_filename)
-
-    @property
-    def source_file(self) -> t.Union[os.PathLike, str]:
-        try:
-            path = self.config['filesystem']['videoParentPath']
-        except KeyError:
-            msg = "videoParentPath not configured in casterpak config.ini, 'filesystem' section"
-            logger.error(msg)
-            raise ConfigurationError(msg)
-
-        return os.path.join(path, self.filename)
-
     @property
     def cached_filename(self) -> t.Union[os.PathLike, str]:
         try:
@@ -222,13 +172,8 @@ class VODHLSManager_filesystem(VODHLSManager_Base):
 
         return os.path.join(path, self.filename)
 
+    # More often than not, you are going to feed the file from the local cache to mp42hls
     @property
-    def input_cache_enabled(self):
-        return self.config['filesystem'].getboolean('cache_input')
-
-
-
-
-
-
+    def input_file(self) -> t.Union[os.PathLike, str]:
+        return self.cached_filename
 
