@@ -18,7 +18,6 @@ import cachedb
 
 
 def setup_app(app, base_config):
-    from logging.config import dictConfig
     logging_config = applogging.CASTERPAK_DEFAULT_LOGGING_CONFIG
     dictConfig(logging_config)
 
@@ -55,14 +54,25 @@ def setup_gunicorn_logging(base_config):
     vodhls_logger = logging.getLogger('vodhls')
     gunicorn_error_logger = logging.getLogger('gunicorn.error')
 
-    app.logger.handlers = gunicorn_error_logger.handlers
-    vodhls_logger.handlers = gunicorn_error_logger.handlers
+    formatter = logging.Formatter(fmt='[%(asctime)s] [%(levelname)s] in gunicorn: %(message)s')
+    for handler in gunicorn_error_logger.handlers:
+        handler.setFormatter(formatter)
+
+    formatter = logging.Formatter(fmt='[%(asctime)s] [%(levelname)s] in %(module)s: %(message)s')
+    app.logger.handlers = gunicorn_error_logger.handlers.copy()
+    for handler in app.logger.handlers:
+        handler.setFormatter(formatter)
+
+    vodhls_logger.handlers = gunicorn_error_logger.handlers.copy()
+    for handler in app.logger.handlers:
+        handler.setFormatter(formatter)
 
     if base_config['application'].getboolean('debug'):
         gunicorn_error_logger.setLevel(logging.DEBUG)
 
     app.logger.debug("Debug Enabled")
     app.logger.info("Info log Enabled")
+
 
 app_config = get_config()
 
@@ -109,6 +119,8 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
     # cache check
     if not hls_manager.manifest_exists():
         try:
+            # CONSIDER returning an HTTP 202 here if hls_manager.create() is expected to take a while
+            # Clients might not be able to properly react to a 202 just yet, but maybe in the future...
             child_manifest_filename = hls_manager.create()
         except EncodingError:
             abort(500)
