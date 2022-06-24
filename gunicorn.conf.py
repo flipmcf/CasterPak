@@ -1,4 +1,3 @@
-import applogging
 
 workers = 3
 bind = "unix:/home/casterpak/CasterPak/casterpak.sock"
