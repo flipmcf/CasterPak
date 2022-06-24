@@ -37,3 +37,4 @@ CASTERPAK_DEFAULT_LOGGING_CONFIG = {
         'handlers': ['wsgi']
     },
 }
+
