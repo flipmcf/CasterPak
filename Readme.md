@@ -161,15 +161,14 @@ and it's always nice to do some requests to fill up the cache.
 
 ## System Setup
 
-Well, there is a systemd unit config 'casterpak.service'.
+Included is a systemd unit config 'casterpak.service'.  No setup script is provided, so you must edit and install this yourself
 
 Open it, edit it to best suit your paths where you installed casterpak and your wsgi server.
 
 then `sudo ln -s /path/to/casterpak.service /etc/systemd/service/casterpak.service`
 
-if you did everything at least half-right, then `sudo systemctl start casterpak.service` might actually work
+then `sudo systemctl start casterpak.service`
 
-As you can tell, this part isn't really built well yet.   Read some docs on systemd or whatever your system uses to manage daemons 
 
 ## Testing
 
@@ -199,3 +198,18 @@ versions (should update these)
 - tinydb==4.7.0
 - Werkzeug==2.1.1
 - zipp==3.8.0
+
+
+## Debugging
+
+Note that these are techniques to begin learning from.  Use these hints to develop your own strategies on how to debug the app.
+
+diagnosis of the flask application itself is easy enough.  configure to listen on localhost and use `./bin/python -m flask run` to run the app.
+
+gunicorn and thread issues are a bit harder.  Included is a sample gunicorn config `gunicorn-debug.conf.py` that launches the flask application in a single thread you can debug.
+`sudo ./venv/bin/python3 -m gunicorn --config gunicorn-debug.conf.py`
+
+Please configure the debug configuration to your needs.
+
+
+
