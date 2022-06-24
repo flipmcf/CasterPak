@@ -1,4 +1,6 @@
 import os
+import re
+
 import requests
 import urllib
 import logging
@@ -16,13 +18,23 @@ class VODHLSManager_http(VODHLSManager_Base):
     def fetch_and_cache(self):
         logger.debug(f"requesting {self.source_url}")
         os.makedirs(os.path.dirname(self.cached_filename), exist_ok=True)
-        response = requests.get(self.source_url)
-        if response.status_code != 200:
-            logger.error(f"error {response.status_code} while requesting {self.source_url}")
-            raise FileNotFoundError
 
-        with open(self.cached_filename, "wb") as f:
-            f.write(response.content)
+        with requests.get(self.source_url, timeout=self.fetch_timeout, stream=True) as response:
+            if response.status_code != 200:
+                logger.error(f"error {response.status_code} while requesting {self.source_url}")
+                raise FileNotFoundError
+
+            with open(self.cached_filename, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+
+    @property
+    def fetch_timeout(self) -> float:
+        """
+        :return: number of seconds to wait for a response from remote server when transferring input files
+        """
+        return 1.0
 
     @property
     def source_url(self):
