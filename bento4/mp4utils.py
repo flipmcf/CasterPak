@@ -280,14 +280,13 @@ def Bento4Command(options, name, *args, **kwargs):
                 cmd.append(kwargs[kwarg])
 
     cmd += args
-    if options.debug:
-        logger.debug(f'COMMAND: {" ".join(cmd)}')
+    logger.debug(f'COMMAND: {" ".join(cmd)}')
+
     try:
         try:
             return check_output(cmd, stderr=STDOUT)
         except OSError as e:
-            if options.debug:
-                logger.debug(f'executable {executable} not found in exec_dir, trying with PATH')
+            logger.debug(f'executable {executable} not found in exec_dir, trying with PATH')
             cmd[0] = path.basename(cmd[0])
             return check_output(cmd, stderr=STDOUT)
     except CalledProcessError as e:
@@ -508,8 +507,7 @@ class Mp4File:
         self.file_list_index = 0 # used to keep a sequence number just amongst all sources
 
         filename = media_source.filename
-        if options.debug:
-            logger.debug(f'Processing MP4 file {filename}')
+        logger.debug(f'Processing MP4 file {filename}')
 
         # by default, the media name is the basename of the source file
         self.media_name = path.basename(filename)
@@ -526,8 +524,7 @@ class Mp4File:
                 if self.segments:
                     self.segments[-1].append(atom)
         #print self.segments
-        if options.debug:
-            logger.debug(f'  found {len(self.segments)} segments')
+        logger.debug(f'  found {len(self.segments)} segments')
 
         for track in self.info['tracks']:
             self.tracks[track['id']] = Mp4Track(self, track)
@@ -642,16 +639,15 @@ class Mp4File:
             self.tracks[track_id].update(options)
 
         # print debug info if requested
-        if options.debug:
-            for track in self.tracks.values():
-                logger.debug(f'Track ID                     ={track.id}')
-                logger.debug(f'    Segment Count            ={ len(track.segment_durations)}')
-                logger.debug(f'    Type                     ={track.type}')
-                logger.debug(f'    Sample Count             ={track.total_sample_count}')
-                logger.debug(f'    Average segment bitrate  ={track.average_segment_bitrate}')
-                logger.debug(f'    Max segment bitrate      ={track.max_segment_bitrate}')
-                logger.debug(f'    Required bandwidth       ={int(track.bandwidth)}')
-                logger.debug(f'    Average segment duration ={track.average_segment_duration}')
+        for track in self.tracks.values():
+            logger.debug(f'Track ID                     ={track.id}')
+            logger.debug(f'    Segment Count            ={ len(track.segment_durations)}')
+            logger.debug(f'    Type                     ={track.type}')
+            logger.debug(f'    Sample Count             ={track.total_sample_count}')
+            logger.debug(f'    Average segment bitrate  ={track.average_segment_bitrate}')
+            logger.debug(f'    Max segment bitrate      ={track.max_segment_bitrate}')
+            logger.debug(f'    Required bandwidth       ={int(track.bandwidth)}')
+            logger.debug(f'    Average segment duration ={track.average_segment_duration}')
 
 
 
@@ -744,8 +740,7 @@ def MakePsshBoxV1(system_id, kids, payload):
     return pssh
 
 def GetEncryptionKey(options, spec):
-    if options.debug:
-        logger.debug(f'Resolving KID and Key from spec: {spec}')
+    logger.debug(f'Resolving KID and Key from spec: {spec}')
     if spec.startswith('skm:'):
         import skm
         return skm.ResolveKey(options, spec[4:])
