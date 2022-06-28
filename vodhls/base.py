@@ -67,10 +67,10 @@ class VODHLSManager_Base(object):
 
     def create(self) -> t.Union[os.PathLike, str]:
         """
-        Create the HLS manifest file and all segments in the configured location
+        Create the media HLS manifest file and all segments in the configured location
 
         :return:
-        a path to the output HLS child manifest file (.m3u8)
+        a path to the output HLS media manifest file (.m3u8)
         """
 
         # make sure input file is available.
