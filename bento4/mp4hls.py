@@ -19,8 +19,8 @@ import platform
 import sys
 import os.path as path
 import json
-from subtitles import SubtitlesFile
-from mp4utils import Base64Encode,\
+from .subtitles import SubtitlesFile
+from .mp4utils import Base64Encode,\
                      Mp4File,\
                      Mp42Hls,\
                      MediaSource,\
@@ -113,7 +113,7 @@ def AnalyzeSources(options, media_sources):
 
         # get the file info
         logger.debug('Parsing media file', media_file)
-        mp4_file = Mp4File(Options, media_source)
+        mp4_file = Mp4File(options, media_source)
         media_source.mp4_file = mp4_file
 
         # remember we have parsed this file
@@ -580,9 +580,9 @@ def main():
     options.min_buffer_time = 0.0
 
     if options.exec_dir != "-":
-        if not path.exists(Options.exec_dir):
-            print(Options.exec_dir)
-            PrintErrorAndExit('Executable directory does not exist ('+Options.exec_dir+'), use --exec-dir')
+        if not path.exists(options.exec_dir):
+            print(options.exec_dir)
+            PrintErrorAndExit('Executable directory does not exist ('+options.exec_dir+'), use --exec-dir')
 
     # check options
     if options.output_encryption_key:
