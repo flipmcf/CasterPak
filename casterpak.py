@@ -88,7 +88,79 @@ def mp4_file(dir_name: t.Union[os.PathLike, str]):
     """Path directly to MP4 file, without a stream"""
 
     # This route is not supported.  The route is only here to construct URLs
+    app.logger.debug(f"caught 404 for {path}")
     abort(404)
+
+
+@app.route('/i/<path:csmil_str>.csmil/manifest.m3u8')
+def parent_manifest(csmil_str: str):
+    # TODO this needs to be less specific to our use case and more versatile
+    """Create a master manifest.
+       This follows the old akamai pattern for Media Services On Demand to specify a list of renditions
+
+       https://example.com/i/<common_filename_prefix>,<bitrate>,<bitrate>,<bitrate>,<bitrate>,<common_filename_suffix>.csmil/manifest.m3u8
+
+       For example:
+       https://example.com/i/20190315/1475/1_0yr7lkwq_1_,lcrv4ssw,h8eu9lpn,bzzbs232,xf8strxb,_1.mp4.csmil/manifest.m3u8
+
+       will request files:
+       20190315/1475/1_0yr7lkwq_1_lcrv4ssw_1.mp4
+       20190315/1475/1_0yr7lkwq_1_h8eu9lpn_1.mp4
+       20190315/1475/1_0yr7lkwq_1_bzzbs232_1.mp4
+       20190315/1475/1_0yr7lkwq_1_xf8strxb_1.mp4
+
+       And create a hls manifest for them.
+    """
+
+    csmil_chunks = csmil_str.split('/')
+    dirs = csmil_chunks[:-1]
+    files = csmil_chunks[-1]
+
+    dir = os.path.join(*dirs)
+
+    file_chunks = files.split(',')
+    common_filename_prefix = file_chunks[0]
+    bitrates = file_chunks[1:-1]
+    common_filename_suffix = file_chunks[-1]
+
+    filenames = [common_filename_prefix+bitrate+common_filename_suffix for bitrate in bitrates]
+
+    files = (os.path.join(dir, filename) for filename in filenames)
+
+    managers = []
+    for filename in files:
+        vodhls_manager = VODHLSFactory(filename)
+        vodhls_manager.manage_input_file()
+        managers.append(vodhls_manager)
+
+    manifest_files = os.path.join(*[manager.input_file for manager in managers])
+
+    from bento4.mp4hls import OutputHls
+    from bento4.mp4utils import MediaSource
+
+    options = {
+        "hls_version": 5,
+        "output-dir": app.config['output']['segmentParentPath'],
+        "master-playlist-name": common_filename_prefix + ".m3u8",
+        "media-playlist-name": "index_0_av.m3u8",
+        "force_output": True,
+    }
+
+    media_sources = [MediaSource(options, source) for source in manifest_files]
+    for media_source in media_sources:
+        media_source.has_audio  = False
+        media_source.has_video  = False
+
+
+    OutputHls(options, media_sources)
+
+
+
+
+
+
+
+
 
 
 # TODO this hard-codes the childManifestFilename which should be set in config.ini
