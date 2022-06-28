@@ -133,24 +133,41 @@ def parent_manifest(csmil_str: str):
         vodhls_manager.manage_input_file()
         managers.append(vodhls_manager)
 
-    manifest_files = os.path.join(*[manager.input_file for manager in managers])
+    manifest_files = [manager.input_file for manager in managers]
 
     from bento4.mp4hls import OutputHls
     from bento4.mp4utils import MediaSource
+    from vodhls.base import OptionsConfig
 
-    options = {
-        "hls_version": 5,
-        "output-dir": app.config['output']['segmentParentPath'],
-        "master-playlist-name": common_filename_prefix + ".m3u8",
-        "media-playlist-name": "index_0_av.m3u8",
+    # TODO: refactor duplicate code
+    # if there is a servername configured, use absolute url's
+    if app.config['output'].get('serverName', None):
+        baseurl = url_for('mp4_file', dir_name=dir, _external=True)
+        baseurl = baseurl + '/'
+    # otherwise, use relative url's
+    else:
+        baseurl = ''
+
+    options_dict = {
+        "hls_version": 3,
+        "output_dir": app.config['output']['segmentParentPath'],
+        "master_playlist_name": common_filename_prefix + ".m3u8",
+        "media_playlist_name": "index_0_av.m3u8",
+        "exec_dir": app.config['bento4']['binaryPath'],
         "force_output": True,
+        'debug': True,
+        'verbose': False,
+        'min_buffer_time': 0.0,
+        'base_url': baseurl,
+
     }
+
+    options = OptionsConfig(options_dict)
 
     media_sources = [MediaSource(options, source) for source in manifest_files]
     for media_source in media_sources:
-        media_source.has_audio  = False
-        media_source.has_video  = False
-
+        media_source.has_audio = False
+        media_source.has_video = False
 
     OutputHls(options, media_sources)
 

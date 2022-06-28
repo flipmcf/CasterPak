@@ -12,6 +12,7 @@ from config import get_config
 
 logger = logging.getLogger('vodhls')
 
+
 class OptionsConfig(object):
     """ This is a basic class that turns a dictionary into an object,
         it's job is to impersonate an optparse.OptionParser instance.
@@ -21,7 +22,10 @@ class OptionsConfig(object):
         self.base_config = config_dict
 
     def __getattr__(self, item):
-        return self.base_config[item]
+        try:
+            return self.base_config[item]
+        except KeyError:
+            return None
 
 
 class VODHLSManager_Base(object):
