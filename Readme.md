@@ -3,19 +3,37 @@
 ## The CAshing STrEam [R] PAcKager:
 
 
-This software only provides HLS Stream packaging, but can easily be enhanced for additional stream packaging technologies.
+This software provides HLS Stream packaging for Video-On-Demand (VOD) with a built in file cache.
 
 The problem it solves is to balance your CPU and Storage costs for streaming Video-on-demand.
+Creating an HLS (m3u8) stream from a video file (mp4, et. al.) is CPU cheap and fast compared to video encoding.
+
+It's a very good fit for use cases where videos serve the 'popular' model of access.  Videos that are frequently
+accessed remain cached at this server and videos that are not accessed are deleted from cache.
+
+Also it's a great fit for those who own a large 'archive' video file on inexpensive, slow-access storage.  CasterPak can
+retrieve source video files from network addressess, copy them locally, and then deliver.   The first video play 
+may be slow, but subsequent access to the same video is then fast. 
 
 You don't want to store your HLS stream forever, neither do you want to create a stream package for every request.  
-This software provides the utilities to configure how long to store files ready for streaming (streaming cache ttl).
-and creates stream packages on-demand from your encoded renditions if the files don't exist (handle cache miss)
+This software provides the utilities to configure how long to store video files locally (video input cache ttl),
+files ready for streaming (streaming cache ttl), and creates stream packages on-demand from your encoded renditions
+if the files don't exist (handle cache miss).
 
-This software doesn't create master / parent m3u8 manifests of encoded renditions.  That's the job of your encoder.
-However, your encoder should be able to provide a master manifest, and that manifest should provide URL's that this
-software will reply to.
+This package is a good drop-in replacement for Akamai Media Services On Demand (MSOD) for video streaming.
+It supports the '.csmil' endpoint that Akamai used to support to generate master manifests of renditions,
+and creates media playlists and segments your renditions.
 
-Let's say your encoder creates this file of video renditions and this is what you serve to your player:
+This package does not include encoding of video renditions.
+
+The first endpoint is the master manifest.  it uses the same syntax as Akamai's Media Services On Demand 'csmil' url construction:
+
+https://example.com/i/path/<common_filename_prefix>,<bitrate>,<bitrate>,<bitrate>,<bitrate>,<common_filename_suffix>.csmil/manifest.m3u8
+
+For example, this request will create the following master manifest:
+
+https://this_application/i/20220404/1251/1_5q8yua9n_1_,q2fzuix0,t2rfozqd,rumb24fg,_1.mp4.csmil/manifest.m3u8
+
 
     #EXTM3U
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=622044,RESOLUTION=854x480
@@ -25,12 +43,10 @@ Let's say your encoder creates this file of video renditions and this is what yo
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=1156684,RESOLUTION=1280x720
     https://this_application/i/20220404/1251/1_5q8yua9n_1_rumb24fg_1.mp4/index_0_av.m3u8
 
-Each one of those url's above will be served by this application.  We call them 'segment manifests'.
+Each one of those url's above will be served by this application.  We call them 'media manifests' or 'segment manifests'
 This application will serve segment manifests and the actual segment data.
 
 If the m3u8 is available on-disk, it's served.  Otherwise, it's created and saved
-
-it will provide a m3u8 'child' playlist of segments like so:
 
     #EXTM3U
     #EXT-X-TARGETDURATION:10
@@ -61,9 +77,11 @@ A certain amount of time.
 
  Bento4 https://www.bento4.com/
 
- Bento4 binary is required.  Specifically the `mp42hls` command.
+ Bento4 binary install is required.  Specifically the `mp42hls` and `mp4info` commands and possibly more.
  
  At this time it's recommended compile and use a special version of mp42hls: https://github.com/axiomatic-systems/Bento4/pull/696
+
+ # TODO: https://github.com/flipmcf/CasterPak/issues/8 
  
  Follow these instructions to clone the specific branch / Pull Request
    
@@ -79,9 +97,7 @@ A certain amount of time.
     cmake -DCMAKE_BUILD_TYPE=Release ..
     make
    
- And copy the binary mp42hls to your final binary installation directory
- 
-    cp mp42hls /usr/bin/mp42hls  
+ Copy these binaries into the directory configured in 'binaryPath' in config.ini
     
     
 ### Installation
@@ -121,12 +137,13 @@ This is totally in development and doesn't have a python setup yet.  Please cont
 
    `./bin/python -m gunicorn `
 
-   It's up to the user to setup a web proxy with nginx or any other webserver.  See documentation here https://flask.palletsprojects.com/en/2.1.x/deploying/uwsgi/
-
+   It's up to the user to setup a web proxy with nginx or any other webserver. See documentation here https://flask.palletsprojects.com/en/2.1.x/deploying/uwsgi/
 
 
 8. setup a systemd service. see the example casterpak.service unit file and see systemd documentation.
 
+
+In the future, a complete installation script may be provided that does all the above steps.
 
 
 ### Setting up the cache cleanup task
