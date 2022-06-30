@@ -4,7 +4,7 @@ from config import get_config
 
 logger = logging.getLogger('vodhls')
 
-def VODHLSFactory(filename):
+def vodhls_media_playlist_factory(filename):
     """ Factory that returns an instance of an VODHLSManager depending on configuration
     """
     config = get_config()

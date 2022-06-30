@@ -13,7 +13,7 @@ from logging.config import dictConfig
 
 from config import get_config
 from vodhls import EncodingError
-from vodhls.factory import VODHLSFactory
+from vodhls.factory import vodhls_media_playlist_factory
 import cachedb
 
 
@@ -94,7 +94,7 @@ def mp4_file(dir_name: t.Union[os.PathLike, str]):
 
 @app.route('/i/<path:csmil_str>.csmil/manifest.m3u8')
 def parent_manifest(csmil_str: str):
-    # TODO this needs to be less specific to our use case and more versatile
+    # TODO this needs to be seriously refactored and decoupled from the flask app.
     """Create a master manifest.
        This follows the old akamai pattern for Media Services On Demand to specify a list of renditions
 
@@ -129,7 +129,7 @@ def parent_manifest(csmil_str: str):
 
     managers = []
     for filename in files:
-        vodhls_manager = VODHLSFactory(filename)
+        vodhls_manager = vodhls_media_playlist_factory(filename)
         vodhls_manager.manage_input_file()
         managers.append(vodhls_manager)
 
@@ -185,7 +185,7 @@ def parent_manifest(csmil_str: str):
 def child_manifest(dir_name: t.Union[os.PathLike, str]):
     # create instance of vodhls manager
     try:
-        hls_manager = VODHLSFactory(dir_name)
+        hls_manager = vodhls_media_playlist_factory(dir_name)
     except FileNotFoundError:
         app.logger.info(f'hls_manager failed to initialize for {dir_name}')
         abort(404)
@@ -235,7 +235,7 @@ def segment(dir_name: t.Union[os.PathLike, str], filename):
 
     # create instance of vodhls manager
     try:
-        hls_manager = VODHLSFactory(dir_name)
+        hls_manager = vodhls_media_playlist_factory(dir_name)
     except FileNotFoundError:
         abort(404)
         return
