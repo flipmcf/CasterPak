@@ -28,9 +28,10 @@ class OptionsConfig(object):
             return None
 
 
-class VODHLSManager_Base(object):
+class VODHLS_MediaManager_Base(object):
     """
-        base class for all VODHLS Managers
+        base class for media manifest segment managers / generators.
+        These take a single mp4 file, break it into segments, and create a media manifest index file.
     """
 
     config = get_config()

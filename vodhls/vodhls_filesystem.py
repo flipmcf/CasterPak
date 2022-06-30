@@ -3,18 +3,18 @@ import os
 import shutil
 import logging
 
-from vodhls.base import VODHLSManager_Base
+from vodhls.base import VODHLS_MediaManager_Base
 from vodhls.base import ConfigurationError
 
 logger = logging.getLogger('vodhls')
 
-class VODHLSManager_filesystem(VODHLSManager_Base):
+class VODHLSMediaManager_filesystem(VODHLS_MediaManager_Base):
     """
     Implements filesystem-input based VODHLS Manager
     """
 
     def __init__(self, filename):
-        super(VODHLSManager_filesystem, self).__init__(filename)
+        super(VODHLSMediaManager_filesystem, self).__init__(filename)
         logger.info(f"vodhls filesystem manager for {self.filename}")
 
 

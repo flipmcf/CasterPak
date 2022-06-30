@@ -13,11 +13,11 @@ def vodhls_media_playlist_factory(filename):
     logger.info(f"input type set to {input_type}")
 
     if input_type == 'filesystem':
-        from vodhls.vodhls_filesystem import VODHLSManager_filesystem
-        return VODHLSManager_filesystem(filename)
+        from vodhls.vodhls_filesystem import VODHLSMediaManager_filesystem
+        return VODHLSMediaManager_filesystem(filename)
     elif input_type == 'http':
-        from vodhls.vodhls_http import VODHLSManager_http
-        return VODHLSManager_http(filename)
+        from vodhls.vodhls_http import VODHLSMediaManager_http
+        return VODHLSMediaManager_http(filename)
     elif input_type == 'ftp':
         # return VODHLSManager_ftp(filename)
         raise NotImplementedError(f'{input_type} not implemented')
