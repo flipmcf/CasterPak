@@ -5,11 +5,11 @@ import requests
 import urllib
 import logging
 
-from vodhls.base import VODHLS_MediaManager_Base
+from vodhls.base import MediaManager_Base
 logger = logging.getLogger('vodhls')
 
 
-class VODHLSMediaManager_http(VODHLS_MediaManager_Base):
+class MediaManager_http(MediaManager_Base):
     """
     Implements http based VODHLS Manager
     gets the input file from a http:// url and saves it to local input cache.

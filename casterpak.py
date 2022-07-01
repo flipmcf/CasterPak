@@ -1,21 +1,22 @@
 import typing as t
 import os
+import re
 
 from flask import Flask
 from flask import abort
 from flask import send_from_directory, send_file
 from flask import url_for
 
-# setup logging - just import it.
 import applogging
 import logging
 from logging.config import dictConfig
 
 from config import get_config
 from vodhls import EncodingError
-from vodhls.factory import vodhls_media_playlist_factory
+from vodhls.factory import vodhls_media_playlist_factory, vodhls_master_playlist_factory
 import cachedb
 
+filenameRE = re.compile(r'[^.a-zA-Z0-9_-]')
 
 def setup_app(app, base_config):
     logging_config = applogging.CASTERPAK_DEFAULT_LOGGING_CONFIG
@@ -112,32 +113,26 @@ def parent_manifest(csmil_str: str):
        And create a hls manifest for them.
     """
 
+    # create file list from url:
     csmil_chunks = csmil_str.split('/')
     dirs = csmil_chunks[:-1]
     files = csmil_chunks[-1]
+    file_chunks = files.split(',')
+
+    #filenameRE is our sanitizer.  See above at module-level for definition.
+    dirs = [filenameRE.sub('', d) for d in dirs]
+    common_filename_prefix = filenameRE.sub('', file_chunks[0])
+    bitrates = [filenameRE.sub('', f) for f in file_chunks[1:-1]]
+    common_filename_suffix = filenameRE.sub('', file_chunks[-1])
 
     dir = os.path.join(*dirs)
-
-    file_chunks = files.split(',')
-    common_filename_prefix = file_chunks[0]
-    bitrates = file_chunks[1:-1]
-    common_filename_suffix = file_chunks[-1]
 
     filenames = [common_filename_prefix+bitrate+common_filename_suffix for bitrate in bitrates]
 
     files = (os.path.join(dir, filename) for filename in filenames)
 
-    managers = []
-    for filename in files:
-        vodhls_manager = vodhls_media_playlist_factory(filename)
-        vodhls_manager.manage_input_file()
-        managers.append(vodhls_manager)
-
-    manifest_files = [manager.input_file for manager in managers]
-
-    from bento4.mp4hls import OutputHls
-    from bento4.mp4utils import MediaSource
-    from vodhls.base import OptionsConfig
+    vodhls_manager = vodhls_master_playlist_factory(files)
+    vodhls_manager.master_playlist_name = common_filename_prefix
 
     # TODO: refactor duplicate code
     # if there is a servername configured, use absolute url's
@@ -148,36 +143,13 @@ def parent_manifest(csmil_str: str):
     else:
         baseurl = ''
 
-    options_dict = {
-        "hls_version": 3,
-        "output_dir": app.config['output']['segmentParentPath'],
-        "master_playlist_name": common_filename_prefix + ".m3u8",
-        "media_playlist_name": "index_0_av.m3u8",
-        "exec_dir": app.config['bento4']['binaryPath'],
-        "force_output": True,
-        'debug': True,
-        'verbose': False,
-        'min_buffer_time': 0.0,
-        'base_url': baseurl,
+    vodhls_manager.set_baseurl(baseurl)
 
-    }
+    vodhls_manager.output_hls()
 
-    options = OptionsConfig(options_dict)
-
-    media_sources = [MediaSource(options, source) for source in manifest_files]
-    for media_source in media_sources:
-        media_source.has_audio = False
-        media_source.has_video = False
-
-    OutputHls(options, media_sources)
-
-
-
-
-
-
-
-
+    return send_from_directory(directory=app.config['output']['segmentParentPath'],
+                               path=vodhls_manager.master_playlist_name,
+                               mimetype="application/vnd.apple.mpegurl")
 
 
 # TODO this hard-codes the childManifestFilename which should be set in config.ini
