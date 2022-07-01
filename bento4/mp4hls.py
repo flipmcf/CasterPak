@@ -109,10 +109,10 @@ def AnalyzeSources(options, media_sources):
 
         # parse the file
         if not path.exists(media_file):
-            PrintErrorAndExit('ERROR: media file ' + media_file + ' does not exist')
+            PrintErrorAndExit(f'ERROR: media file {media_file} does not exist')
 
         # get the file info
-        logger.debug('Parsing media file', media_file)
+        logger.debug(f'Parsing media file {media_file}')
         mp4_file = Mp4File(options, media_source)
         media_source.mp4_file = mp4_file
 
@@ -192,7 +192,7 @@ def SelectAudioTracks(options, media_sources):
 #############################################
 def ProcessSource(options, media_info, out_dir):
     if options.verbose:
-        logger.info('Processing', media_info['source'].filename)
+        logger.info(f"Processing {media_info['source'].filename}")
 
     file_extension = media_info.get('file_extension', 'ts')
 
@@ -582,18 +582,18 @@ def main():
     if options.exec_dir != "-":
         if not path.exists(options.exec_dir):
             print(options.exec_dir)
-            PrintErrorAndExit('Executable directory does not exist ('+options.exec_dir+'), use --exec-dir')
+            PrintErrorAndExit(f"Executable directory does not exist '{options.exec_dir}', use --exec-dir")
 
     # check options
     if options.output_encryption_key:
         if options.encryption_key_uri != "key.bin":
-            logger.error("WARNING: the encryption key will not be output because a non-default key URI was specified\n")
+            logger.error("WARNING: the encryption key will not be output because a non-default key URI was specified")
             options.output_encryption_key = False
         if not options.encryption_key:
-            logger.error("ERROR: --output-encryption-key requires --encryption-key to be specified\n")
+            logger.error("ERROR: --output-encryption-key requires --encryption-key to be specified")
             sys.exit(1)
         if options.encryption_key_format != None and options.encryption_key_format != 'identity':
-            logger.error("ERROR: --output-encryption-key requires --encryption-key-format to be omitted or set to 'identity'\n")
+            logger.error("ERROR: --output-encryption-key requires --encryption-key-format to be omitted or set to 'identity'")
             sys.exit(1)
 
     # Fairplay option
@@ -605,22 +605,22 @@ def main():
 
         if options.encryption_iv_mode:
             if options.encryption_iv_mode != 'fps':
-                logger.error("ERROR: --fairplay requires --encryption-iv-mode to be 'fps'\n")
+                logger.error("ERROR: --fairplay requires --encryption-iv-mode to be 'fps'")
                 sys.exit(1)
         else:
             options.encryption_iv_mode = 'fps'
         if not options.encryption_key:
-            logger.error("ERROR: --fairplay requires --encryption-key to be specified\n")
+            logger.error("ERROR: --fairplay requires --encryption-key to be specified")
             sys.exit(1)
         if options.encryption_mode:
             if options.encryption_mode != 'SAMPLE-AES':
-                logger.error('ERROR: --fairplay option incompatible with '+options.encryption_mode+' encryption mode\n')
+                logger.error(f'ERROR: --fairplay option incompatible with {options.encryption_mode} encryption mode')
                 sys.exit(1)
         else:
             options.encryption_mode = 'SAMPLE-AES'
         options.fairplay = SplitArgs(options.fairplay)
         if 'uri' not in options.fairplay:
-            logger.error('ERROR: --fairplay option requires a "uri" parameter (ex: skd://xxx)\n')
+            logger.error('ERROR: --fairplay option requires a "uri" parameter (ex: skd://xxx)')
             sys.exit(1)
 
         options.signal_session_key = True
@@ -628,11 +628,11 @@ def main():
     # Widevine option
     if options.widevine:
         if not options.encryption_key:
-            logger.error("ERROR: --widevine requires --encryption-key to be specified\n")
+            logger.error("ERROR: --widevine requires --encryption-key to be specified")
             sys.exit(1)
         if options.encryption_mode:
             if options.encryption_mode != 'SAMPLE-AES':
-                logger.error('ERROR: --widevine option incompatible with '+options.encryption_mode+' encryption mode\n')
+                logger.error(f'ERROR: --widevine option incompatible with {options.encryption_mode} encryption mode')
                 sys.exit(1)
         else:
             options.encryption_mode = 'SAMPLE-AES'
@@ -642,13 +642,13 @@ def main():
         else:
             options.widevine = SplitArgs(options.widevine)
             if 'kid' not in options.widevine:
-                logger.error('ERROR: --widevine option requires a "kid" parameter\n')
+                logger.error('ERROR: --widevine option requires a "kid" parameter')
                 sys.exit(1)
             if len(options.widevine['kid']) != 32:
-                logger.error('ERROR: --widevine option "kid" must be 32 hex characters\n')
+                logger.error('ERROR: --widevine option "kid" must be 32 hex characters')
                 sys.exit(1)
             if 'provider' not in options.widevine:
-                logger.error('ERROR: --widevine option requires a "provider" parameter\n')
+                logger.error('ERROR: --widevine option requires a "provider" parameter')
                 sys.exit(1)
             if 'content_id' in options.widevine:
                 options.widevine['content_id'] = bytes.fromhex(options.widevine['content_id'])
@@ -678,8 +678,8 @@ def main():
 
 ###########################
 if sys.version_info[0] != 3:
-    logger.error("ERROR: This tool must be run with Python 3.x\n")
-    logger.error("You are running Python version: "+sys.version+"\n")
+    logger.error("ERROR: This tool must be run with Python 3.x")
+    logger.error(f"You are running Python version: {sys.version}")
     exit(1)
 
 if __name__ == '__main__':
@@ -689,4 +689,4 @@ if __name__ == '__main__':
         if Options and Options.debug:
             raise
         else:
-            PrintErrorAndExit('ERROR: %s\n' % str(err))
+            PrintErrorAndExit(f'ERROR: {str(err)}\n')
