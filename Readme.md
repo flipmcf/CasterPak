@@ -148,6 +148,10 @@ In the future, a complete installation script may be provided that does all the 
 
 ### Setting up the cache cleanup task
 
+Currently, casterpak will cleanup imported video files from remote sources and generated segment files and media playlists.
+By design (currently) casterpak will not cleanup master playlists because they are very small to store.  This might change in the future.
+Deleting master playlists is not a problem, as casterpak will re-create them if necessary.
+
 What caching server is complete without deleting old stuff?
 
 look at 'crontab.tpl' - it's your basic crontab entry.  add it via 'crontab -e' as the user that will be running the flask application
