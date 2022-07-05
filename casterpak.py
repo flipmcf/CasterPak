@@ -186,6 +186,9 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
         except EncodingError:
             abort(500)
             return
+        except FileNotFoundError:
+            abort(404)
+            return
     else:
         child_manifest_filename = hls_manager.output_manifest_filename
 
