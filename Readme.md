@@ -81,7 +81,7 @@ A certain amount of time.
  
  At this time it's recommended compile and use a special version of mp42hls: https://github.com/axiomatic-systems/Bento4/pull/696
 
- # TODO: https://github.com/flipmcf/CasterPak/issues/8 
+ TODO: https://github.com/flipmcf/CasterPak/issues/8 
  
  Follow these instructions to clone the specific branch / Pull Request
    
@@ -221,9 +221,16 @@ versions (should update these)
 
 Note that these are techniques to begin learning from.  Use these hints to develop your own strategies on how to debug the app.
 
-diagnosis of the flask application itself is easy enough.  configure to listen on localhost and use `./bin/python -m flask run` to run the app.
+diagnosis of the flask application itself is easy enough.  configure to listen on localhost and run the app: 
+
+`./bin/python -m flask run` 
+
+then, use curl to create some requests:
+
+`curl -i http://localhost:5000/configured/input/path/index.m3u8`
 
 gunicorn and thread issues are a bit harder.  Included is a sample gunicorn config `gunicorn-debug.conf.py` that launches the flask application in a single thread you can debug.
+
 `sudo ./venv/bin/python3 -m gunicorn --config gunicorn-debug.conf.py`
 
 Please configure the debug configuration to your needs.
