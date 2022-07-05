@@ -5,7 +5,7 @@ from bento4.mp4hls import OutputHls
 from bento4.mp4utils import MediaSource
 from config import get_config
 from vodhls.factory import vodhls_media_playlist_factory
-from vodhls.media_base import OptionsConfig
+from vodhls.media_manifest_base import OptionsConfig
 
 
 class MultivariantManager(object):

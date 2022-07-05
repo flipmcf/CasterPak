@@ -5,7 +5,7 @@ import requests
 import urllib
 import logging
 
-from vodhls.media_base import MediaManager_Base
+from vodhls.media_manifest_base import MediaManager_Base
 logger = logging.getLogger('vodhls')
 
 

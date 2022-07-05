@@ -11,7 +11,7 @@ def vodhls_master_playlist_factory(files: t.Iterable[t.Union[os.PathLike, str]])
     """ Factory that returns an instance of a master playlist manager depending on configuration
     """
 
-    from vodhls.master_playlist import MultivariantManager
+    from vodhls.master_manifest import MultivariantManager
     return MultivariantManager(files)
 
 
@@ -30,10 +30,10 @@ def vodhls_media_playlist_factory(filename):
     #  Stop this pattern or you'll be in multiple inheritance hell.
 
     if input_type == 'filesystem':
-        from vodhls.vodhls_filesystem import MediaManager_filesystem
+        from vodhls.media_manifest_filesystem import MediaManager_filesystem
         return MediaManager_filesystem(filename)
     elif input_type == 'http':
-        from vodhls.vodhls_http import MediaManager_http
+        from vodhls.media_manifest_http import MediaManager_http
         return MediaManager_http(filename)
     elif input_type == 'ftp':
         # return MediaManager_ftp(filename)

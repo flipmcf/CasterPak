@@ -3,8 +3,8 @@ import os
 import shutil
 import logging
 
-from vodhls.media_base import MediaManager_Base
-from vodhls.media_base import ConfigurationError
+from vodhls.media_manifest_base import MediaManager_Base
+from vodhls.media_manifest_base import ConfigurationError
 
 logger = logging.getLogger('vodhls')
 
