@@ -7,12 +7,12 @@ from config import get_config
 logger = logging.getLogger('vodhls')
 
 
-def vodhls_master_playlist_factory(files: t.Iterable[t.Union[os.PathLike, str]]):
+def vodhls_master_playlist_factory(files: t.Iterable[t.Union[os.PathLike, str]], dir: t.Union[os.PathLike, str]):
     """ Factory that returns an instance of a master playlist manager depending on configuration
     """
 
     from vodhls.master_manifest import MultivariantManager
-    return MultivariantManager(files)
+    return MultivariantManager(files, dir)
 
 
 def vodhls_media_playlist_factory(filename):

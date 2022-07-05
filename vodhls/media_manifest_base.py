@@ -10,7 +10,7 @@ from config import get_config
 
 from . import EncodingError, ConfigurationError
 
-logger = logging.getLogger('vodhls')
+logger = logging.getLogger('vodhls_media')
 
 
 class OptionsConfig(object):

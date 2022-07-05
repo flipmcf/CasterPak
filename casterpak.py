@@ -131,7 +131,9 @@ def parent_manifest(csmil_str: str):
 
     files = (os.path.join(dir, filename) for filename in filenames)
 
-    vodhls_manager = vodhls_master_playlist_factory(files)
+    # This does too much work.  see if the master manifest already exists on disk before crunching all this stuff in __init__
+    #  clean up vodhls_manager __init__ - make it do as little as possible, and fast-path if output file exists.
+    vodhls_manager = vodhls_master_playlist_factory(files, dir)
     vodhls_manager.master_playlist_name = common_filename_prefix
 
     # TODO: refactor duplicate code
@@ -144,10 +146,9 @@ def parent_manifest(csmil_str: str):
         baseurl = ''
 
     vodhls_manager.set_baseurl(baseurl)
-
     vodhls_manager.output_hls()
 
-    return send_from_directory(directory=app.config['output']['segmentParentPath'],
+    return send_from_directory(directory=vodhls_manager.output_dir,
                                path=vodhls_manager.master_playlist_name,
                                mimetype="application/vnd.apple.mpegurl")
 
