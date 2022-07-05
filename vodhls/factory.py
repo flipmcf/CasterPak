@@ -11,7 +11,7 @@ def vodhls_master_playlist_factory(files: t.Iterable[t.Union[os.PathLike, str]])
     """ Factory that returns an instance of a master playlist manager depending on configuration
     """
 
-    from vodhls.base import MultivariantManager
+    from vodhls.master_playlist import MultivariantManager
     return MultivariantManager(files)
 
 
