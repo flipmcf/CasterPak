@@ -20,18 +20,19 @@ class MultivariantManager(object):
         self.files: t.Iterable[t.Union[os.PathLike, str]] = files
         self.segment_managers = []
         self.baseurl = None
-
-        for filename in self.files:
-            manager = vodhls_media_playlist_factory(filename)
-            self.segment_managers.append(manager)
-
-        # Make sure all input files are local and ready.
-        self.process_input_files()
+        self.input_files_processed = False
 
     def process_input_files(self):
         """ for each segment manager, pull the input file into cache and reset it's ttl
         """
+        if len(self.segment_managers) == 0:
+            for filename in self.files:
+                manager = vodhls_media_playlist_factory(filename)
+                self.segment_managers.append(manager)
+
         [manager.process_input() for manager in self.segment_managers]
+
+        self.input_files_processed = True
 
     def set_baseurl(self, url):
         [manager.set_baseurl(url) for manager in self.segment_managers]
@@ -49,6 +50,15 @@ class MultivariantManager(object):
         self.__master_playlist_name = value
         if not self.__master_playlist_name.endswith('.m3u8'):
             self.__master_playlist_name += '.m3u8'
+
+    def manifest_exists(self) -> bool:
+        manifest_path = os.path.join(self.output_dir, self.master_playlist_name)
+        try:
+            logger.debug(f"stat: {manifest_path}")
+            os.stat(manifest_path)
+        except FileNotFoundError:
+            return False
+        return True
 
     @property
     def output_dir(self) -> t.Union[os.PathLike, str]:
@@ -74,6 +84,8 @@ class MultivariantManager(object):
             write it as a sibling to all the segment directories
             created by media_manifest creators
         """
+        if not self.input_files_processed:
+            self.process_input_files()
 
         options_dict = {
             "hls_version": 3,

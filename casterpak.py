@@ -131,22 +131,22 @@ def parent_manifest(csmil_str: str):
 
     files = (os.path.join(dir, filename) for filename in filenames)
 
-    # This does too much work.  see if the master manifest already exists on disk before crunching all this stuff in __init__
-    #  clean up vodhls_manager __init__ - make it do as little as possible, and fast-path if output file exists.
     vodhls_manager = vodhls_master_playlist_factory(files, dir)
     vodhls_manager.master_playlist_name = common_filename_prefix
 
-    # TODO: refactor duplicate code
-    # if there is a servername configured, use absolute url's
-    if app.config['output'].get('serverName', None):
-        baseurl = url_for('mp4_file', dir_name=dir, _external=True)
-        baseurl = baseurl + '/'
-    # otherwise, use relative url's
-    else:
-        baseurl = ''
+    if not vodhls_manager.manifest_exists():
 
-    vodhls_manager.set_baseurl(baseurl)
-    vodhls_manager.output_hls()
+        # TODO: refactor duplicate code
+        # if there is a servername configured, use absolute url's
+        if app.config['output'].get('serverName', None):
+            baseurl = url_for('mp4_file', dir_name=dir, _external=True)
+            baseurl = baseurl + '/'
+        # otherwise, use relative url's
+        else:
+            baseurl = ''
+
+        vodhls_manager.set_baseurl(baseurl)
+        vodhls_manager.output_hls()
 
     return send_from_directory(directory=vodhls_manager.output_dir,
                                path=vodhls_manager.master_playlist_name,
