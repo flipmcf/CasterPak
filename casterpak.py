@@ -89,7 +89,7 @@ def mp4_file(dir_name: t.Union[os.PathLike, str]):
     """Path directly to MP4 file, without a stream"""
 
     # This route is not supported.  The route is only here to construct URLs
-    app.logger.debug(f"caught 404 for {path}")
+    app.logger.debug(f"caught 404 for {dir_name}")
     abort(404)
 
 
