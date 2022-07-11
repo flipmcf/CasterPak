@@ -30,9 +30,20 @@ class MultivariantManager(object):
                 manager = vodhls_media_playlist_factory(filename)
                 self.segment_managers.append(manager)
 
-        [manager.process_input() for manager in self.segment_managers]
+        fail_with_404 = True  # Raise a FileNotFound only if ALL managers fail.
+        for manager in self.segment_managers:
+            try:
+                manager.process_input()
+            except FileNotFoundError:
+                pass
+            else:
+                # one of the inputs processed successfully
+                fail_with_404 = False
 
         self.input_files_processed = True
+
+        if fail_with_404:
+            raise FileNotFoundError
 
     def set_baseurl(self, url):
         [manager.set_baseurl(url) for manager in self.segment_managers]

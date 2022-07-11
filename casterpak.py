@@ -146,7 +146,11 @@ def parent_manifest(csmil_str: str):
             baseurl = ''
 
         vodhls_manager.set_baseurl(baseurl)
-        vodhls_manager.output_hls()
+
+        try:
+            vodhls_manager.output_hls()
+        except FileNotFoundError:
+            abort(404)
 
     return send_from_directory(directory=vodhls_manager.output_dir,
                                path=vodhls_manager.master_playlist_name,
