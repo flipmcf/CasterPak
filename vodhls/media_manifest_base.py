@@ -41,7 +41,8 @@ class MediaManager_Base(object):
         self.base_url = ''
 
         # always remember that the input filename for mp4 file
-        # becomes the output directory name for the hls files
+        # becomes the name of the output directory
+        # which will contain the segment files and media manifest
         self.filename = filename
 
         #make a note to the cache database that the input file has been touched
