@@ -27,15 +27,18 @@ class MultivariantManager(object):
         """
         if len(self.segment_managers) == 0:
             for filename in self.files:
-                manager = vodhls_media_playlist_factory(filename)
+                manager = dict()
+                manager['segment_manager'] = vodhls_media_playlist_factory(filename)
+                manager['status'] = 'unprocessed'
                 self.segment_managers.append(manager)
 
         fail_with_404 = True  # Raise a FileNotFound only if ALL managers fail.
         for manager in self.segment_managers:
             try:
-                manager.process_input()
+                manager['segment_manager'].process_input()
+                manager['status'] = 'ready'
             except FileNotFoundError:
-                pass
+                manager['status'] = 'failed'
             else:
                 # one of the inputs processed successfully
                 fail_with_404 = False
@@ -46,7 +49,7 @@ class MultivariantManager(object):
             raise FileNotFoundError
 
     def set_baseurl(self, url):
-        [manager.set_baseurl(url) for manager in self.segment_managers]
+        [manager['segment_manager'].set_baseurl(url) for manager in self.segment_managers]
         self.baseurl = url
 
     @property
@@ -88,7 +91,8 @@ class MultivariantManager(object):
 
     @property
     def manifest_files(self):
-        return [manager.input_file for manager in self.segment_managers]
+        return [manager['segment_manager'].input_file for manager in self.segment_managers
+                if manager['status'] == 'ready']
 
     def output_hls(self):
         """ output the master manifest file.
@@ -128,7 +132,7 @@ class MultivariantManager(object):
         # create output subdirectories for media:
         for manager in self.segment_managers:
             try:
-                os.makedirs(manager.output_dir)
+                os.makedirs(manager['segment_manager'].output_dir)
             except FileExistsError:
                 pass
 
