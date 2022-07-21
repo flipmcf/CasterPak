@@ -79,12 +79,11 @@ def setup_gunicorn_logging(base_config):
 
 
 app_config = get_config()
-
 app = Flask(__name__)
-setup_app(app, app_config)
-
 if __name__ != "__main__":
     setup_gunicorn_logging(app_config)
+
+setup_app(app, app_config)
 
 
 @app.route('/i/<path:dir_name>')
