@@ -94,6 +94,13 @@ class MultivariantManager(object):
         return [manager['segment_manager'].input_file for manager in self.segment_managers
                 if manager['status'] == 'ready']
 
+    @property
+    def segment_duration(self):
+        try:
+            return self.config['output']['segmentDuration']
+        except KeyError:
+            return 6
+
     def output_hls(self):
         """ output the master manifest file.
             write it as a sibling to all the segment directories
@@ -113,7 +120,7 @@ class MultivariantManager(object):
             'verbose': False,
             'min_buffer_time': 0.0,
             'base_url': self.baseurl,
-
+            'segment_duration': self.segment_duration,
         }
 
         options = OptionsConfig(options_dict)

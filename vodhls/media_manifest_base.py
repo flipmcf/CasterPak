@@ -73,6 +73,15 @@ class MediaManager_Base(object):
 
     process_input = manage_input_file
 
+    @property
+    def segment_duration(self):
+        try:
+            return self.config['output']['segmentDuration']
+        except KeyError:
+            return 6
+
+
+
     def create(self) -> t.Union[os.PathLike, str]:
         """
         Create the media HLS manifest file and all segments in the configured location
@@ -94,7 +103,7 @@ class MediaManager_Base(object):
             'index_filename': self.output_manifest_filename,
             'segment_filename_template': os.path.join(self.output_dir, 'segment-%d.ts'),
             'segment_url_template': urljoin(self.base_url, 'segment-%d.ts'),
-            'segment_duration': "10",
+            'segment_duration': self.segment_duration,
             'allow-cache': True,
         }
 
