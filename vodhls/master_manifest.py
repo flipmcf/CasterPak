@@ -8,7 +8,7 @@ from vodhls.factory import vodhls_media_playlist_factory
 from vodhls.media_manifest_base import OptionsConfig
 
 import logging
-logger = logging.getLogger('vodhls_master')
+logger = logging.getLogger('vodhls')
 
 
 class MultivariantManager(object):
