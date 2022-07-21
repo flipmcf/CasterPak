@@ -7,12 +7,14 @@ from config import get_config
 logger = logging.getLogger('vodhls')
 
 
-def vodhls_master_playlist_factory(files: t.Iterable[t.Union[os.PathLike, str]], dir: t.Union[os.PathLike, str]):
-    """ Factory that returns an instance of a master playlist manager depending on configuration
+def vodhls_master_playlist_factory(files: t.Iterable[t.Union[os.PathLike, str]], output_dir: t.Union[os.PathLike, str]):
     """
-
+    :param files: an iterable with full paths to all input files relative to the configured input directory
+    :param output_dir: output directory for segments relative to configured output directory (typically a common dirname of files)
+    :return: an instance of a Multivariant 'master' HLS manager
+    """
     from vodhls.master_manifest import MultivariantManager
-    return MultivariantManager(files, dir)
+    return MultivariantManager(files, output_dir)
 
 
 def vodhls_media_playlist_factory(filename):
