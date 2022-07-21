@@ -102,5 +102,5 @@ if __name__ == "__main__":
     try:
         sys.exit(cleaner.clean())
     except Exception as err:
-        logger.error(f'CasterPak exited with Error: \n {err}')
+        logger.error(f'cleanup exited with Error: \n {err}')
         sys.exit(1)
