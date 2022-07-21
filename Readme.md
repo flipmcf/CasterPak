@@ -235,7 +235,7 @@ then, use curl to create some requests:
 
 gunicorn and thread issues are a bit harder.  Included is a sample gunicorn config `gunicorn-debug.conf.py` that launches the flask application in a single thread you can debug.
 
-`sudo ./venv/bin/python3 -m gunicorn --config gunicorn-debug.conf.py`
+`sudo ./venv/bin/python3 -m gunicorn -b :5000 --config gunicorn-debug.conf.py`
 
 Please configure the debug configuration to your needs.
 
