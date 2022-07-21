@@ -16,7 +16,10 @@ from vodhls import EncodingError
 from vodhls.factory import vodhls_media_playlist_factory, vodhls_master_playlist_factory
 import cachedb
 
-filenameRE = re.compile(r'[^.a-zA-Z0-9_-]')
+# valid characters in a filename
+filenameRE = re.compile(r'[^.a-zA-Z\d_-]')
+# valid characters in a directory path:
+dirnameRE = re.compile(r'[^.a-zA-Z\d_/-]')
 
 def setup_app(app, base_config):
     logging_config = applogging.CASTERPAK_DEFAULT_LOGGING_CONFIG
@@ -93,10 +96,48 @@ def mp4_file(dir_name: t.Union[os.PathLike, str]):
     abort(404)
 
 
-@app.route('/i/<path:csmil_str>.csmil/manifest.m3u8')
-def parent_manifest(csmil_str: str):
+@app.route('/i/<path:dir_name>/master.m3u8')
+def single_bitrate_manifest(dir_name: str):
+    """ creates a variant manifest containing a single bitrate file """
+
+    (dirname, filename) = os.path.split(dir_name)
+
+    #sanitize
+    filename = filenameRE.sub('', filename)
+    dirname = dirnameRE.sub('', dirname)
+
+    files = [os.path.join(dirname, filename), ]
+
+    vodhls_manager = vodhls_master_playlist_factory(files, dirname)
+    vodhls_manager.master_playlist_name = filename
+
+    if not vodhls_manager.manifest_exists():
+
+        # TODO: refactor duplicate code
+        # if there is a servername configured, use absolute url's
+        if app.config['output'].get('serverName', None):
+            baseurl = url_for('mp4_file', dir_name=dirname, _external=True)
+            baseurl = baseurl + '/'
+        # otherwise, use relative url's
+        else:
+            baseurl = ''
+
+        vodhls_manager.set_baseurl(baseurl)
+
+        try:
+            vodhls_manager.output_hls()
+        except FileNotFoundError:
+            abort(404)
+
+    return send_from_directory(directory=vodhls_manager.output_dir,
+                               path=vodhls_manager.master_playlist_name,
+                               mimetype="application/vnd.apple.mpegurl")
+
+
+@app.route('/i/<path:csmil_str>.csmil/master.m3u8')
+def csmil_parent_manifest(csmil_str: str):
     # TODO this needs to be seriously refactored and decoupled from the flask app.
-    """Create a master manifest.
+    """Create a master variant manifest.
        This follows the old akamai pattern for Media Services On Demand to specify a list of renditions
 
        https://example.com/i/<common_filename_prefix>,<bitrate>,<bitrate>,<bitrate>,<bitrate>,<common_filename_suffix>.csmil/manifest.m3u8
@@ -160,7 +201,15 @@ def parent_manifest(csmil_str: str):
 # TODO this hard-codes the childManifestFilename which should be set in config.ini
 @app.route('/i/<path:dir_name>/index_0_av.m3u8')
 def child_manifest(dir_name: t.Union[os.PathLike, str]):
-    # create instance of vodhls manager
+    """
+
+    :param dir_name:  path to an input mp4 file relative to the configured video input directory
+    :return: http reply for an hls media manifest
+    """
+
+    #sanitize
+    dir_name = dirnameRE.sub('', dir_name)
+
     try:
         hls_manager = vodhls_media_playlist_factory(dir_name)
     except FileNotFoundError:
@@ -170,6 +219,7 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
     except (NotImplementedError, ValueError) as e:
         app.logger.info(f'{str(e)}')
         abort(500)
+        return
 
     # TODO: refactor duplicate code
     # if there is a servername configured, use absolute url's
@@ -213,6 +263,10 @@ def segment(dir_name: t.Union[os.PathLike, str], filename):
     filename = filename + '.ts'
     filepath = dir_name + '/' + filename
 
+    #sanitize
+    filename = filenameRE.sub('', filename)
+    filepath = dirnameRE.sub('', filepath)
+
     # create instance of vodhls manager
     try:
         hls_manager = vodhls_media_playlist_factory(dir_name)
@@ -235,7 +289,7 @@ def segment(dir_name: t.Union[os.PathLike, str], filename):
         hls_manager.set_baseurl(baseurl)
         try:
             child_manifest_filename = hls_manager.create()
-        except vodhls.EncodingError:
+        except EncodingError:
             abort(500)
             return
 
