@@ -1,42 +1,63 @@
+from collections.abc import Iterator
 import datetime
-from tinydb import TinyDB, Query
+import sqlite3
+from sqlite3 import Error
+
 
 # cache names
 SEGMENT_FILE_CACHE = None
 INPUT_FILE_CACHE = 'inputfile'
 
+from logging import getLogger
+
+logger = getLogger("casterpak cleanup")
 
 class CacheDB(object):
-    def __init__(self, dbname='cacheDB.json', cache_name=None):
+    def __init__(self, dbname: str = 'cacheDB.db', cache_name: str = None) -> None:
         """create a new instance of a CacheDB
            in the case of holding multiple caches (like input file cache and output file cache)
            a 'cachetype' can be passed to differentiate different caches
         """
-        db = TinyDB(dbname)
-        if cache_name is None:
-            self.db = db
-        else:
-            self.db = db.table(cache_name)
+        self.table = None
+        self.db = sqlite3.connect(dbname,)
 
-    def addrecord(self, filename=None, timestamp=None):
+        if cache_name is None:
+            self.table = "default"
+        else:
+            self.table = ''.join(c for c in cache_name if c.isalnum())
+            if self.table != cache_name:
+                logger.warning(f"cache name {cache_name} sanitized to {self.table}")
+
+        create_query = f"""CREATE TABLE IF NOT EXISTS {self.table} (
+                           filename text PRIMARY KEY,
+                           timestamp int NOT NULL);
+                         """
+
+        self.db.execute(create_query)
+
+    def addrecord(self, filename: str = None, timestamp: str = None) -> None:
+        if filename is None:
+            raise ValueError('filename must be specified to add a cache record')
+
         if timestamp is None:
             timestamp = datetime.datetime.now(datetime.timezone.utc)
 
-        Files = Query()
-        self.db.upsert({'f': filename, 't': int(timestamp.timestamp())},
-                       Files.f == filename)
+        query = f"""INSERT INTO {self.table}
+                    VALUES(?, ?)
+                    ON CONFLICT(filename) DO UPDATE SET timestamp=excluded.timestamp
+                 """
+        self.db.execute(query, (filename, timestamp))
 
-    def find(self, age_in_minutes):
-        Files = Query()
+    def find(self, age_in_minutes: int) -> Iterator[str]:
 
-        def test_func(s):
-            return s < (int(datetime.datetime.now().timestamp()) - age_in_minutes*60)
+        cursor = self.db.cursor()
+        then = int(datetime.datetime.now().timestamp()) - age_in_minutes*60
+        cursor.execute("SELECT filename FROM {self.table} WHERE timestamp < ?", (then,))
 
-        rows = self.db.search(Files.t.test(test_func))
+        return [row[0] for row in cursor.fetchall()]
 
-        return [row['f'] for row in rows]
-
-    def delrecord(self, filename):
-        Files = Query()
-        return self.db.remove(Files.f == filename)
+    def delrecord(self, filename: str) -> None:
+        cursor = self.db.cursor()
+        cursor.execute("DELETE FROM {self.table} WHERE filename == ?", (filename,))
+        
 

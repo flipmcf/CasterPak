@@ -6,7 +6,7 @@ setup(name='CasterPak',
       author_email="flipmcf@gmail.com",
       py_modules=['casterpak'],
       install_requires=['flask',
-                        'tinydb',
+                        '',
                         'requests',
                         'gunicorn',
                         ]
