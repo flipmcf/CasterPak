@@ -3,8 +3,9 @@ import unittest
 
 import cachedb
 
+
 class CacheDBTestCase(unittest.TestCase):
-    db_filename = 'test_CacheDB.json'
+    db_filename = 'test_CacheDB.db'
 
     def setUp(self):
         self.testclass = cachedb.CacheDB(self.db_filename)
