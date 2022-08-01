@@ -11,7 +11,6 @@ class CacheDBTestCase(unittest.TestCase):
         self.testclass = cachedb.CacheDB(self.db_filename)
 
     def tearDown(self):
-        self.testclass.db.close()
         os.remove(self.db_filename)
 
     def test_addrecord(self):
