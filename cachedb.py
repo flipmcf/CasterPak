@@ -47,12 +47,12 @@ class CacheDB(object):
         with SQLite(self.dbname) as cursor:
             cursor.execute(create_query)
 
-    def addrecord(self, filename: str = None, timestamp: str = None) -> None:
+    def addrecord(self, filename: str = None, timestamp: int = None) -> None:
         if filename is None:
             raise ValueError('filename must be specified to add a cache record')
 
         if timestamp is None:
-            timestamp = datetime.datetime.now(datetime.timezone.utc)
+            timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
 
         query = f"""INSERT INTO {self.table}
                     VALUES(?, ?)
@@ -63,7 +63,7 @@ class CacheDB(object):
             cursor.execute(query, (filename, timestamp))
 
     def find(self, age_in_minutes: int) -> Iterable[str]:
-        then = int(datetime.datetime.now().timestamp()) - age_in_minutes*60
+        then = int(datetime.datetime.now(datetime.timezone.utc).timestamp()) - age_in_minutes*60
 
         with SQLite(self.dbname) as cursor:
             cursor.execute(f"SELECT filename FROM {self.table} WHERE timestamp < ?", (then,))
