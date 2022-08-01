@@ -78,9 +78,7 @@ class MediaManager_Base(object):
         try:
             return self.config['output']['segmentDuration']
         except KeyError:
-            return 6
-
-
+            return '6'
 
     def create(self) -> t.Union[os.PathLike, str]:
         """
@@ -103,7 +101,7 @@ class MediaManager_Base(object):
             'index_filename': self.output_manifest_filename,
             'segment_filename_template': os.path.join(self.output_dir, 'segment-%d.ts'),
             'segment_url_template': urljoin(self.base_url, 'segment-%d.ts'),
-            'segment_duration': self.segment_duration,
+            'segment_duration': str(self.segment_duration),
             'allow-cache': True,
         }
 

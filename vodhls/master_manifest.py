@@ -120,7 +120,7 @@ class MultivariantManager(object):
             'verbose': False,
             'min_buffer_time': 0.0,
             'base_url': self.baseurl,
-            'segment_duration': self.segment_duration,
+            'segment_duration': str(self.segment_duration),
         }
 
         options = OptionsConfig(options_dict)
