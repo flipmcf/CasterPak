@@ -8,7 +8,7 @@ class CacheDBTestCase(unittest.TestCase):
     db_filename = 'test_CacheDB.db'
 
     def setUp(self):
-        self.testclass = cachedb.CacheDB(self.db_filename)
+        self.testclass = cachedb.CacheDB(dbname=self.db_filename)
 
     def tearDown(self):
         os.remove(self.db_filename)
