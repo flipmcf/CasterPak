@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger("casterpak cleanup")
 
 # cache names
-SEGMENT_FILE_CACHE = None
+SEGMENT_FILE_CACHE = 'segmentfile'
 INPUT_FILE_CACHE = 'inputfile'
 
 
@@ -34,7 +34,7 @@ class CacheDB(object):
         self.dbname = dbname
 
         if cache_name is None:
-            self.table = "default_table"
+            self.table = "default_cache"
         else:
             self.table = ''.join(c for c in cache_name if c.isalnum())
             if self.table != cache_name:
@@ -72,6 +72,6 @@ class CacheDB(object):
     def delrecord(self, filename: str) -> None:
 
         with SQLite(self.dbname) as cursor:
-            cursor.execute("DELETE FROM {self.table} WHERE filename == ?", (filename,))
+            cursor.execute(f"DELETE FROM {self.table} WHERE filename == ?", (filename,))
         
 
