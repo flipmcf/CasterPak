@@ -1,16 +1,14 @@
-from collections.abc import Iterator
+from typing import Iterable
 import datetime
 import sqlite3
-from sqlite3 import Error
+import logging
 
+logger = logging.getLogger("casterpak cleanup")
 
 # cache names
 SEGMENT_FILE_CACHE = None
 INPUT_FILE_CACHE = 'inputfile'
 
-from logging import getLogger
-
-logger = getLogger("casterpak cleanup")
 
 class CacheDB(object):
     def __init__(self, dbname: str = 'cacheDB.db', cache_name: str = None) -> None:
@@ -48,7 +46,7 @@ class CacheDB(object):
                  """
         self.db.execute(query, (filename, timestamp))
 
-    def find(self, age_in_minutes: int) -> Iterator[str]:
+    def find(self, age_in_minutes: int) -> Iterable[str]:
 
         cursor = self.db.cursor()
         then = int(datetime.datetime.now().timestamp()) - age_in_minutes*60
