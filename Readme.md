@@ -113,7 +113,7 @@ This is totally in development and doesn't have a python setup yet.  Please cont
 
 3. install python dependencies
 
-   `./bin/pip install flask tinydb`
+   `./bin/pip install flask`
 
 
 4. configure this application
