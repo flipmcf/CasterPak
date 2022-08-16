@@ -9,7 +9,11 @@ config = config.get_config()
 logger = logging.getLogger('CasterPak-cleanup')
 
 if config.get('application', 'debug', fallback=False):
-    logging.basicConfig(level=logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
+fh = logging.FileHandler('/var/log/casterpak.log')
+formatter = logging.Formatter(fmt='[%(asctime)s] [%(levelname)s] in casterpak-cleanup: %(message)s')
+fh.setFormatter(formatter)
+logger.addHandler(fh)
 
 
 class CacheCleaner(object):
