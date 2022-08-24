@@ -32,7 +32,7 @@ https://example.com/i/path/<common_filename_prefix>,<bitrate>,<bitrate>,<bitrate
 
 For example, this request will create the following master manifest:
 
-https://this_application/i/20220404/1251/1_5q8yua9n_1_,q2fzuix0,t2rfozqd,rumb24fg,_1.mp4.csmil/manifest.m3u8
+https://this_application/i/20220404/1251/1_5q8yua9n_1_,q2fzuix0,t2rfozqd,rumb24fg,_1.mp4.csmil/master.m3u8
 
 
     #EXTM3U
