@@ -28,7 +28,7 @@ This package does not include encoding of video renditions.
 
 The first endpoint is the master manifest.  it uses the same syntax as Akamai's Media Services On Demand 'csmil' url construction:
 
-https://example.com/i/path/<common_filename_prefix>,<bitrate>,<bitrate>,<bitrate>,<bitrate>,<common_filename_suffix>.csmil/manifest.m3u8
+https://example.com/i/path/<common_filename_prefix>,<bitrate>,<bitrate>,<bitrate>,<bitrate>,<common_filename_suffix>.csmil/master.m3u8
 
 For example, this request will create the following master manifest:
 
