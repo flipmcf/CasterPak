@@ -1,5 +1,6 @@
 import os
 import typing as t
+from hashlib import blake2b
 
 from . import ConfigurationError
 
@@ -15,7 +16,6 @@ class MultivariantManager(object):
     config = get_config()
 
     def __init__(self, files, output_dir):
-        self.__master_playlist_name = None
         self.__master_playlist_dir = output_dir
         self.files: t.Iterable[t.Union[os.PathLike, str]] = files
         self.segment_managers = []
@@ -54,16 +54,26 @@ class MultivariantManager(object):
 
     @property
     def master_playlist_name(self):
-        if self.__master_playlist_name is not None:
-            return self.__master_playlist_name
-        else:
-            raise ValueError
+        """ return the filename of the master_playlist on the filesystem.
+            This is a cache-key, so we _attempt_ to do some heuristics to match
+            this name with a deterministic output of this specific vodhls manager instance.
 
-    @master_playlist_name.setter
-    def master_playlist_name(self, value: str):
-        self.__master_playlist_name = value
-        if not self.__master_playlist_name.endswith('.m3u8'):
-            self.__master_playlist_name += '.m3u8'
+            If two separate instances of this class would create the same master playlist,
+            we try hard to return that unique playlist name here.
+
+            a file list of [a,b,c,d] and a file list of [b,a,c,d] should return the same manifest.
+
+            (not implemented)
+            a file list of [a,b,c,d,e] but 'e' is not a valid file,
+            should return the same manifest as [a,b,c,d]
+
+        """
+
+        h = blake2b(digest_size=16)   # usedforsecurity = False
+        for item in sorted(self.files):
+            h.update(item.encode("ascii"))
+
+        return f"{h.hexdigest()}.m3u8"
 
     def manifest_exists(self) -> bool:
         manifest_path = os.path.join(self.output_dir, self.master_playlist_name)
