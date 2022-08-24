@@ -166,13 +166,9 @@ def csmil_parent_manifest(csmil_str: str):
     common_filename_suffix = filenameRE.sub('', file_chunks[-1])
 
     dir = os.path.join(*dirs)
-
     filenames = [common_filename_prefix+bitrate+common_filename_suffix for bitrate in bitrates]
-
-    files = (os.path.join(dir, filename) for filename in filenames)
-
+    files = [os.path.join(dir, filename) for filename in filenames]
     vodhls_manager = vodhls_master_playlist_factory(files, dir)
-    vodhls_manager.master_playlist_name = common_filename_prefix
 
     if not vodhls_manager.manifest_exists():
 
@@ -258,7 +254,7 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
 
 # HLS
 @app.route('/i/<path:dir_name>/<string:filename>.ts')
-def segment(dir_name: t.Union[os.PathLike, str], filename):
+def segment(dir_name: t.Union[os.PathLike, str], filename: str):
     filename = filename + '.ts'
     filepath = dir_name + '/' + filename
 
@@ -304,7 +300,7 @@ def segment(dir_name: t.Union[os.PathLike, str], filename):
 
 # DASH
 @app.route('/i/<path:dir_name>/figure/this/out/media.m3u8')
-def dash(dir_name):
+def dash(dir_name: t.Union[os.PathLike, str]):
     app.logger.debug(f"calling dash with {dir_name}")
     raise NotImplementedError
 
