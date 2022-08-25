@@ -146,12 +146,13 @@ class MultivariantManager(object):
         except FileExistsError:
             pass
 
-        # create output subdirectories for media:
+        # create output subdirectories for successfully processed media files (renditions):
         for manager in self.segment_managers:
-            try:
-                os.makedirs(manager['segment_manager'].output_dir)
-            except FileExistsError:
-                pass
+            if manager['status'] == 'ready':
+                try:
+                    os.makedirs(manager['segment_manager'].output_dir)
+                except FileExistsError:
+                    pass
 
         create_master_playlist(options, media_sources)
 
