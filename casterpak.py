@@ -188,6 +188,18 @@ def csmil_parent_manifest(csmil_str: str):
         except FileNotFoundError:
             abort(404)
 
+        # casterpak is responsible for adding these segments to the cacheDB
+        for manager in vodhls_manager.segment_managers:
+
+            # This shouldn't be here - the manager status should be abstracted away in vodhls
+            if manager['status'] != 'ready':
+                continue
+
+            # Again, we shouldn't have to subscript to get the actual manager.
+            segment_dir_name = manager['segment_manager'].filename
+            db = cachedb.CacheDB(cache_name=cachedb.SEGMENT_FILE_CACHE)
+            db.addrecord(filename=segment_dir_name)
+
     return send_from_directory(directory=vodhls_manager.output_dir,
                                path=vodhls_manager.master_playlist_name,
                                mimetype="application/vnd.apple.mpegurl")
