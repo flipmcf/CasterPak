@@ -45,7 +45,7 @@ class MediaManager_Base(object):
         # which will contain the segment files and media manifest
         self.filename = filename
 
-        #make a note to the cache database that the input file has been touched
+        # make a note to the cache database that the input file has been touched
         self.db.addrecord(filename=self.filename, timestamp=None)
 
     def fetch_and_cache(self):
