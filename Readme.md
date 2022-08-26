@@ -28,25 +28,24 @@ This package does not include encoding of video renditions.
 
 The first endpoint is the master manifest.  it uses the same syntax as Akamai's Media Services On Demand 'csmil' url construction:
 
-https://example.com/i/path/<common_filename_prefix>,<bitrate>,<bitrate>,<bitrate>,<bitrate>,<common_filename_suffix>.csmil/master.m3u8
+http://example.com/i/path/<common_filename_prefix>,<bitrate>,<bitrate>,<bitrate>,<bitrate>,<common_filename_suffix>.csmil/master.m3u8
 
 For example, this request will create the following master manifest:
 
-https://this_application/i/20220404/1251/1_5q8yua9n_1_,q2fzuix0,t2rfozqd,rumb24fg,_1.mp4.csmil/master.m3u8
+http://this_application/i/20220404/1251/my_video_,highdef,medium,low,.mp4.csmil/master.m3u8
 
 
     #EXTM3U
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=622044,RESOLUTION=854x480
-    https://this_application/i/20220404/1251/1_5q8yua9n_1_q2fzuix0_1.mp4/index_0_av.m3u8
+    http://this_application/i/20220404/1251/my_video_low.mp4/index_0_av.m3u8
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=741318,RESOLUTION=960x540
-    https://this_application/i/20220404/1251/1_5q8yua9n_1_t2rfozqd_1.mp4/index_0_av.m3u8
+    http://this_application/i/20220404/1251/my_video_medium.mp4/index_0_av.m3u8
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=1156684,RESOLUTION=1280x720
-    https://this_application/i/20220404/1251/1_5q8yua9n_1_rumb24fg_1.mp4/index_0_av.m3u8
+    http://this_application/i/20220404/1251/my_video_highdef.mp4/index_0_av.m3u8
 
-Each one of those url's above will be served by this application.  We call them 'media manifests' or 'segment manifests'
-This application will serve segment manifests and the actual segment data.
+Each one of those url's above will also be served by this application.  We call them 'media manifests' or 'segment manifests' This application will serve segment manifests and the actual segment data.
 
-If the m3u8 is available on-disk, it's served.  Otherwise, it's created and saved
+If the m3u8 manifest is available on-disk, it's served.  Otherwise, it's created and saved
 
     #EXTM3U
     #EXT-X-TARGETDURATION:10
@@ -55,15 +54,15 @@ If the m3u8 is available on-disk, it's served.  Otherwise, it's created and save
     #EXT-X-VERSION:3
     #EXT-X-MEDIA-SEQUENCE:1
     #EXTINF:10.000,
-    https://this_application/i/20220324/1251/1_yd2ohzql_1_pnkbhq6w_1.mp4/segment1_0_av.ts
+    http://this_application/i/20220324/1251/my_video_highdef.mp4/segment1_0_av.ts
     #EXTINF:10.000,
-    https://this_application/i/20220324/1251/1_yd2ohzql_1_pnkbhq6w_1.mp4/segment2_0_av.ts
+    http://this_application/i/20220324/1251/my_video_highdef.mp4/segment2_0_av.ts
     #EXTINF:10.000,
-    https://this_application/i/20220324/1251/1_yd2ohzql_1_pnkbhq6w_1.mp4/segment3_0_av.ts
+    http://this_application/i/20220324/1251/my_video_highdef.mp4/segment3_0_av.ts
     #EXTINF:10.000,
     ...
     #EXTINF:6.186,
-    https://this_application/i/20220324/1251/1_yd2ohzql_1_jj0dd2ah_1.mp4/segment19_0_av.ts
+    http://this_application/i/20220324/1251/my_video_highdef.mp4/segment19_0_av.ts
     #EXT-X-ENDLIST
 
 And each one of those .ts files will be available at this application's endpoint until they are removed by the cache cleanup.
