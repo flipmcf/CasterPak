@@ -108,7 +108,6 @@ def single_bitrate_manifest(dir_name: str):
     files = [os.path.join(dirname, filename), ]
 
     vodhls_manager = vodhls_master_playlist_factory(files, dirname)
-    vodhls_manager.master_playlist_name = filename
 
     if not vodhls_manager.manifest_exists():
 
