@@ -82,6 +82,7 @@ A certain amount of time.
 
  TODO: https://github.com/flipmcf/CasterPak/issues/8 
  
+#### Bento4 Source Install: 
  Follow these instructions to clone the specific branch / Pull Request
    
     git clone git@github.com:axiomatic-systems/Bento4.git
@@ -98,6 +99,11 @@ A certain amount of time.
    
  Copy these binaries into the directory configured in 'binaryPath' in config.ini
     
+#### Bento4 Binary Install:
+Download the binary package from https://www.bento4.com/downloads/, extract, and copy the contents of the 'bin' folder
+onto your system.  The path doesn't matter (we will configure that later), but /usr/local/bin/bento4 is fine.
+
+
     
 ### Installation
 
