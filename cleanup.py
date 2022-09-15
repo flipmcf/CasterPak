@@ -7,6 +7,8 @@ import os
 import shutil
 import sys
 import logging
+import typing as t
+import subprocess
 
 config = config.get_config()
 logger = logging.getLogger('CasterPak-cleanup')
@@ -19,10 +21,21 @@ fh.setFormatter(formatter)
 logger.addHandler(fh)
 
 
+def get_disk_usage(path: t.Union[os.PathLike, str]) -> int:
+    """ get the total file size of the directory."""
+    # This will only work on posix / linux - but that's ok.  It's efficient.
+    size = subprocess.check_output(['du', '-BM', path]).split()[0]
+
+    # size is a string like '120M' for 120 megabytes.
+    # strip off that 'M' and return an integer
+    return int(size[:-1])
+
+
 class CacheCleaner(object):
     def __init__(self):
         output_config = config['output']
         input_config = config['input']
+        cache_config = config['cache']
 
         try:
             self.output_dir = output_config['segmentParentPath']
@@ -34,10 +47,12 @@ class CacheCleaner(object):
         except KeyError:
             logger.critical("No [input] videoCachePath configured")
 
-        self.segment_cache_size = output_config.getint('segment_file_cache_size', fallback=16384)
-        self.segment_cache_threshold = output_config.getint('segment_file_cache_limit', fallback=90)
-        self.input_cache_size = input_config.getint('input_file_cache_size', fallback=8192)
-        self.input_cache_threshold = input_config.getint('input_file_cache_limit', fallback=90)
+        self.segment_file_age = cache_config.getint('segment_file_age', fallback=4320)
+        self.segment_cache_size = cache_config.getint('segment_file_cache_size', fallback=16384)
+        self.segment_cache_threshold = cache_config.getint('segment_file_cache_limit', fallback=90)
+        self.input_file_age = cache_config.getint('input_file_age', fallback=8640)
+        self.input_cache_size = cache_config.getint('input_file_cache_size', fallback=8192)
+        self.input_cache_threshold = cache_config.getint('input_file_cache_limit', fallback=90)
 
         self.segment_db = cachedb.CacheDB(cache_name=cachedb.SEGMENT_FILE_CACHE)
         self.input_file_db = cachedb.CacheDB(cache_name=cachedb.INPUT_FILE_CACHE)
@@ -66,16 +81,18 @@ class CacheCleaner(object):
         return 0
 
     def get_old_segment_files(self):
-        return self.segment_db.find(int(config['cache']['segment_file_age']))
+        return self.segment_db.find(self.segment_file_age)
 
     def get_old_input_files(self):
-        return self.input_file_db.find(int(config['cache']['input_file_age']))
+        return self.input_file_db.find(self.input_file_age)
 
-    def get_oldest_segment_file(self):
-        raise NotImplementedError
+    def get_oldest_segment_file(self) -> str:
+        result = self.segment_db.get_oldest(num=1)
+        return result[0]
 
-    def get_oldest_input_file(self):
-        raise NotImplementedError
+    def get_oldest_input_file(self) -> str:
+        result = self.input_file_db.get_oldest(num=1)
+        return result[0]
 
     def delete_segment(self, file):
         logger.debug(f"asked to delete segments {file}")
@@ -107,10 +124,24 @@ class CacheCleaner(object):
 
     @property
     def segment_cache_threshold_reached(self) -> bool:
+        """ Return true if the output segment cache is at it's configured size limit, False otherwise"""
+        usage = get_disk_usage(self.output_dir)
+        pct_full = usage / self.segment_cache_size * 100
+        logger.debug(f"segment cache is {usage}M - {pct_full}% full")
+
+        if pct_full > self.segment_cache_threshold:
+            return True
         return False
 
     @property
     def input_cache_threshold_reached(self) -> bool:
+        """ Return true if the input cache is at it's configured size limit, False otherwise"""
+        usage = get_disk_usage(self.input_dir)
+        pct_full = usage / self.input_cache_size * 100
+        logger.debug(f"input cache is {usage}M - {pct_full}% full")
+
+        if pct_full > self.input_cache_threshold:
+            return True
         return False
 
     @staticmethod

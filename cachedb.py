@@ -72,9 +72,15 @@ class CacheDB(object):
             cursor.execute(f"SELECT filename FROM {self.table} WHERE timestamp < ?", (then,))
             return [row[0] for row in cursor.fetchall()]
 
-    def delrecord(self, filename: str) -> None:
+    find_expired = find
 
+    def get_oldest(self, num: int) -> Iterable[str]:
+        """ Get the 'num' oldest files from the cache """
+        with SQLite(self.dbname) as cursor:
+            cursor.execute(f"SELECT filename FROM {self.table} order by timestamp limit {num} ")
+            return [row[0] for row in cursor.fetchall()]
+
+    def delrecord(self, filename: str) -> None:
+        """Remove cache record for 'filename'"""
         with SQLite(self.dbname) as cursor:
             cursor.execute(f"DELETE FROM {self.table} WHERE filename == ?", (filename,))
-        
-
