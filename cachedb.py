@@ -15,7 +15,7 @@ INPUT_FILE_CACHE = 'inputfile'
 
 class SQLite(object):
     def __init__(self, file='sqlite.db'):
-        self.file=file
+        self.file = file
 
     def __enter__(self):
         self.conn = sqlite3.connect(self.file)
