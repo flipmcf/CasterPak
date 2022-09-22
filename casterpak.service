@@ -10,4 +10,5 @@ User=casterpak
 Group=casterpak
 
 [Install]
+WantedBy=multi-user.target
 Alias=casterpak.service
