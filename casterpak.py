@@ -34,8 +34,11 @@ def setup_app(app, base_config):
 
     app.config.update(base_config)
     if base_config['output'].get('serverName'):
-        app.config['SERVER_NAME'] = base_config['output']['serverName']
-    app.logger.info(f"server name: {app.config['SERVER_NAME']}")
+        app.logger.info(f"casterpak server name is {base_config['output'].get('serverName')} ")
+
+        # # NOT SETTING APP SERVER NAME - AWS LOAD BALANCER CANNOT SET HOST HEADER
+        # app.config['SERVER_NAME'] = base_config['output']['serverName']
+        app.logger.info("flask app server name not set")
 
     # initialize segment directory
     if not os.path.isdir(app.config['output']['segmentParentPath']):
