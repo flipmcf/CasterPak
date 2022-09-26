@@ -92,6 +92,31 @@ if __name__ != "__main__":
 setup_app(app, app_config)
 
 
+def get_base_url(dir_name: t.Union[os.PathLike, str]) -> str:
+    # if there is a servername configured, use absolute url's
+
+    # We would prefer to use the flask 'url_for('mp4_file')' here, but unfortunately SERVER_NAME also creates
+    #  routing in Flask
+    # This leads to errors -
+    # if SERVER_NAME is not set, routing is correct (no 404)
+    #     but the m3u8 output files contain the wrong hostnames
+    # IF SERVER_NAME is set, then routing breaks and everything is a 404.
+
+    # so, we will not use url_for but hard-code the url to the mp4_file here as our base-url
+    # if app.config['output'].get('serverName', None):
+        # baseurl = url_for('mp4_file', dir_name=dir_name, _external=True)
+        # baseurl = baseurl + '/'
+    # otherwise, use relative url's
+
+    if app_config['output'].get('serverName'):
+        # this is basically re-typing the path decorator for mp4_file()
+        baseurl = f"https://{app_config['output'].get('serverName')}/i/{dir_name}/"
+    else:
+        baseurl = ''
+
+    return baseurl
+
+
 @app.route('/i/<path:dir_name>')
 def mp4_file(dir_name: t.Union[os.PathLike, str]):
     """Path directly to MP4 file, without a stream"""
@@ -116,17 +141,7 @@ def single_bitrate_manifest(dir_name: str):
     vodhls_manager = vodhls_master_playlist_factory(files, dirname)
 
     if not vodhls_manager.manifest_exists():
-
-        # TODO: refactor duplicate code
-        # if there is a servername configured, use absolute url's
-        if app.config['output'].get('serverName', None):
-            baseurl = url_for('mp4_file', dir_name=dirname, _external=True)
-            baseurl = baseurl + '/'
-        # otherwise, use relative url's
-        else:
-            baseurl = ''
-
-        vodhls_manager.set_baseurl(baseurl)
+        vodhls_manager.set_baseurl(get_base_url(dirname))
 
         try:
             vodhls_manager.output_hls()
@@ -176,17 +191,7 @@ def csmil_parent_manifest(csmil_str: str):
     vodhls_manager = vodhls_master_playlist_factory(files, dir)
 
     if not vodhls_manager.manifest_exists():
-
-        # TODO: refactor duplicate code
-        # if there is a servername configured, use absolute url's
-        if app.config['output'].get('serverName', None):
-            baseurl = url_for('mp4_file', dir_name=dir, _external=True)
-            baseurl = baseurl + '/'
-        # otherwise, use relative url's
-        else:
-            baseurl = ''
-
-        vodhls_manager.set_baseurl(baseurl)
+        vodhls_manager.set_baseurl(get_base_url(dir))
 
         try:
             vodhls_manager.output_hls()
@@ -233,16 +238,7 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
         abort(500)
         return
 
-    # TODO: refactor duplicate code
-    # if there is a servername configured, use absolute url's
-    if app.config['output'].get('serverName', None):
-        baseurl = url_for('mp4_file', dir_name=dir_name, _external=True)
-        baseurl = baseurl + '/'
-    # otherwise, use relative url's
-    else:
-        baseurl = ''
-
-    hls_manager.set_baseurl(baseurl)
+    hls_manager.set_baseurl(get_base_url(dir_name))
 
     # cache check
     if not hls_manager.manifest_exists():
@@ -289,16 +285,7 @@ def segment(dir_name: t.Union[os.PathLike, str], filename: str):
     if not hls_manager.segment_exists(filename):
         app.logger.info(f"request for segment {filepath} that does not exist. creating manifest")
 
-        # TODO: refactor duplicate code
-        # if there is a servername configured, use absolute url's
-        if app.config['output'].get('serverName', None):
-            baseurl = url_for('mp4_file', dir_name=dir_name, _external=True)
-            baseurl = baseurl + '/'
-        # otherwise, use relative url's
-        else:
-            baseurl = ''
-
-        hls_manager.set_baseurl(baseurl)
+        hls_manager.set_baseurl(get_base_url(dir_name))
         try:
             child_manifest_filename = hls_manager.create()
         except EncodingError:
