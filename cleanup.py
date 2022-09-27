@@ -24,7 +24,7 @@ logger.addHandler(fh)
 def get_disk_usage(path: t.Union[os.PathLike, str]) -> int:
     """ get the total file size of the directory."""
     # This will only work on posix / linux - but that's ok.  It's efficient.
-    size = subprocess.check_output(['du', '-BM', path]).split()[0]
+    size = subprocess.check_output(['du', '-BM', '--max-depth=0', path]).split()[0]
 
     # size is a string like '120M' for 120 megabytes.
     # strip off that 'M' and return an integer
