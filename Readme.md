@@ -77,27 +77,6 @@ A certain amount of time.
  Bento4 https://www.bento4.com/
 
  Bento4 binary install is required.  Specifically the `mp42hls` and `mp4info` commands and possibly more.
- 
- At this time it's recommended compile and use a special version of mp42hls: https://github.com/axiomatic-systems/Bento4/pull/696
-
- TODO: https://github.com/flipmcf/CasterPak/issues/8 
- 
-#### Bento4 Source Install: 
- Follow these instructions to clone the specific branch / Pull Request
-   
-    git clone git@github.com:axiomatic-systems/Bento4.git
-    cd Bento4
-    git fetch origin pull/696/head
-    git checkout -b iss693 FETCH_HEAD
-   
- Then compile:
-   
-    mkdir cmakebuild
-    cd cmakebuild/
-    cmake -DCMAKE_BUILD_TYPE=Release ..
-    make
-   
- Copy these binaries into the directory configured in 'binaryPath' in config.ini
     
 #### Bento4 Binary Install:
 Download the binary package from https://www.bento4.com/downloads/, extract, and copy the contents of the 'bin' folder
