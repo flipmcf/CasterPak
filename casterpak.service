@@ -5,6 +5,8 @@
 Description=CasterPak Video On Demand streaming service
 Documentation=https://github.com/flipmcf/CasterPak/blob/master/Readme.md
 After=network.target auditd.service
+#When casterpak's intercal cache is a mounted drive, wait for it to mount:
+# RequiresMountsFor=/casterpak-data
 
 [Service]
 WorkingDirectory=/home/casterpak/CasterPak
