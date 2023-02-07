@@ -115,7 +115,7 @@ class CacheCleaner(object):
         logger.debug(f"removing {delete_file}")
         try:
             os.remove(delete_file)
-        except FileNotFoundError:
+        except (FileNotFoundError, NotADirectoryError) as e:
             logger.debug(f"{delete_file} not found")
         self.input_file_db.delrecord(file)
 
