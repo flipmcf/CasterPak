@@ -11,8 +11,8 @@ Creating an HLS (m3u8) stream from a video file (mp4, et. al.) is CPU cheap and 
 It's a very good fit for use cases where videos serve the 'popular' model of access.  Videos that are frequently
 accessed remain cached at this server and videos that are not accessed are deleted from cache.
 
-Also it's a great fit for those who own a large 'archive' video file on inexpensive, slow-access storage.  CasterPak can
-retrieve source video files from network addressess, copy them locally, and then deliver.   The first video play 
+Also it's a great fit for those who own a large 'archive' video file on inexpensive, slow-access storage like AWS S3 Glacier or Microsoft Azure Archive.  
+CasterPak can retrieve source video files from network addressess, copy them locally, and then deliver.   The first video play 
 may be slow, but subsequent access to the same video is then fast. 
 
 You don't want to store your HLS stream forever, neither do you want to create a stream package for every request.  
