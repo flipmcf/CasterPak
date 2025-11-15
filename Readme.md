@@ -73,8 +73,11 @@ A certain amount of time.
 ----
 
 ### Install Dependencies:
+ Dependencies are:
+  Sqlite 3
+  Bento 4
 
- Bento4 https://www.bento4.com/
+ #### Bento4 https://www.bento4.com/
 
  Bento4 binary install is required.  Specifically the `mp42hls` and `mp4info` commands and possibly more.
     
@@ -82,6 +85,8 @@ A certain amount of time.
 Download the binary package from https://www.bento4.com/downloads/, extract, and copy the contents of the 'bin' folder
 onto your system.  The path doesn't matter (we will configure that later), but /usr/local/bin/bento4 is fine.
 
+#### Sqllite3
+   kind of standard quick-and-dirty low fingerprint SQL server to maintain cache state. Go google it or just use 'apt' or 'yum' to install it.  
 
     
 ### Installation
