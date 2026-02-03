@@ -72,6 +72,19 @@ A certain amount of time.
 
 ----
 
+## Docker install:
+
+It's a work in progress right now... It builds, but doesn't run.
+
+### configuration
+All configuration items seen in 'config.ini' can be overridden by environment variables for containerized installs.
+
+The format of the env vars are "CASTERPAK_SECTION_OPTION".
+
+For example, to configure the serverName in the output section, you would set the environment variable CASTERPAK_OUTPUT_SERVERNAME.
+
+videoParentPath is CASTERPAK_FILESYSTEM_VIDEOPARENTPATH
+
 ### Install Dependencies:
  Dependencies are:
   Sqlite 3
