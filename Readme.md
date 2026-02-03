@@ -116,6 +116,19 @@ This is totally in development and doesn't have a python setup yet.  Please cont
 
    `./bin/python -m flask run`
 
+Now, you can test flask is working by hitting port 5000
+Depending on how you configured your  'videoParentPath' - construct your url.
+
+In a typical development install, 
+videoParentPath = /data/videos/test.mp4
+
+results in a url:  http://localhost:5000/i/test.mp4/index.m3u8
+
+
+For example, a video file exists on the filesystem at /mnt/media/files/videos/video.mp4
+and we configure 'videoParentPath' to '/mnt/media/files/'
+this results in an hls http endpoint of 'http://example.com/i/videos/video.mp4/index.m3u8'
+
 
 6. configure gunicorn
 
@@ -212,15 +225,34 @@ versions (should update these)
 
 ## Debugging
 
+turn debug logs on in config.ini
+[application]
+debug = True
+
 Note that these are techniques to begin learning from.  Use these hints to develop your own strategies on how to debug the app.
 
 diagnosis of the flask application itself is easy enough.  configure to listen on localhost and run the app: 
 
 `./bin/python -m flask run` 
 
-then, use curl to create some requests:
+then, use curl to create some requests.
 
-`curl -i http://localhost:5000/configured/input/path/index.m3u8`
+Assuming your video path is configured to point to a directory that directly contains video files:
+
+1. `curl -i http://localhost:5000/i/video.mp4`
+
+You should see a debug log "DEBUG in casterpak: caught 404 for test.mp4"   
+  - direct access to mp4 files without streaming is handled, but not supported
+
+2 `http://localhost:5000/i/video.mp4/master.m3u8`
+  
+  The simplest of calls.
+  This does some work, calling that one file and creating a single-bitrate stream.
+  the log should show: 
+  INFO in _internal: 127.0.0.1 - - [03/Feb/2026 13:33:23] "GET /i/JonBike.MP4/master.m3u8 HTTP/1.1" 200 -
+
+Taking that same url and opening it up in VLC as a "Network Stream" should now play that file as an HLS stream.
+
 
 gunicorn and thread issues are a bit harder.  Included is a sample gunicorn config `gunicorn-debug.conf.py` that launches the flask application in a single thread you can debug.
 
