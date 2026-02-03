@@ -110,6 +110,12 @@ This is totally in development and doesn't have a python setup yet.  Please cont
    `cp config_example.ini config.ini`
 
    `vi config.ini`
+
+You must configure:
+  a servername (localhost can work in development)
+  videoParentPath for where to find your full-lenght videos
+  path to the bento4 binaries
+  and if you're reading this, you probably want Debug = True
    
 
 5. run the application (development and testing)
