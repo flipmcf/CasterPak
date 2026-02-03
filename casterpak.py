@@ -109,8 +109,12 @@ def get_base_url(dir_name: t.Union[os.PathLike, str]) -> str:
     # otherwise, use relative url's
 
     if app_config['output'].get('serverName'):
+        if app_config['output'].getboolean('use_https', fallback=False):
+            protocol = 'https'
+        else:
+            protocol = 'http'
         # this is basically re-typing the path decorator for mp4_file()
-        baseurl = f"https://{app_config['output'].get('serverName')}/i/{dir_name}/"
+        baseurl = f"{protocol}://{app_config['output'].get('serverName')}/i/{dir_name}/"
     else:
         baseurl = ''
 
