@@ -22,4 +22,10 @@ def get_config() -> ConfigParser:
         Copy config_example.ini to config.ini and configure the application
         """)
 
+    for section in config.sections():
+        for option in config.options(section):
+            env_var = f"CASTERPAK_{section.upper()}_{option.upper()}"
+            if env_var in os.environ:
+                config.set(section, option, os.environ[env_var])
+
     return config
