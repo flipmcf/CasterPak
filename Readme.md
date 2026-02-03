@@ -1,6 +1,6 @@
 # CasterPak
 
-## The CAshing STrEam [R] PAcKager:
+## The CAching STrEam [R] PAcKager:
 
 
 This software provides HLS Stream packaging for Video-On-Demand (VOD) with a built in file cache.
