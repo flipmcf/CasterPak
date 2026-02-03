@@ -4,3 +4,6 @@
 /lib64/
 /lib/
 pyvenv.cfg
+
+#local configuration files
+config.ini

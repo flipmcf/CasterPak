@@ -12,9 +12,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Bento4
-RUN curl -o bento4.zip https://www.bento4.com/downloads/Bento4-SDK-1.6.0-640.x86_64-unknown-linux.zip && \
+RUN curl -o bento4.zip https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip && \
     unzip bento4.zip && \
-    cp Bento4-SDK-1.6.0-640.x86_64-unknown-linux/bin/* /usr/local/bin/ && \
+    cp Bento4-SDK-1-6-0-641.x86_64-unknown-linux/bin/* /usr/local/bin/ && \
     rm -rf bento4.zip Bento4-SDK-1.6.0-640.x86_64-unknown-linux
 
 # Set the working directory in the container
