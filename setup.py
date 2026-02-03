@@ -1,4 +1,4 @@
-# Copyright (c) 2022, Michael McFadden & Radio Free Asia
+# Copyright (c) 2026, Michael McFadden & Radio Free Asia
 # GNU GENERAL PUBLIC LICENSE Version 2
 # See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
 from distutils.core import setup
@@ -18,6 +18,8 @@ class egg_info_ex(egg_info):
 
         egg_info.run(self)
 
+
+# TODO: Pin dependencies to specific versions
 setup(name='CasterPak',
       version='0.8',
       author="Michael McFadden (flipmcf)",
