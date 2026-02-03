@@ -4,6 +4,16 @@
 /lib64/
 /lib/
 pyvenv.cfg
+__pycache__/
+
+# Sqlite database files
+*.db
+*.sqlite3
 
 #local configuration files
 config.ini
+
+#VSCode settings
+.vscode/
+.idea/
+
