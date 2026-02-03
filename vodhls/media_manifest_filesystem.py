@@ -30,7 +30,7 @@ class MediaManager_filesystem(MediaManager_Base):
             return self.source_file
 
     def manage_input_file(self):
-
+        logger.debug(f"manage_input_file for {self.input_file}")
         try:
             os.stat(self.input_file)
         except FileNotFoundError:
