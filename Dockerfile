@@ -1,41 +1,55 @@
+# --- Stage 1: The Bento4 Extractor ---
+FROM alpine:latest AS bento-builder
+RUN apk add --no-cache curl unzip
+WORKDIR /tmp
+
+# Using the stable 1.6.0 Linux 64-bit binaries of Bento4
+RUN curl -O https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip \
+    && unzip Bento4-SDK-*.zip \
+    && mkdir -p /opt/bento4 \
+    && mv Bento4-SDK-*/bin /opt/bento4/bin
+    
+# --- Stage 2: The Final Application ---  this is what's in the image
 # Use an official Python runtime as a parent image
 FROM python:3.10-slim
 
-# Set environment variables
-ENV PYTHONUNBUFFERED 1
-
-# Install system dependencies
+# 1. Install critical system dependencies (minimal)
+# libstdc++6 is required for Bento4 binaries to run on Debian/Slim
 RUN apt-get update && apt-get install -y \
-    curl \
-    unzip \
     sqlite3 \
+    libstdc++6 \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Bento4
-RUN curl -o bento4.zip https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip && \
-    unzip bento4.zip && \
-    cp Bento4-SDK-1-6-0-641.x86_64-unknown-linux/bin/* /usr/local/bin/ && \
-    rm -rf bento4.zip Bento4-SDK-1.6.0-640.x86_64-unknown-linux
+# 2. Copy Bento4 binaries from the builder stage
+COPY --from=bento-builder /opt/bento4/bin /usr/local/bin
 
-# Set the working directory in the container
+# 3. Setup non-root user for security (Best Practice)
+RUN adduser --disabled-password --gecos "" casteruser
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
+# 4. Install Python dependencies as a layer before copying source code for better caching
+COPY requirements.txt .
+
+# Install the dependencies defined in setup.py
+# The "." tells pip to install the current directory as a package
+RUN pip install -r requirements.txt
+
+# 5. Copy application source
 COPY . .
 
-# Install any needed packages specified in setup.py
-RUN pip install .
+# 6. Set internal container environment defaults
+# These can be overridden by your docker-compose or ECS task def
+ENV FLASK_APP=app.py
+ENV PYTHONUNBUFFERED=1
+ENV BINARY_PATH=/usr/local/bin
+ENV CASTERPAK_BENTO4_BINARYPATH=/usr/local/bin
 
-#
-# A config.ini file is required. It is recommended to mount it as a volume at runtime.
-# For example:
-# docker run -v /path/to/your/config.ini:/app/config.ini casterpak
-#
-# You can create your config.ini from the provided config_example.ini
-#
+# 7. Final setup
+RUN chown -R casteruser:casteruser /app
+USER casteruser
 
-# Make port 5000 available to the world outside this container
 EXPOSE 5000
 
-# Run the app.
-CMD ["gunicorn", "--config", "gunicorn.conf.py", "-b", "0.0.0.0:5000", "wsgi:app"]
+# Using Gunicorn for production-grade serving
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "app:app"]

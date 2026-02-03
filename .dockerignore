@@ -1,0 +1,16 @@
+bin/
+lib64/
+lib/
+pyvenv.cfg
+.git
+__pycache__
+*.pyc
+.gitignore
+
+# Sqlite database files
+*.db
+*.sqlite3
+
+#IDE stuff
+.vscode/
+.idea/
