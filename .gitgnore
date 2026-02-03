@@ -2,4 +2,7 @@
 #Python Environment
 /bin/
 /lib64/
+/lib/
 pyvenv.cfg
+
+
