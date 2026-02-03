@@ -10,6 +10,3 @@ accesslog = "/var/log/casterpak.access.log"
 errorlog = "/var/log/casterpak.error.log"
 
 capture_output = False
-
-
-wsgi_app = "casterpak:app"
