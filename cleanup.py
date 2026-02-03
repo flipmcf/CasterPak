@@ -15,7 +15,8 @@ logger = logging.getLogger('CasterPak-cleanup')
 
 if config.get('application', 'debug', fallback=False):
     logger.setLevel(logging.DEBUG)
-fh = logging.FileHandler('/var/log/casterpak.log')
+log_file = os.getenv('CASTERPAK_LOG_FILE', '/var/log/casterpak.log')
+fh = logging.FileHandler(log_file)
 formatter = logging.Formatter(fmt='[%(asctime)s] [%(levelname)s] in casterpak-cleanup: %(message)s')
 fh.setFormatter(formatter)
 logger.addHandler(fh)
