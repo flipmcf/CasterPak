@@ -4,12 +4,13 @@ services:
     container_name: casterpak_server
     # Map the host port 5000 to the container port 5000
     ports:
-      - "5000:5000"
+      - "${APP_PORT:-5000}:5000"
     
     # Environment variables (overrides for your config logic)
     environment:
       - FLASK_ENV=production
       - PYTHONUNBUFFERED=1
+      - CASTERPAK_FILESYSTEM_VIDEOPARENTPATH=/mnt/data
       #and we want to send all logs to stdout/stderr
       - CASTERPAK_LOGGING_ACCESS_LOG=-
       - CASTERPAK_LOGGING_ERROR_LOG=-
@@ -18,7 +19,7 @@ services:
     volumes:
       # 1. Mount your local config file (Read-Only)
       # 2. Your source video files (Change left side to your actual path)
-      - /home/flipmcf/Videos:/mnt/data
+      - ${HOST_VIDEO_PATH:-~/Videos}:/mnt/data
       
       # 3. Persistent cache directories (so they survive container restarts)
       # ./tmp/video_input:/tmp/video_input
