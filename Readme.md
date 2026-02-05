@@ -73,13 +73,14 @@ A certain amount of time.
 
 ### CACHING RECIPIES & Tuning
 
-The easiest is no cache.  You simply leave "cache_input = False" in config.ini and the big video files are never moved around.
+The easiest is no cache.  Start here.   Install this (or run the container) on the same system that has your video files.
+(if you're mounting the files from a fileserver, your ahead of the game... but stay with me...)
 
-When you have a huge library of large videos and mount that library over the network, things get interesting!
+You simply leave "cache_input = False" in config.ini only the streams are cached.
 
-Using filesystem, you should network mount the storage to your host os, configure a local storage to copy files into (this is your video cache) and turn caching on.
+Next is to turn cache_input on and configure a local spot for your video files - so they are only read over the network once.
 
-Running containerized casterpak services the video files are first copied from the host OS into the containers and held there in cache.
+Next is to decided if you want to copy the big video files into each container!  I don't know yet.  I haven't tried this.
 
 In the future, we will support directly configuring FTP, SCP, and others so network mounts are not necessary inside containers. (see config.ini)
 
@@ -89,8 +90,18 @@ In the future, we will support directly configuring FTP, SCP, and others so netw
 
 after cloning this repository:
 
+`cp .env.example .env`
+
+edit the .env file to point HOST_VIDEO_PATH to your actual video folder on your system.
+
+`docker-compose up -d --build`
+
+# stop the server
+`docker-compose down`
+
 
 ### 1. Build the image
+
 Run this from the root of the project:
 
 `docker build -t casterpak:v0.8 .`
