@@ -72,7 +72,7 @@ A certain amount of time.
 
 ----
 
-## Docker install:
+# Docker install:
 
 after cloning this repository:
 
@@ -85,6 +85,9 @@ Run this from the root of the project:
 This creates a docker image containing the OS, Bento4 binaries, and the Python environment, ready to serve from flask/gunicorn.
 
 ### 2. Run the container
+
+YOU MUST EDIT THE DOCKERFILE TO POINT TO YOUR LOCAL FILESYSTEM (see below)
+
 This command launches CasterPak in the background. It maps the web port and connects your local video files and configuration to the container.  
 
 Assuming the simplest configuration '[input] -> input_type = filesystem' 
@@ -106,8 +109,12 @@ docker run -d \
 
 `docker logs -f casterpak_server`
 
+
+# Development Installs 
+
 ### configuration
-All configuration items seen in 'config.ini' can be overridden by environment variables for containerized installs.
+for development, the 'config.ini' is your best place, but for production, use env vars.
+All of the options in config.ini can be overridden by environment variables for containerized installs.
 
 The format of the env vars are "CASTERPAK_SECTION_OPTION".
 
@@ -115,26 +122,28 @@ For example, to configure the serverName in the output section, you would set th
 
 videoParentPath is CASTERPAK_FILESYSTEM_VIDEOPARENTPATH
 
-### Install Dependencies:
- Dependencies are:
-  Sqlite 3
-  Bento 4
+### Install System Dependencies:
 
- #### Bento4 https://www.bento4.com/
 
- Bento4 binary install is required.  Specifically the `mp42hls` and `mp4info` commands and possibly more.
+#### Bento4 https://www.bento4.com/
+
+Bento4 binary install is required.  Specifically the `mp42hls` and `mp4info` commands and possibly more.
+```
+curl -O https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip \
+    && unzip Bento4-SDK-*.zip \
+    && mkdir -p /opt/bento4 \
+    && mv Bento4-SDK-*/bin /opt/bento4/bin
+```
     
-#### Bento4 Binary Install:
-Download the binary package from https://www.bento4.com/downloads/, extract, and copy the contents of the 'bin' folder
-onto your system.  The path doesn't matter (we will configure that later), but /usr/local/bin/bento4 is fine.
+Or, manually download the binary package from https://www.bento4.com/downloads/, extract, and copy the contents of the 'bin' folder onto your system.  The path to the binaries is configured in config.ini
 
 #### Sqllite3
    kind of standard quick-and-dirty low fingerprint SQL server to maintain cache state. Go google it or just use 'apt' or 'yum' to install it.  
 
+`apt-get update && apt-get install -y sqlite3`
+
     
 ### Installation
-
-This is totally in development and doesn't have a python setup yet.  Please contribute.
 
 1. download / clone this repo
 
@@ -142,11 +151,9 @@ This is totally in development and doesn't have a python setup yet.  Please cont
 
    `python3 -m venv .`
 
-
 3. install python dependencies
 
-   `./bin/pip install flask requests`
-
+   `./bin/pip install -r requirements.txt`
 
 4. configure this application
    
@@ -161,23 +168,28 @@ You must configure:
   and if you're reading this, you probably want Debug = True
    
 
-5. run the application (development and testing)
-
-   `./bin/python -m flask run`
+5. run the flask application (development and testing only)
+   ```
+   export CASTERPAK_FILESYSTEM_VIDEOPARENTPATH=/path/to/videos
+   ./bin/python -m flask run
+   ```
 
 Now, you can test flask is working by hitting port 5000
 Depending on how you configured your  'videoParentPath' - construct your url.
 
-In a typical development install, 
-videoParentPath = /data/videos/test.mp4
+By default, it will look in /mnt/data:
+videoParentPath = /mnt/data
 
-results in a url:  http://localhost:5000/i/test.mp4/index.m3u8
+and a file /mnt/data/test.mp4 will have the url:
 
+http://localhost:5000/i/test.mp4/index.m3u8
 
-For example, a video file exists on the filesystem at /mnt/media/files/videos/video.mp4
-and we configure 'videoParentPath' to '/mnt/media/files/'
-this results in an hls http endpoint of 'http://example.com/i/videos/video.mp4/index.m3u8'
+A browser may only download the .m3u8 file, but using VLC or any media player will show the video.
+Congrats!  you're now developing.
 
+### Scaling with gunicorn 
+
+What this is doing is taking that single flask thread and creating workers so we can serve multiple requests.
 
 6. configure gunicorn
 
@@ -186,16 +198,23 @@ this results in an hls http endpoint of 'http://example.com/i/videos/video.mp4/i
 
 7. run the application (production)
 
-   `./bin/python -m gunicorn `
+   `./bin/gunicorn`
 
-   It's up to the user to setup a web proxy with nginx or any other webserver. See documentation here https://flask.palletsprojects.com/en/2.1.x/deploying/uwsgi/
-
-
-8. setup a systemd service. see the example casterpak.service unit file and see systemd documentation.
+It's up to the user to setup a web proxy with nginx or any other webserver. 
+See documentation here https://flask.palletsprojects.com/en/2.1.x/deploying/uwsgi/
 
 
-In the future, a complete installation script may be provided that does all the above steps.
 
+
+## Virtualized System Setup (not docker)
+
+Included is a systemd unit config 'casterpak.service'.  No setup script is provided, so you must edit and install this yourself
+
+Open it, edit it to best suit your paths where you installed casterpak and your wsgi server.
+
+then `sudo ln -s /path/to/casterpak.service /etc/systemd/service/casterpak.service`
+
+then `sudo systemctl start casterpak.service`
 
 ### Setting up the cache cleanup task
 
@@ -229,17 +248,6 @@ And leave it open - as requests happen, you'll see the files fill up.
 and it's always nice to do some requests to fill up the cache.
 
     curl http://localhost:5000/i/video.mp4/index_0_av.m3u8
-
-
-## System Setup
-
-Included is a systemd unit config 'casterpak.service'.  No setup script is provided, so you must edit and install this yourself
-
-Open it, edit it to best suit your paths where you installed casterpak and your wsgi server.
-
-then `sudo ln -s /path/to/casterpak.service /etc/systemd/service/casterpak.service`
-
-then `sudo systemctl start casterpak.service`
 
 
 ## Testing
