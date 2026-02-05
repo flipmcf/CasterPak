@@ -13,6 +13,7 @@ __pycache__/
 
 #local configuration files
 config.ini
+.env
 
 #VSCode settings
 .vscode/
