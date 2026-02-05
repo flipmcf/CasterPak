@@ -26,6 +26,7 @@ def get_config() -> ConfigParser:
         for option in config.options(section):
             env_var = f"CASTERPAK_{section.upper()}_{option.upper()}"
             if env_var in os.environ:
+                print(f"Overriding config option {section}.{option} with environment variable {env_var}")
                 config.set(section, option, os.environ[env_var])
 
     return config

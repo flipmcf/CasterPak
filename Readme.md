@@ -70,6 +70,19 @@ And each one of those .ts files will be available at this application's endpoint
 Additionally, this package will setup jobs to remove .ts files after they go unaccessed for
 A certain amount of time.
 
+
+### CACHING RECIPIES & Tuning
+
+The easiest is no cache.  You simply leave "cache_input = False" in config.ini and the big video files are never moved around.
+
+When you have a huge library of large videos and mount that library over the network, things get interesting!
+
+Using filesystem, you should network mount the storage to your host os, configure a local storage to copy files into (this is your video cache) and turn caching on.
+
+Running containerized casterpak services the video files are first copied from the host OS into the containers and held there in cache.
+
+In the future, we will support directly configuring FTP, SCP, and others so network mounts are not necessary inside containers. (see config.ini)
+
 ----
 
 # Docker install:
