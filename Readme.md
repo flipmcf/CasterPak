@@ -74,7 +74,37 @@ A certain amount of time.
 
 ## Docker install:
 
-It's a work in progress right now... It builds, but doesn't run.
+after cloning this repository:
+
+
+### 1. Build the image
+Run this from the root of the project:
+
+`docker build -t casterpak:v0.8 .`
+
+This creates a docker image containing the OS, Bento4 binaries, and the Python environment, ready to serve from flask/gunicorn.
+
+### 2. Run the container
+This command launches CasterPak in the background. It maps the web port and connects your local video files and configuration to the container.  
+
+Assuming the simplest configuration '[input] -> input_type = filesystem' 
+Replace 'path to your videos' with the local path where your video files are.
+(more advanced setups where video files are copied to local cache don't require this)
+
+The docker image looks for these locally in /mnt/data
+
+```
+docker run -d \
+  --name casterpak_server \
+  -p 5000:5000 \
+  -v $(pwd)/config.ini:/app/config.ini:ro \
+  -v PATH TO YOUR VIDEOS:/mnt/data \
+  casterpak:v0.8
+```
+
+### 3. Check the logs
+
+`docker logs -f casterpak_server`
 
 ### configuration
 All configuration items seen in 'config.ini' can be overridden by environment variables for containerized installs.
