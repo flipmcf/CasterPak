@@ -91,7 +91,7 @@ YOU MUST EDIT THE DOCKERFILE TO POINT TO YOUR LOCAL FILESYSTEM (see below)
 This command launches CasterPak in the background. It maps the web port and connects your local video files and configuration to the container.  
 
 Assuming the simplest configuration '[input] -> input_type = filesystem' 
-Replace 'path to your videos' with the local path where your video files are.
+Replace 'PATH TO YOUR VIDEOS' with the local path where your video files are.
 (more advanced setups where video files are copied to local cache don't require this)
 
 The docker image looks for these locally in /mnt/data
@@ -100,7 +100,6 @@ The docker image looks for these locally in /mnt/data
 docker run -d \
   --name casterpak_server \
   -p 5000:5000 \
-  -v $(pwd)/config.ini:/app/config.ini:ro \
   -v PATH TO YOUR VIDEOS:/mnt/data \
   casterpak:v0.8
 ```
