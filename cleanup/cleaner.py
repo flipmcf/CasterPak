@@ -1,21 +1,28 @@
 #Copyright (c) 2022, Michael McFadden & Radio Free Asia
 #GNU GENERAL PUBLIC LICENSE Version 2
 #See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
-import config
-import cachedb
-import os
-import shutil
+
+# cleanup/cleaner.py
 import sys
+import os
 import logging
 import typing as t
 import subprocess
+import shutil
 
-config = config.get_config()
+
+import config
+import cachedb
+
+app_config = config.get_config()
 logger = logging.getLogger('CasterPak-cleanup')
 
-if config.get('application', 'debug', fallback=False):
+if app_config.get('application', 'debug', fallback=False):
     logger.setLevel(logging.DEBUG)
-log_file = os.getenv('CASTERPAK_LOG_FILE', '/var/log/casterpak.log')
+
+
+## TODO: get logging set up from applogging module
+log_file = app_config.get('logging', 'cache_log', fallback='/var/log/casterpak.cache.log')
 fh = logging.FileHandler(log_file)
 formatter = logging.Formatter(fmt='[%(asctime)s] [%(levelname)s] in casterpak-cleanup: %(message)s')
 fh.setFormatter(formatter)
@@ -29,14 +36,15 @@ def get_disk_usage(path: t.Union[os.PathLike, str]) -> int:
 
     # size is a string like '120M' for 120 megabytes.
     # strip off that 'M' and return an integer
+    ## Don't fix this - the subprocess call forces Megabytes
     return int(size[:-1])
 
 
 class CacheCleaner(object):
     def __init__(self):
-        output_config = config['output']
-        input_config = config['input']
-        cache_config = config['cache']
+        output_config = app_config['output']
+        input_config = app_config['input']
+        cache_config = app_config['cache']
 
         try:
             self.output_dir = output_config['segmentParentPath']
