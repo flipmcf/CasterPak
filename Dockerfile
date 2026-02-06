@@ -38,9 +38,15 @@ RUN pip install -r requirements.txt
 #  Copy application source
 COPY . .
 
+## Create input cache directory and grant permissions
+## TODO: this path is (for some reason) configurable in config.ini.  Hard-Code it.
+RUN mkdir -p /tmp/video_input && chown casteruser /tmp/video_input
+
 #  Create log files for casterpak and grant permissions
 RUN touch /var/log/casterpak.error.log && chown casteruser /var/log/casterpak.error.log
 RUN touch /var/log/casterpak.access.log && chown casteruser /var/log/casterpak.access.log
+RUN touch /var/log/casterpak.cache.log && chown casteruser /var/log/casterpak.cache.log
+
 
 #  Set internal container environment defaults
 # These can be overridden by your docker-compose or ECS task def
