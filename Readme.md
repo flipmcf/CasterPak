@@ -276,6 +276,18 @@ and it's always nice to do some requests to fill up the cache.
 
 ## Testing
 
+Hopefully, a lot of this will be automated soon, but here is the basic testing path.
+Before a commit to main:
+
+1. execute `run.sh` at the root of the repository with your testing setup.  
+    Make sure videos are served (use VLC "media->open network stream" and hit a master.m3u8 url)
+
+2. execute `docker-compose build --no-cache` to make sure the containers build.
+3. execute `docker-compose up -d` to run the server
+
+- make sure videos are served.
+
+
 note that there is a hard coded root path for url's called "i" so all testing must be to http://127.0.0.1/i/path/to/the/files
 This 'feature' may go away in the future.
 
