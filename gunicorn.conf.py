@@ -6,7 +6,7 @@ app_config = get_config()
 workers = 3
 bind = "unix:/home/casterpak/CasterPak/casterpak.sock"
 
-wsgi_app = "casterpak:app"
+wsgi_app = "app:app"
 umask = 777  #A bit mask for the file mode on files written by Gunicorn.
 
 loglevel = 'debug'

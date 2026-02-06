@@ -16,4 +16,4 @@ echo "Starting CasterPak with Gunicorn..."
 exec $GUNICORN_PATH --bind 0.0.0.0:5000 \
               --workers 4 \
               --timeout 120 \
-              casterpak:app
+              app:app

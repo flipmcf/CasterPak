@@ -97,6 +97,7 @@ edit the .env file to point HOST_VIDEO_PATH to your actual video folder on your 
 `docker-compose up -d --build`
 
 # stop the server
+
 `docker-compose down`
 
 
