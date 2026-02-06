@@ -31,7 +31,7 @@ class CacheDB(object):
     def __init__(self, dbname: str = 'cacheDB.db', cache_name: str = None) -> None:
         """create a new instance of a CacheDB
            in the case of holding multiple caches (like input file cache and output file cache)
-           a 'cachetype' can be passed to differentiate different caches
+           a 'cache_name' can be passed to differentiate different caches
         """
         self.table = None
         self.dbname = dbname
