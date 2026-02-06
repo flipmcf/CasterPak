@@ -248,30 +248,10 @@ Deleting master playlists is not a problem, as casterpak will re-create them if 
 
 What caching server is complete without deleting old stuff?
 
-look at 'crontab.tpl' - it's your basic crontab entry.  add it via 'crontab -e' as the user that will be running the flask application
+For Virtualized or bare-metal setups, look at 'crontab.tpl' - it's your basic crontab entry.  add it via 'crontab -e' as the user that will be running the flask application
 it's configured to run cleanup every 5 minutes, but you can tune it as you wish.
 
-create a file /var/log/casterpak.log and give the application user rights to write to it for logging.
-
-To watch it in action, get a few terminal windows open.
-
-1. you can watch the actual cache of segment files.  If you configured to write your segments to /tmp/segments, run this command:
-
-     `watch tree -L /tmp/segments`
-
-And leave it open - as requests happen, you'll see the files fill up.
-
-2. you can watch the cache database - this tells what files were created when.
-
-    `watch date +%s && cat cacheDB.json`
-
-3. you can watch the log (turn on debug in config.ini for best results):
-
-    `tail -f /var/log/casterpak.log`
-
-and it's always nice to do some requests to fill up the cache.
-
-    curl http://localhost:5000/i/video.mp4/index_0_av.m3u8
+create a file /var/log/casterpak.cache.log and give the application user rights to write to it for logging.
 
 
 ## Testing
@@ -302,18 +282,6 @@ you should get a result that looks like an m3u8 manifest
 you should see a new directory and files created in  'segmentParentPath'
 
 you can also point VLC or any other video player that can open a network path to http://127.0.0.1/i/videos/video.mp4/index_0_av.m3u8 and make sure the video plays.
-
-----
-versions (should update these)
-- click==8.1.2
-- Flask==2.1.1
-- importlib-metadata==4.11.3
-- itsdangerous==2.1.2
-- Jinja2==3.1.1
-- MarkupSafe==2.1.1
-- tinydb==4.7.0
-- Werkzeug==2.1.1
-- zipp==3.8.0
 
 
 ## Debugging
@@ -352,6 +320,32 @@ gunicorn and thread issues are a bit harder.  Included is a sample gunicorn conf
 `sudo ./venv/bin/python3 -m gunicorn -b :5000 --config gunicorn-debug.conf.py`
 
 Please configure the debug configuration to your needs.
+
+### Cache debugging
+This is best to do with a container.
+
+Run casterpak container:
+
+
+`docker exec -it casterpak_server /bin/bash`
+
+you can watch the actual cache of segment files.  If you configured to write your segments to /tmp/segments, run this command:
+
+     `watch tree -L 2 /tmp/segments`
+
+And leave it open - as requests happen, you'll see the files fill up.
+
+2. you can watch the cache database - this tells what files were created when.
+
+    `watch date +%s && cat cacheDB.json`
+
+3. you can watch the log (turn on debug in config.ini for best results):
+
+    `tail -f /var/log/casterpak.log`
+
+and it's always nice to do some requests to fill up the cache.
+
+    curl http://localhost:5000/i/video.mp4/index_0_av.m3u8
 
 
 
