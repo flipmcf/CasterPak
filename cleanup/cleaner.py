@@ -21,16 +21,21 @@ if app_config.get('application', 'debug', fallback=False):
     logger.setLevel(logging.DEBUG)
 
 
-## TODO: get logging set up from applogging module
-log_file = app_config.get('logging', 'cache_log', fallback='/var/log/casterpak.cache.log')
-fh = logging.FileHandler(log_file)
-formatter = logging.Formatter(fmt='[%(asctime)s] [%(levelname)s] in casterpak-cleanup: %(message)s')
-fh.setFormatter(formatter)
-logger.addHandler(fh)
+def run_cleanup():
+    logger.info("running CasterPak cleanup")
+    cleaner = CacheCleaner()
+    try:
+        cleaner.clean()
+    except Exception as err:
+        logger.error(f'cleanup exited with Error: \n {err}')
 
 
 def get_disk_usage(path: t.Union[os.PathLike, str]) -> int:
     """ get the total file size of the directory."""
+
+    if not os.path.exists(path):
+        logger.debug(f"directory {path} does not exist, returning 0 usage")
+        return 0
     # This will only work on posix / linux - but that's ok.  It's efficient.
     size = subprocess.check_output(['du', '-BM', '--max-depth=0', path]).split()[0]
 
@@ -42,6 +47,7 @@ def get_disk_usage(path: t.Union[os.PathLike, str]) -> int:
 
 class CacheCleaner(object):
     def __init__(self):
+        ## TODO - scan the filesystem for files that do no exist in the cache_db, and remove them.
         output_config = app_config['output']
         input_config = app_config['input']
         cache_config = app_config['cache']
@@ -183,10 +189,17 @@ class CacheCleaner(object):
 
 
 if __name__ == "__main__":
-    logger.info("running CasterPak cleanup")
-    cleaner = CacheCleaner()
-    try:
-        sys.exit(cleaner.clean())
-    except Exception as err:
-        logger.error(f'cleanup exited with Error: \n {err}')
-        sys.exit(1)
+
+
+    # When run as a standalone script, configure a file handler for logging.
+
+
+    log_file = app_config.get('logging', 'cache_log', fallback='/var/log/casterpak.cache.log')
+    fh = logging.FileHandler(log_file)
+    formatter = logging.Formatter(fmt='[%(asctime)s] [%(levelname)s] in casterpak-cleanup: %(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    logger.setLevel(logging.INFO) # Ensure messages are captured
+
+    run_cleanup()
+

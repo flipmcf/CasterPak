@@ -9,27 +9,21 @@ from config import get_config
 
 
 def setup_gunicorn_logging(app, base_config):
+    # get the gunicorn logger
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+
+    # configure the app, and vodhls loggers to use the same handlers as gunicorn
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)
+    
     vodhls_logger = logging.getLogger('vodhls')
-    gunicorn_error_logger = logging.getLogger('gunicorn.error')
+    vodhls_logger.handlers = gunicorn_logger.handlers
+    vodhls_logger.setLevel(gunicorn_logger.level)
+    
+    cleanup_logger = logging.getLogger('CasterPak-cleanup')
+    cleanup_logger.handlers = gunicorn_logger.handlers
+    cleanup_logger.setLevel(gunicorn_logger.level)
 
-    formatter = logging.Formatter(fmt='[%(asctime)s] [%(levelname)s] in gunicorn: %(message)s')
-    for handler in gunicorn_error_logger.handlers:
-        handler.setFormatter(formatter)
-
-    formatter = logging.Formatter(fmt='[%(asctime)s] [%(levelname)s] in %(module)s: %(message)s')
-    app.logger.handlers = gunicorn_error_logger.handlers.copy()
-    for handler in app.logger.handlers:
-        handler.setFormatter(formatter)
-
-    vodhls_logger.handlers = gunicorn_error_logger.handlers.copy()
-    for handler in app.logger.handlers:
-        handler.setFormatter(formatter)
-
-    if base_config['application'].getboolean('debug'):
-        gunicorn_error_logger.setLevel(logging.DEBUG)
-
-    app.logger.debug("Debug Enabled")
-    app.logger.info("Info log Enabled")
 
 
 def create_app(test_config=None):

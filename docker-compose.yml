@@ -14,7 +14,8 @@ services:
       #and we want to send all logs to stdout/stderr
       - CASTERPAK_LOGGING_ACCESS_LOG=-
       - CASTERPAK_LOGGING_ERROR_LOG=-
-    
+      - CASTERPAK_LOGGING_CACHE_LOG=-
+
     # Volume mappings connect your real files to the container
     volumes:
       # 1. Mount your local config file (Read-Only)

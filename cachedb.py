@@ -18,8 +18,13 @@ class SQLite(object):
         self.file = file
 
     def __enter__(self):
-        self.conn = sqlite3.connect(self.file)
+        ## TODO: handle connect timeout to avoid locking
+        self.conn = sqlite3.connect(self.file)  #timeout=5.0)
         self.conn.row_factory = sqlite3.Row
+
+        # Performance Pro-Tip: Enable WAL mode for better concurrency
+        # self.conn.execute("PRAGMA journal_mode=WAL;")  ## TODO NEEDS TESTING
+
         return self.conn.cursor()
 
     def __exit__(self, exc_type, exc_value, traceback):

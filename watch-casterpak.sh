@@ -20,9 +20,9 @@ CMD_SHELL="docker exec -it casterpak_server /bin/bash"
 # 3. LAUNCH: windows 
 # If you prefer separate windows instead of tabs, remove the '--tab' flags
 gnome-terminal --window --title="HEARTBEAT: Logs" --geometry=80x24+0+0 -- bash -c "$CMD_LOGS" 
-gnome-terminal --window --title="Filesystem" --geometry=80x24+800+0 -- bash -c "$CMD_FILES; exec bash"
-gnome-terminal --window --title="DB: Input Files" --geometry=80x20+0+1550 -- bash -c "$CMD_DB_INPUT; exec bash"
-gnome-terminal --window --title="DB: Segments" --geometry=80x20+800+1550 -- bash -c "$CMD_DB_SEGMENT; exec bash"
-gnome-terminal --window --title="CHAOS: Manual Entry" --geometry=80x20+1600+1550 -- bash -c "$CMD_SHELL; exec bash"
+gnome-terminal --window --title="Filesystem" --geometry=80x24+800+0 -- bash -c "$CMD_FILES"
+gnome-terminal --window --title="DB: Input Files" --geometry=80x20+0+1550 -- bash -c "$CMD_DB_INPUT"
+gnome-terminal --window --title="DB: Segments" --geometry=80x20+800+1550 -- bash -c "$CMD_DB_SEGMENT"
+gnome-terminal --window --title="CHAOS: Manual Entry" --geometry=80x20+1600+1550 -- bash -c "$CMD_SHELL"
 
 echo "🚀 Command Center Launched. Happy hunting."

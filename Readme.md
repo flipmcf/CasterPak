@@ -96,9 +96,12 @@ edit the .env file to point HOST_VIDEO_PATH to your actual video folder on your 
 
 `docker-compose up -d --build`
 
-# stop the server
+Stop the server with:
 
 `docker-compose down`
+
+And get a clean build with:
+` docker-compose down --rmi all --volumes --remove-orphans`
 
 
 ### 1. Build the image
@@ -282,6 +285,14 @@ you should get a result that looks like an m3u8 manifest
 you should see a new directory and files created in  'segmentParentPath'
 
 you can also point VLC or any other video player that can open a network path to http://127.0.0.1/i/videos/video.mp4/index_0_av.m3u8 and make sure the video plays.
+
+### Testing Cache Cleanup.
+
+the entire cache can be invalidated with a single SQL query:
+ `sqlite3 /app/cacheDB.db "UPDATE segmentfile SET timestamp = 0; UPDATE inputfile SET timestamp = 0;"`
+
+setting everything to a timestamp of last access, Jan 1, 1970.   Cleanup should wake up every 300 seconds by default, and wipe the cache.
+
 
 
 ## Debugging
