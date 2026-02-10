@@ -1,6 +1,19 @@
 #Copyright (c) 2022, Michael McFadden & Radio Free Asia
 #GNU GENERAL PUBLIC LICENSE Version 2
 #See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
+
+# ## TODO: [CasterPak 0.8.x Refactor] - Database Initialization & Concurrency
+# 1. Decouple Schema Creation: Move 'CREATE TABLE IF NOT EXISTS' out of the 
+#    request-level connection loop. It causes unnecessary locking in Docker.
+# 2. Permanent WAL Mode: Run 'PRAGMA journal_mode=WAL;' once during a dedicated 
+#    initialization phase (e.g., in app.py before Gunicorn forks).
+# 3. Connection Tuning: Ensure the SQLite context manager remains 'lean'—only 
+#    handling cursor yields and commits. Increase timeout to 10.0s for 
+#    containerized I/O overhead.
+# 4. Bootstrap Logic: Create a 'db.initialize()' method to be called once at 
+#    process start to handle items 1 & 2.
+
+
 from typing import Iterable
 import datetime
 import sqlite3
@@ -21,9 +34,6 @@ class SQLite(object):
         ## TODO: handle connect timeout to avoid locking
         self.conn = sqlite3.connect(self.file)  #timeout=5.0)
         self.conn.row_factory = sqlite3.Row
-
-        # Performance Pro-Tip: Enable WAL mode for better concurrency
-        # self.conn.execute("PRAGMA journal_mode=WAL;")  ## TODO NEEDS TESTING
 
         return self.conn.cursor()
 
