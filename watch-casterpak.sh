@@ -6,7 +6,7 @@ docker exec -u 0 casterpak_server bash -c "apt-get update && apt-get install -y 
 
 # 2. CONFIG: Define our monitoring commands
 # We use 'bash -c' inside the tabs to keep them open if a command fails
-CMD_LOGS="docker logs -f casterpak_server"
+CMD_LOGS="docker-compose logs --tail=20 -f"
 CMD_FILES="docker exec -it casterpak_server watch -d -n 1 'tree -d -L 2 /tmp/video_input /tmp/segments'"
 
 CMD_DB_INPUT='docker exec -it casterpak_server watch -n 1 "date +%s; sqlite3 /app/cacheDB.db '\''SELECT filename, (strftime(\"%s\", \"now\") - timestamp) || \"s\" AS age FROM inputfile ORDER BY timestamp DESC LIMIT 10;'\''"'

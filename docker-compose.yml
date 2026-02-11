@@ -3,10 +3,13 @@ services:
     build: .
     image: casterpak:0.8.0-alpha
     container_name: casterpak_server
-    # Map the host port 5000 to the container port 5000
-    ports:
-      - "${APP_PORT:-5000}:5000"
     
+    # Map the host port 5000 to the container port 5000
+    #ports:
+    #  - "${APP_PORT:-5000}:5000"
+    expose:
+      - "5000"  # Expose port 5000 to other containers (like nginx)
+
     # Environment variables (overrides for your config logic)
     environment:
       - FLASK_ENV=production
@@ -29,3 +32,12 @@ services:
       
     # Ensures the container restarts automatically if it crashes or your PC reboots
     restart: unless-stopped
+
+  nginx:
+    build: ./nginx
+    image: flipmcf/casterpak-proxy:0.8.0-alpha
+    container_name: casterpak_nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - casterpak
