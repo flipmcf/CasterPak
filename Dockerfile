@@ -1,4 +1,8 @@
-## TODO, move into 'casterpak' subdir and update docker-compose.yml accordingly
+## TODO, move into 'casterpak' subdir, and move all in casterpak subdir down a level
+##  There should be /casterpak/ The docker image and /casterpak/casterpak the python module.
+## Then, update docker-compose.yml to build from ./casterpak instead of .
+
+
 
 # --- Stage 1: The Bento4 Extractor ---
 FROM alpine:latest AS bento-builder
@@ -39,6 +43,12 @@ RUN pip install -r requirements.txt
 
 #  Copy application source
 COPY . .
+
+# If config.ini doesn't exist, use the example as a template
+# This is not the correct way to configure or tune, use .env.
+# but it's where we save defaults.
+RUN if [ ! -f config.ini ]; then cp config_example.ini config.ini; fi
+
 
 ## Create input cache directory and grant permissions
 ## TODO: this path is (for some reason) configurable in config.ini.  Hard-Code it.
