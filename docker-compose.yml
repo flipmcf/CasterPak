@@ -22,15 +22,17 @@ services:
 
     # Volume mappings connect your real files to the container
     volumes:
-      # 1. Mount your local config file (Read-Only)
-      # 2. Your source video files (Change left side to your actual path)
+      # 1. IF YOU ARE USING FILESYSTEM CONFIG for input (recommended)
+      # map the local path to source video files (Change left side to your actual path)
+      # best placed in .env - run 'setup.sh'
       - ${HOST_VIDEO_PATH:-~/Videos}:/mnt/data
       
       # 3. Persistent cache directories (so they survive container restarts)
+      # IF YOU DO NOT MOUNT THESE, CasterPak will have to re-generate all segments and metadata on every restart.
       # ./tmp/video_input:/tmp/video_input
       # - /tmp/segments:/tmp/segments
       
-    # Ensures the container restarts automatically if it crashes or your PC reboots
+    # Ensures the container restarts automatically if it crashes or if the server restarts
     restart: unless-stopped
 
   nginx:
