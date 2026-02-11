@@ -107,39 +107,12 @@ open VNC or a browser capable of native HLS streaming, and hit the url where you
 http://localhost/i/VIDEOFILENAME.mp4/master.m3u8
 
 
-# More in-depth Docker install instructions.
-
-After cloning the github repository...
-
-# 1. Build the image
-
-Run this from the root of the project:
-
-`docker build -t casterpak:v0.8 .`
-
-This creates a docker image containing the OS, Bento4 binaries, and the Python environment, ready to serve from flask/gunicorn.
-
-### 2. Run the container
-
-This command launches CasterPak in the background. It maps the web port and connects your local video files and configuration to the container.  
-
-Assuming the simplest configuration '[input] -> input_type = filesystem' 
-Replace 'PATH TO YOUR VIDEOS' with the local path where your video files are.
-(more advanced setups where video files are copied to local cache don't require this)
-
-The docker image looks for these locally in /mnt/data
-
-```
-docker run -d \
-  --name casterpak_server \
-  -p 5000:5000 \
-  -v PATH TO YOUR VIDEOS:/mnt/data \
-  casterpak:v0.8
-```
 
 ### 3. Check the logs
 
 `docker logs -f casterpak_server`
+
+There is also a 'watcher' script './watch_casterpak.sh' you may run at your own risk.  It will open up a bunch of terminal windows to watch the logs, the cache filesystem, the database, and a cli into the container for your own debugging.
 
 
 # Development Installs 
@@ -190,7 +163,7 @@ when building a container, config_example.ini contains defaults, and .env contai
 
 You must configure:
   a servername (localhost:5000 by default)
-  videoParentPath for where to find your full-lenght videos
+  videoParentPath for where to find your full-lenght videos (/mnt/data/videos default)
   path to the bento4 binaries
   and if you're reading this, you probably want Debug = True
    
