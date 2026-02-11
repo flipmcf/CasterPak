@@ -90,9 +90,7 @@ In the future, we will support directly configuring FTP, SCP, and others so netw
 
 after cloning this repository:
 
-`cp .env.example .env`
-
-edit the .env file to point HOST_VIDEO_PATH to your actual video folder on your system.
+run './setup.py' for required configuration.
 
 `docker-compose up -d --build`
 
