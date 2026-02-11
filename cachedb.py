@@ -25,6 +25,24 @@ logger = logging.getLogger("casterpak cleanup")
 SEGMENT_FILE_CACHE = 'segmentfile'
 INPUT_FILE_CACHE = 'inputfile'
 
+def initialize_cache_db(dbname: str = 'cacheDB.db'):
+    """Initialize the cache database with the necessary tables and WAL mode.
+       This should be called once at application startup before any requests are handled.
+    """
+    with SQLite(dbname) as cursor:
+        # Enable Write-Ahead Logging for better concurrency
+        cursor.execute("PRAGMA journal_mode=WAL;")
+        logger.debug(f"Set journal_mode to WAL for database {dbname}")
+
+        # Create tables for different caches if they don't exist
+        for cache_name in [SEGMENT_FILE_CACHE, INPUT_FILE_CACHE]:
+            table_name = ''.join(c for c in cache_name if c.isalnum())
+            create_query = f"""CREATE TABLE IF NOT EXISTS {table_name} (
+                               filename text PRIMARY KEY,
+                               timestamp int NOT NULL);
+                             """
+            cursor.execute(create_query)
+            logger.debug(f"Ensured table '{table_name}' exists in database {dbname}")
 
 class SQLite(object):
     def __init__(self, file='sqlite.db'):
@@ -58,12 +76,7 @@ class CacheDB(object):
             if self.table != cache_name:
                 logger.warning(f"cache name {cache_name} sanitized to {self.table}")
 
-        create_query = f"""CREATE TABLE IF NOT EXISTS {self.table} (
-                           filename text PRIMARY KEY,
-                           timestamp int NOT NULL);
-                         """
-        with SQLite(self.dbname) as cursor:
-            cursor.execute(create_query)
+        ## TODO Check if table exists, and if not, run db initialize.
 
     def addrecord(self, filename: str = None, timestamp: int = None) -> None:
         if filename is None:

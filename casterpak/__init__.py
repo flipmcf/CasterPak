@@ -6,6 +6,7 @@ from flask import Flask
 
 import applogging
 from config import get_config
+import cachedb
 
 
 def setup_gunicorn_logging(app, base_config):
@@ -71,6 +72,10 @@ def create_app(test_config=None):
             app.logger.debug(f"created new input cache directory {app.config['input']['videoCachePath']}")
         app.logger.info("input caching enabled")
         app.logger.info(f"input caching to {app.config['input']['videoCachePath']}")
+
+    # initialize the cache database
+    app.logger.info(f"initializing cache database")
+    cachedb.initialize_cache_db()
 
     if __name__ != "__main__":
         setup_gunicorn_logging(app, base_config)
