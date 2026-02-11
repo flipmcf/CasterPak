@@ -2,7 +2,6 @@
 
 ## The CAching STrEam [R] PAcKager:
 
-
 This software provides HLS Stream packaging for Video-On-Demand (VOD) with a built in file cache.
 
 The problem it solves is to balance your CPU and Storage costs for streaming Video-on-demand.
@@ -12,12 +11,10 @@ It's a very good fit for use cases where videos serve the 'popular' model of acc
 accessed remain cached at this server and videos that are not accessed are deleted from cache.
 
 Also it's a great fit for those who own a large 'archive' video file on inexpensive, slow-access storage like AWS S3 Glacier or Microsoft Azure Archive.  
-CasterPak can retrieve source video files from network addressess, copy them locally, and then deliver.   The first video play 
-may be slow, but subsequent access to the same video is then fast. 
+CasterPak can retrieve source video files from network addressess, copy them locally, and then deliver.   The first video play may be slow, but subsequent access to the same video is then fast. 
 
-You don't want to store your HLS stream forever, neither do you want to create a stream package for every request.  
-This software provides the utilities to configure how long to store video files locally (video input cache ttl),
-files ready for streaming (streaming cache ttl), and creates stream packages on-demand from your encoded renditions
+You don't want to store your HLS stream forever, neither do you want to re-create a stream package for every request.  
+This software provides the utilities to configure how long to store origional video files locally (video input cache ttl), files ready for streaming (streaming cache ttl), and creates stream packages on-demand from your encoded renditions
 if the files don't exist (handle cache miss).
 
 This package is a good drop-in replacement for Akamai Media Services On Demand (MSOD) for video streaming.
@@ -30,22 +27,24 @@ The first endpoint is the master manifest.  it uses the same syntax as Akamai's 
 
 http://example.com/i/path/<common_filename_prefix>,< bitrate >,< bitrate >,< bitrate >,< bitrate >,<common_filename_suffix>.csmil/master.m3u8
 
-For example, this request will create the following master manifest:
+For example, if you have a master video 'my_video.mp4' and after video encoding you create a 'my_video_highdef.mp4', 'my_video_medium.mp4', and 'my_video_low.mp4', this URL request will create the following master manifest:
 
-http://this_application/i/20220404/1251/my_video_,highdef,medium,low,.mp4.csmil/master.m3u8
+http://this_application/i/my_video_,highdef,medium,low,.mp4.csmil/master.m3u8
 
 
     #EXTM3U
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=622044,RESOLUTION=854x480
-    http://this_application/i/20220404/1251/my_video_low.mp4/index_0_av.m3u8
+    http://this_application/i/my_video_low.mp4/index_0_av.m3u8
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=741318,RESOLUTION=960x540
-    http://this_application/i/20220404/1251/my_video_medium.mp4/index_0_av.m3u8
+    http://this_application/i/my_video_medium.mp4/index_0_av.m3u8
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=1156684,RESOLUTION=1280x720
-    http://this_application/i/20220404/1251/my_video_highdef.mp4/index_0_av.m3u8
+    http://this_application/i/my_video_highdef.mp4/index_0_av.m3u8
 
 Each one of those url's above will also be served by this application.  We call them 'media manifests' or 'segment manifests' This application will serve segment manifests and the actual segment data.
 
 If the m3u8 manifest is available on-disk, it's served.  Otherwise, it's created and saved
+
+For example, http://this_application/i/my_video_highdef.mp4/index_0_av.m3u8 will reply with
 
     #EXTM3U
     #EXT-X-TARGETDURATION:10
@@ -54,15 +53,15 @@ If the m3u8 manifest is available on-disk, it's served.  Otherwise, it's created
     #EXT-X-VERSION:3
     #EXT-X-MEDIA-SEQUENCE:1
     #EXTINF:10.000,
-    http://this_application/i/20220324/1251/my_video_highdef.mp4/segment1_0_av.ts
+    http://this_application/i/my_video_highdef.mp4/segment1_0_av.ts
     #EXTINF:10.000,
-    http://this_application/i/20220324/1251/my_video_highdef.mp4/segment2_0_av.ts
+    http://this_application/i/my_video_highdef.mp4/segment2_0_av.ts
     #EXTINF:10.000,
-    http://this_application/i/20220324/1251/my_video_highdef.mp4/segment3_0_av.ts
+    http://this_application/i/my_video_highdef.mp4/segment3_0_av.ts
     #EXTINF:10.000,
     ...
     #EXTINF:6.186,
-    http://this_application/i/20220324/1251/my_video_highdef.mp4/segment19_0_av.ts
+    http://this_application/i/my_video_highdef.mp4/segment19_0_av.ts
     #EXT-X-ENDLIST
 
 And each one of those .ts files will be available at this application's endpoint until they are removed by the cache cleanup.
@@ -74,19 +73,19 @@ A certain amount of time.
 ### CACHING RECIPIES & Tuning
 
 The easiest is no cache.  Start here.   Install this (or run the container) on the same system that has your video files.
-(if you're mounting the files from a fileserver, your ahead of the game... but stay with me...)
+(if you're already using a network mount for your video files, you're ahead of the game... but stay with me...)
 
-You simply leave "cache_input = False" in config.ini only the streams are cached.
+configure "cache_input = False" in config.ini.
 
-Next is to turn cache_input on and configure a local spot for your video files - so they are only read over the network once.
+And start streaming.
 
-Next is to decided if you want to copy the big video files into each container!  I don't know yet.  I haven't tried this.
+Next is to turn cache_input on and configure a local spot for your video files - so they are only read over the network once.  This is your 'input cache'.  Currently, casterpak will copy your big video files into the container, but I'm considering other options the 'input cache' configuration.
 
-In the future, we will support directly configuring FTP, SCP, and others so network mounts are not necessary inside containers. (see config.ini)
+In the future, we will support directly configuring FTP, SCP, and others so network mounts are not necessary inside containers. (see config.ini), but for now, you must mount the filesystem and map it to the container.
 
 ----
 
-# Docker install:
+# Simple Docker install:
 
 after cloning this repository:
 
@@ -99,10 +98,20 @@ Stop the server with:
 `docker-compose down`
 
 And get a clean build with:
-` docker-compose down --rmi all --volumes --remove-orphans`
+`docker-compose down --rmi all --volumes --remove-orphans`
+
+Things should work right out of the box.
+
+open VNC or a browser capable of native HLS streaming, and hit the url where your video is:
+
+http://localhost/i/VIDEOFILENAME.mp4/master.m3u8
 
 
-### 1. Build the image
+# More in-depth Docker install instructions.
+
+After cloning the github repository...
+
+# 1. Build the image
 
 Run this from the root of the project:
 
@@ -111,8 +120,6 @@ Run this from the root of the project:
 This creates a docker image containing the OS, Bento4 binaries, and the Python environment, ready to serve from flask/gunicorn.
 
 ### 2. Run the container
-
-YOU MUST EDIT THE DOCKERFILE TO POINT TO YOUR LOCAL FILESYSTEM (see below)
 
 This command launches CasterPak in the background. It maps the web port and connects your local video files and configuration to the container.  
 
@@ -137,15 +144,14 @@ docker run -d \
 
 # Development Installs 
 
+For dev installs, it's best to get things working without a container, then do a 'docker-compose' to make sure containers still build.
+
+as a developer, you are responsible for running the flask app 'casterpak' and the cache cleanup process separately helps debug stuff.
+
 ### configuration
 for development, the 'config.ini' is your best place, but for production, use env vars.
-All of the options in config.ini can be overridden by environment variables for containerized installs.
+All of the options in config.ini will be overridden by environment variables for containerized builds, which is the production path.
 
-The format of the env vars are "CASTERPAK_SECTION_OPTION".
-
-For example, to configure the serverName in the output section, you would set the environment variable CASTERPAK_OUTPUT_SERVERNAME.
-
-videoParentPath is CASTERPAK_FILESYSTEM_VIDEOPARENTPATH
 
 ### Install System Dependencies:
 
@@ -153,14 +159,7 @@ videoParentPath is CASTERPAK_FILESYSTEM_VIDEOPARENTPATH
 #### Bento4 https://www.bento4.com/
 
 Bento4 binary install is required.  Specifically the `mp42hls` and `mp4info` commands and possibly more.
-```
-curl -O https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-641.x86_64-unknown-linux.zip \
-    && unzip Bento4-SDK-*.zip \
-    && mkdir -p /opt/bento4 \
-    && mv Bento4-SDK-*/bin /opt/bento4/bin
-```
-    
-Or, manually download the binary package from https://www.bento4.com/downloads/, extract, and copy the contents of the 'bin' folder onto your system.  The path to the binaries is configured in config.ini
+best to look at 'docker-compose' and manually follow the instructions there.
 
 #### Sqllite3
    kind of standard quick-and-dirty low fingerprint SQL server to maintain cache state. Go google it or just use 'apt' or 'yum' to install it.  
@@ -168,11 +167,11 @@ Or, manually download the binary package from https://www.bento4.com/downloads/,
 `apt-get update && apt-get install -y sqlite3`
 
     
-### Installation
+### Installation of casterpak
 
-1. download / clone this repo
+Once your dependencies are met...
 
-2. install a python virtual environment for it:
+1.  install a python virtual environment for it:
 
    `python3 -m venv .`
 
@@ -186,8 +185,11 @@ Or, manually download the binary package from https://www.bento4.com/downloads/,
 
    `vi config.ini`
 
+This config file is ONLY for development.  It will not be copied into the container 
+when building a container, config_example.ini contains defaults, and .env contains user overrides.
+
 You must configure:
-  a servername (localhost can work in development)
+  a servername (localhost:5000 by default)
   videoParentPath for where to find your full-lenght videos
   path to the bento4 binaries
   and if you're reading this, you probably want Debug = True
@@ -296,8 +298,10 @@ setting everything to a timestamp of last access, Jan 1, 1970.   Cleanup should 
 ## Debugging
 
 turn debug logs on in config.ini
+```
 [application]
 debug = True
+```
 
 Note that these are techniques to begin learning from.  Use these hints to develop your own strategies on how to debug the app.
 
