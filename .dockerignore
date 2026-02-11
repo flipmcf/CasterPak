@@ -2,6 +2,8 @@ bin/
 lib64/
 lib/
 pyvenv.cfg
+venv/
+.env
 .git
 __pycache__
 *.pyc
@@ -9,6 +11,10 @@ __pycache__
 
 # Sqlite database files
 *.db
+*.db
+*.db-wal
+*.db-shm
+*.log
 *.sqlite3
 
 #IDE stuff
