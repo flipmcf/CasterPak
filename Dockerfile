@@ -1,3 +1,5 @@
+## TODO, move into 'casterpak' subdir and update docker-compose.yml accordingly
+
 # --- Stage 1: The Bento4 Extractor ---
 FROM alpine:latest AS bento-builder
 RUN apk add --no-cache curl unzip
