@@ -10,7 +10,9 @@ bind = "unix:/home/casterpak/CasterPak/casterpak.sock"
 wsgi_app = "app:app"
 umask = 0x007  #Gunicorn creates files that are user & group writable.  Not world writable.
 
-loglevel = 'debug'
+debugging = app_config.getboolean('application', 'debug', fallback=False)
+
+loglevel = 'debug' if debugging else 'info'
 
 accesslog = app_config.get('logging', 'access_log', fallback='/var/log/casterpak.access.log')
 errorlog = app_config.get('logging', 'error_log', fallback='/var/log/casterpak.error.log')
