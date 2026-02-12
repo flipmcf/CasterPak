@@ -1,0 +1,86 @@
+Transcoding Notes
+
+Note this is also the "Handling Smartphone Variable Frame Rate & Metadata Rotation" issues.
+
+Probe the Source: Run ffprobe to check for the displaymatrix or rotate tag.
+
+IF tag exists (displaymatrix: rotation of 90.00 degrees (or 270)): * Apply -noautorotate.
+
+    Apply the corresponding transpose filter.
+
+    Strip the metadata.
+
+ELSE (No rotation tag):
+
+    Run a standard transcode (no transpose needed - stop reading)
+
+
+1. verify that it's actually H.264 and get the details of the video file
+
+`ffprobe -hide_banner test_video.mp4`
+
+  -note, we probably want to `ffprobe -v quiet -print_format json -show_format -show_streams test_video.mp4` for scripting purposes, but the above is good for a quick check.
+
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'test_video.mp4':
+  Metadata:
+    major_brand     : mp42
+    minor_version   : 1
+    compatible_brands: isommp41mp42
+    creation_time   : 2023-11-19T03:00:32.000000Z
+  Duration: 00:03:47.48, start: 0.000000, bitrate: 14168 kb/s
+  Stream #0:0(und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 93 kb/s (default)
+    Metadata:
+      creation_time   : 2023-11-19T03:00:32.000000Z
+      handler_name    : Core Media Audio
+      vendor_id       : [0][0][0][0]
+  Stream #0:1(und): Video: h264 (High) (avc1 / 0x31637661), yuvj420p(pc, bt709/bt709/iec61966-2-1), 886x1920, 14068 kb/s, 30.26 fps, 60 tbr, 600 tbn, 1200 tbc (default)
+    Metadata:
+      rotate          : 270
+      creation_time   : 2023-11-19T03:00:32.000000Z
+      handler_name    : Core Media Video
+      vendor_id       : [0][0][0][0]
+    Side data:
+      displaymatrix: rotation of 90.00 degrees
+
+
+Take note:
+1. 30.26 frame rate (see stream #0:1 line)
+2. the dimentionas are widthxheight = 886x1920, so this is actually a vertical video.
+3. the 'displaymatrix' metadata tells the player to rotate it 90 degrees to the right, so it displays correctly
+
+All of these are common issues with smartphone videos, and we need to handle them in our transcoding process.
+Especially the rotation.  Bento4 will ignore this, honor 886x1920, and the stream will be vertical.
+
+90 degrees means transpose=2
+270 degrees means transpose=1
+
+ffmpeg -noautorotate -i test_video.mp4 \
+  -vf "transpose=2,scale=1280:-2" \
+  -c:v libx264 -b:v 2500k \
+  -r 30 -g 60 -keyint_min 60 -sc_threshold 0 \
+  -map_metadata -1 \
+  -c:a aac -b:a 128k \
+  test_video.mp4.transcodes/test_video_720p.mp4
+
+
+-vf "transpose=1,scale=1280:720": This forces the aspect ratio to 720p It tells FFmpeg:
+-r 30: Forces the variable 30.26 into a constant 30.00.  critical for the GOP size.
+-g 60: Since we are at 30fps, a GOP of 60 gives you exactly 2-second segments.
+-sc_threshold 0	This is critical. Normally, FFmpeg inserts extra I-frames when it detects a scene change (a "Scene Cut"). We disable that because we need the I-frames to stay exactly 2 seconds apart, regardless of what's happening in the video.
+
+This prepares the video for streaming, ensuring that it has a consistent frame rate and keyframe interval, which is essential for smooth playback across various devices and network conditions.
+
+To verify the output:
+  `ffprobe -v error -select_streams v:0 -skip_frame nointra -show_entries frame=pkt_pts_time,pict_type -of csv=p=0 test_video.mp4.transcodes/test_video_720.mp4 | head -n 10`
+
+and we should see only multiples of 2 seconds for each I-frame (keyframe):
+
+0.000000,I
+2.000000,I
+4.000000,I
+6.000000,I
+8.000000,I
+10.000000,I
+12.000000,I
+14.000000,I
+16.000000,I
