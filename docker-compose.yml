@@ -1,7 +1,7 @@
 services:
   casterpak:
     build: .
-    image: casterpak:0.8.0-alpha
+    image: flipmcf/casterpak:0.8.0-alpha
     container_name: casterpak_server
     
     # Map the host port 5000 to the container port 5000
@@ -37,7 +37,9 @@ services:
     restart: unless-stopped
 
   nginx:
-    build: ./nginx
+    build: 
+      context: .
+      dockerfile: ./nginx/Dockerfile
     image: flipmcf/casterpak-proxy:0.8.0-alpha
     container_name: casterpak_nginx
     ports:

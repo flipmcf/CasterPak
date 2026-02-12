@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OpenForge HLS Test Player</title>
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+    <style>
+        body { background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; }
+        .container { margin: 50px auto; max-width: 960px; }
+        .video-js { margin: 0 auto; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .controls { margin-top: 20px; }
+        input { width: 80%; padding: 10px; border-radius: 4px; border: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>OpenForge ABR Test Bench</h2>
+    
+    <video id="hls-player" class="video-js vjs-default-skin vjs-big-play-centered" controls preload="auto" width="960" height="540">
+        </video>
+
+    <div class="controls">
+        <p>Currently Testing Manifest:</p>
+        <input type="text" id="manifest-url" value="/i/test_video.mp4.transcodes/test_video_,480p,720p,1080p,.mp4.csmil/master.m3u8">
+        <br><br>
+        <button onclick="loadStream()">Reload Stream</button>
+    </div>
+</div>
+
+<script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+<script>
+    var player = videojs('hls-player');
+
+    function loadStream() {
+        var url = document.getElementById('manifest-url').value;
+        player.src({
+            src: url,
+            type: 'application/x-mpegURL'
+        });
+        player.play();
+    }
+
+    // Initial load
+    loadStream();
+</script>
+</body>
+</html>
