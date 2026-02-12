@@ -106,6 +106,9 @@ open VNC or a browser capable of native HLS streaming, and hit the url where you
 
 http://localhost/i/VIDEOFILENAME.mp4/master.m3u8
 
+or better yet, the bench test that is part of this build:
+http://localhost/testing/test_player.html   ( security people don't like this - firewall it off from the dmz )
+
 
 
 ### 3. Check the logs
