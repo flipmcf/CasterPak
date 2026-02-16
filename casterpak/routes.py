@@ -65,8 +65,63 @@ def single_bitrate_manifest(dir_name: str):
                                mimetype="application/vnd.apple.mpegurl")
 
 
+@bp.route('/i/abr/<path:dir_name>/index.m3u8')
+def abr_manifest(dir_name: str):
+    """
+    This endpoint will spin up encoding jobs for renditions.
+    """
+
+    dir_chunks = dir_name.split('/')
+    dirs = dir_chunks[:-1]
+    file = dir_chunks[-1]
+
+
+    dir = os.path.join(*dirs)
+    #for a file 'test_video.mp4'
+    # search for the 'test_video.mp4.transcodes' directory, which should contain the renditions
+
+    # once the directory is found, create the renditions described in the config file.
+    #  defaulting to 1080p, 720p, 480p, 360p, 240p
+    bitrates = ['1080p', '720p', '480p', '360p', '240p']
+    files = [os.path.join(dir, file + '.transcodes', f"file_{bitrate}.mp4") for bitrate in bitrates]
+
+    vodhls_manager = vodhls_master_playlist_factory(files, dir)
+
+    #the input file cache should be updated with the new renditions.
+    if not vodhls_manager.manifest_exists():
+        vodhls_manager.set_baseurl(get_base_url(dir))
+
+        
+    for bitrate in bitrates:
+        # Create or verify the rendition for each bitrate
+      
+        try:
+            vodhls_manager.output_hls()
+        except FileNotFoundError:
+            abort(404)
+
+        #the segment files 
+        for manager in vodhls_manager.segment_managers:
+            if manager['status'] != 'ready':
+                continue
+            segment_dir_name = manager['segment_manager'].filename
+            db = cachedb.CacheDB(cache_name=cachedb.SEGMENT_FILE_CACHE)
+            db.addrecord(filename=segment_dir_name)
+
+    return send_from_directory(directory=vodhls_manager.output_dir,
+                               path=vodhls_manager.master_playlist_name,
+                               mimetype="application/vnd.apple.mpegurl")
+    return
+
 @bp.route('/i/<path:csmil_str>.csmil/master.m3u8')
 def csmil_parent_manifest(csmil_str: str):
+    """
+    creates a variant manifest containing multiple bitrate files. the csmil_str is a string of the form
+    dir1/dir2/dir3/file1,bitrate1,file2,bitrate
+
+    This is useful when the renditions are already available, and are in an arbitrary naming format.
+    """
+
     csmil_chunks = csmil_str.split('/')
     dirs = csmil_chunks[:-1]
     files = csmil_chunks[-1]

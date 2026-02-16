@@ -84,3 +84,21 @@ and we should see only multiples of 2 seconds for each I-frame (keyframe):
 12.000000,I
 14.000000,I
 16.000000,I
+
+the other two renditions are:
+
+ffmpeg -noautorotate -i test_video.mp4 \
+  -vf "transpose=2,scale=854:-2" \
+  -c:v libx264 -b:v 1000k \
+  -r 30 -g 60 -keyint_min 60 -sc_threshold 0 \
+  -map_metadata -1 \
+  -c:a aac -b:a 128k \
+  -y test_video.mp4.transcodes/test_video_480p.mp4
+
+ffmpeg -noautorotate -i test_video.mp4 \
+  -vf "transpose=2,scale=1920:-2" \
+  -c:v libx264 -b:v 5000k \
+  -r 30 -g 60 -keyint_min 60 -sc_threshold 0 \
+  -map_metadata -1 \
+  -c:a aac -b:a 128k \
+  -y test_video.mp4.transcodes/test_video_1080p.mp4

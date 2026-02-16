@@ -21,8 +21,8 @@ This package is a good drop-in replacement for Akamai Media Services On Demand (
 It supports the '.csmil' endpoint that Akamai used to support to generate master manifests of renditions,
 and creates media playlists and segments your renditions.
 
-This package does not include encoding of video renditions.
-
+** New in version 0.9 **
+   Auto encoding of video renditions.
 The first endpoint is the master manifest.  it uses the same syntax as Akamai's Media Services On Demand 'csmil' url construction:
 
 http://example.com/i/path/<common_filename_prefix>,< bitrate >,< bitrate >,< bitrate >,< bitrate >,<common_filename_suffix>.csmil/master.m3u8
@@ -110,6 +110,7 @@ or better yet, the bench test that is part of this build:
 http://localhost/testing/test_player.html   ( security people don't like this - firewall it off from the dmz )
 
 
+## TODO - make the bench test url optional when building the nginx container.
 
 ### 3. Check the logs
 
