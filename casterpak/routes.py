@@ -65,7 +65,7 @@ def single_bitrate_manifest(dir_name: str):
                                mimetype="application/vnd.apple.mpegurl")
 
 
-@bp.route('/i/abr/<path:dir_name>/index.m3u8')
+@bp.route('/i/abr/<path:dir_name>/master.m3u8')
 def abr_manifest(dir_name: str):
     """
     This endpoint will spin up encoding jobs for renditions.
@@ -111,7 +111,6 @@ def abr_manifest(dir_name: str):
     return send_from_directory(directory=vodhls_manager.output_dir,
                                path=vodhls_manager.master_playlist_name,
                                mimetype="application/vnd.apple.mpegurl")
-    return
 
 @bp.route('/i/<path:csmil_str>.csmil/master.m3u8')
 def csmil_parent_manifest(csmil_str: str):
