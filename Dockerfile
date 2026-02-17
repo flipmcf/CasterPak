@@ -15,7 +15,13 @@ RUN curl -O https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-641.x86_64-unkn
     && mkdir -p /opt/bento4 \
     && mv Bento4-SDK-*/bin /opt/bento4/bin
     
-# --- Stage 2: The Final Application ---  this is what's in the image
+
+# stage 2: FFmpeg Static Provider Stage ---
+# This image contains just the static binaries for ffmpeg and ffprobe
+FROM mwader/static-ffmpeg:7.1 as ffmpeg-provider
+
+
+# --- Stage 3: The Final Application ---  this is what's in the image
 # Use an official Python runtime as a parent image
 FROM python:3.10-slim
 
@@ -29,6 +35,10 @@ RUN apt-get update && apt-get install -y \
 
 # Copy Bento4 binaries from the builder stage
 COPY --from=bento-builder /opt/bento4/bin /usr/local/bin
+
+# Copy FFmpeg binaries from the provider stage
+COPY --from=ffmpeg-provider /ffmpeg /usr/local/bin/
+COPY --from=ffmpeg-provider /ffprobe /usr/local/bin/
 
 # Setup non-root user for security (Best Practice)
 RUN adduser --disabled-password --gecos "" casteruser
