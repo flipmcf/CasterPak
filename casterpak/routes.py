@@ -9,6 +9,8 @@ from vodhls import EncodingError
 from vodhls.factory import (vodhls_master_playlist_factory,
                             vodhls_media_playlist_factory)
 
+from encoding import EncodingManager
+
 # valid characters in a filename
 filenameRE = re.compile(r'[^.a-zA-Z\d_-]')
 # valid characters in a directory path:
@@ -73,19 +75,22 @@ def abr_manifest(dir_name: str):
 
     dir_chunks = dir_name.split('/')
     dirs = dir_chunks[:-1]
-    file = dir_chunks[-1]
+    video_file = dir_chunks[-1]
+    source_dir = os.path.join(*dirs) if dirs else ''
+    
+    # This is where we decide IF we create renditions.
+    # It checks the .transcodes folder and handles the FFmpeg logic.
+    encoder = EncodingManager(source_dir, video_file)
 
+    try:
+        rendition_paths = encoder.get_renditions()
+    except FileNotFoundError:
+        return abort(404, description="Original source video not found.")
+    except Exception as e:
+        return abort(504, description=f"Encoding failed: {e}")
 
-    dir = os.path.join(*dirs)
-    #for a file 'test_video.mp4'
-    # search for the 'test_video.mp4.transcodes' directory, which should contain the renditions
-
-    # once the directory is found, create the renditions described in the config file.
-    #  defaulting to 1080p, 720p, 480p, 360p, 240p
-    bitrates = ['1080p', '720p', '480p', '360p', '240p']
-    files = [os.path.join(dir, file + '.transcodes', f"file_{bitrate}.mp4") for bitrate in bitrates]
-
-    vodhls_manager = vodhls_master_playlist_factory(files, dir)
+    
+    vodhls_manager = vodhls_master_playlist_factory(rendition_paths, source_dir)
 
     #the input file cache should be updated with the new renditions.
     if not vodhls_manager.manifest_exists():
@@ -94,7 +99,6 @@ def abr_manifest(dir_name: str):
         
     for bitrate in bitrates:
         # Create or verify the rendition for each bitrate
-      
         try:
             vodhls_manager.output_hls()
         except FileNotFoundError:

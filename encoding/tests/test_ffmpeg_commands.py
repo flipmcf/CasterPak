@@ -63,9 +63,6 @@ class TestFFmpegCommands(unittest.TestCase):
         ]
         
 
-        print("Generated command:")
-        print(generated_cmd)
-
         # I'll assert list equality. This is strict and good.
         self.assertListEqual(generated_cmd, expected_cmd)
 

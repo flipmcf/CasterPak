@@ -78,9 +78,17 @@ class EncodingManager:
         """Blocks until the 720p/anchor file is ready for Bento4 to sniff."""
         anchor = self.rendition_paths[min(1, len(self.rendition_paths)-1)] # Usually 720p
         start = time.time()
+
+        logger.debug(f"Waiting for anchor file {anchor} to be created...")
+
         while not os.path.exists(anchor):
-            if time.time() - start > timeout:
+            elapsed = time.time() - start
+            if elapsed > timeout:
                 raise TimeoutError("Encoding took too long.")
+            # Simple progress heartbeat in the console
+            if elapsed % 10 == 0:
+                logger.debug(f"   ... still encoding ({elapsed}s elapsed) ...")
+            
             time.sleep(2)
 
     def _ensure_transcode_dir(self):
