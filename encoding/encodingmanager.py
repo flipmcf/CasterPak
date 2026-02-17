@@ -119,7 +119,9 @@ class EncodingManager:
         # Global inputs and audio settings
         # Note: We map the audio to all outputs using the '?' to avoid failing on silent videos
         cmd = [
-            "ffmpeg", "-y", "-i", self.full_path_filename,
+            "ffmpeg", "-y",
+            "-threads", "0",
+            "-i", self.full_path_filename,
             "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-ar", "48000"
         ]
 
