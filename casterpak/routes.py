@@ -3,6 +3,7 @@ import re
 import typing as t
 
 from flask import Blueprint, abort, current_app, send_from_directory, send_file
+from werkzeug.utils import safe_join
 
 import cachedb
 from vodhls import EncodingError
@@ -50,7 +51,8 @@ def single_bitrate_manifest(dir_name: str):
     filename = filenameRE.sub('', filename)
     dirname = dirnameRE.sub('', dirname)
 
-    files = [os.path.join(dirname, filename), ]
+    ## TEST ME (os.path.join was replaced with 'safe_join')
+    files = [safe_join(dirname, filename), ]
 
     vodhls_manager = vodhls_master_playlist_factory(files, dirname)
 
@@ -72,20 +74,18 @@ def abr_manifest(dir_name: str):
     """
     This endpoint will spin up encoding jobs for renditions.
     """
-
-    dir_chunks = dir_name.split('/')
-    dirs = dir_chunks[:-1]
-    video_file = dir_chunks[-1]
-    source_dir = os.path.join(*dirs) if dirs else ''
     
+    localdir = current_app.config['filesystem']['videoParentPath']
+    video_file = safe_join(localdir, dir_name)
+
     # This is where we decide IF we create renditions.
     # It checks the .transcodes folder and handles the FFmpeg logic.
-    encoder = EncodingManager(source_dir, video_file)
+    encoder = EncodingManager(video_file)
 
     try:
         rendition_paths = encoder.get_renditions()
     except FileNotFoundError:
-        return abort(404, description="Original source video not found.")
+        return abort(404, description="Original source video at videoParentPath/{dir_name} not found.")
     except Exception as e:
         return abort(504, description=f"Encoding failed: {e}")
 
@@ -94,23 +94,21 @@ def abr_manifest(dir_name: str):
 
     #the input file cache should be updated with the new renditions.
     if not vodhls_manager.manifest_exists():
-        vodhls_manager.set_baseurl(get_base_url(dir))
+        vodhls_manager.set_baseurl(get_base_url(dir))   
+   
+    # Create or verify the rendition for each bitrate
+    try:
+        vodhls_manager.output_hls()
+    except FileNotFoundError:
+        abort(404)
 
-        
-    for bitrate in bitrates:
-        # Create or verify the rendition for each bitrate
-        try:
-            vodhls_manager.output_hls()
-        except FileNotFoundError:
-            abort(404)
-
-        #the segment files 
-        for manager in vodhls_manager.segment_managers:
-            if manager['status'] != 'ready':
-                continue
-            segment_dir_name = manager['segment_manager'].filename
-            db = cachedb.CacheDB(cache_name=cachedb.SEGMENT_FILE_CACHE)
-            db.addrecord(filename=segment_dir_name)
+    #the segment files 
+    for manager in vodhls_manager.segment_managers:
+        if manager['status'] != 'ready':
+            continue
+        segment_dir_name = manager['segment_manager'].filename
+        db = cachedb.CacheDB(cache_name=cachedb.SEGMENT_FILE_CACHE)
+        db.addrecord(filename=segment_dir_name)
 
     return send_from_directory(directory=vodhls_manager.output_dir,
                                path=vodhls_manager.master_playlist_name,

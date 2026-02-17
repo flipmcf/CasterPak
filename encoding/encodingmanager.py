@@ -10,14 +10,12 @@ logger = logging.getLogger('encoder')
 class EncodingManager:
     def __init__(self, filename):
         """
-        :param filename: The full path to the file (e.g., 'my_video')
-        :param suffixes: List of bitrates/identifiers (e.g., ['high', 'low'])
-        :param extension: The file extension (e.g., '.mp4')
+        :param filename: The full path to the original video file (e.g., '/path/to/my_video')
 
         #This manages the endoded renditions of 'filename'
         # by 1. epecting to find a directory 'filename.transcodes' in the input file cache.
         # 2. renditions in the form of 'filename.transcodes/file_{suffix}.mp4'
-        #  (e.g., 'filename.transcodes/file_720p.mp4')
+        #  (e.g., 'filename.transcodes/filename_720p.mp4')
 
         """
         self.full_path_filename = filename
@@ -72,6 +70,10 @@ class EncodingManager:
         return self.rendition_paths
 
     def _all_exist(self):
+        ## TODO - this is not that easy.
+        ##  it's not uncommon for an encoding process to create a bunch of files and crash.
+        ##  We can't just trust that the file exists.  It needs to be a valid, correct encoding.
+        ##  At least make sure the files are a bit bigger than a few bytes.
         return all(os.path.exists(p) for p in self.rendition_paths)
 
     def _wait_for_anchor(self, timeout=300):
@@ -101,14 +103,9 @@ class EncodingManager:
         If the original is 'test_video.mp4', it assumes it's one level up
         from the '.transcodes' folder.
         """
-        # Logic to find original: if we are in 'test.mp4.transcodes', 
-        # the original is likely ../test.mp4
-        source_file = os.path.abspath(os.path.join(self.dir_path, "..", self.prefix.rstrip('_')))
-        if not source_file.endswith(self.extension):
-             source_file += self.extension
-             
-        if not os.path.exists(source_file):
-            raise FileNotFoundError(f"Source video {source_file} not found.")
+       
+        if not os.path.exists(self.full_path_filename):
+            raise FileNotFoundError(f"Source video {self.full_path_filename} not found.")
 
         # Trigger non-blocking or blocking FFmpeg here
         # (Using the multi-output command discussed previously)
@@ -143,7 +140,7 @@ class EncodingManager:
 
         # Add the output paths in the same order as the maps
         for label in self.bitrates:
-            cmd.append(os.path.join(self.transcode_output_dir, f"file_{label}.mp4"))
+            cmd.append(os.path.join(self.transcode_output_dir, f"{self.filename}_{label}.mp4"))
 
         return cmd
         
@@ -157,13 +154,15 @@ class EncodingManager:
         reading the input only once, and writing multiple outputs in one pass.
         """
 
+        cmd = self.get_ffmpeg_command()  
 
-        cmd = self.get_ffmpeg_command(source_path)  
-
-        if not os.path.exists(self.transcode_outputdir):
+        if not os.path.exists(self.transcode_output_dir):
             os.makedirs(self.transcode_output_dir, exist_ok=True)
 
-        cmd = self.get_ffmpeg_command(source_path)
+        cmd = self.get_ffmpeg_command()
+
+        #hold on tight!.... 
         subprocess.run(cmd, check=True)
+
 
 
