@@ -3,7 +3,6 @@
 #See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
 import os
 import sqlite3
-import time
 import unittest
 import datetime
 
@@ -36,20 +35,17 @@ class InitializeDBTestCase(unittest.TestCase):
 
 class CacheDBTestCase(unittest.TestCase):
     db_filename = 'test_CacheDB.db'
-    cache_name = 'test_cache'
+
+     # The CacheDB class requires the table to exist.
+    # we will use the built-in 'INPUT_FILE_CACHE" name
+    cache_name = cachedb.SEGMENT_FILE_CACHE
 
     def setUp(self):
         if os.path.exists(self.db_filename):
             os.remove(self.db_filename)
-        # The CacheDB class requires the table to exist.
-        # We use a sanitized name for the table.
-        with cachedb.SQLite(self.db_filename) as cursor:
-            cursor.execute(f"""CREATE TABLE IF NOT EXISTS {self.cache_name} (
-                               filename text PRIMARY KEY,
-                               timestamp int NOT NULL);
-                             """)
-        self.testclass = cachedb.CacheDB(dbname=self.db_filename, cache_name=self.cache_name)
 
+        self.testclass = cachedb.CacheDB(dbname=self.db_filename, cache_name=self.cache_name)
+        cachedb.initialize_cache_db(self.db_filename)
 
     def tearDown(self):
         if os.path.exists(self.db_filename):
