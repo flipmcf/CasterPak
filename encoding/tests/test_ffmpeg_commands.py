@@ -36,8 +36,7 @@ class TestFFmpegCommands(unittest.TestCase):
 
     def tearDown(self):
         self.patcher.stop()
-        pass
-
+        
     def test_get_ffmpeg_command_default(self):
         generated_cmd = self.manager.get_ffmpeg_command()
         expected_output_dir = os.path.join(self.output_dir, f"{self.video_name}.transcodes")
