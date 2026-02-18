@@ -1,6 +1,7 @@
 import os
 import logging
 from logging.config import dictConfig
+import pprint
 
 from flask import Flask
 
@@ -25,6 +26,20 @@ def setup_gunicorn_logging(app, base_config):
     cleanup_logger.handlers = gunicorn_logger.handlers
     cleanup_logger.setLevel(gunicorn_logger.level)
 
+
+def printable_config(config):
+    """ for debugging purposes"""
+    
+    def to_dict(obj):
+        if hasattr(obj, "items"):
+            return {k: to_dict(v) for k, v in obj.items()}
+        # If it's a list/tuple, process elements recursively
+        elif isinstance(obj, (list, tuple)):
+            return [to_dict(v) for v in obj]
+        # Return the object as-is if it's a primitive
+        return obj
+
+    return pprint.pformat(to_dict(config))
 
 
 def create_app(test_config=None):
@@ -72,6 +87,9 @@ def create_app(test_config=None):
             app.logger.debug(f"created new input cache directory {app.config['input']['videoCachePath']}")
         app.logger.info("input caching enabled")
         app.logger.info(f"input caching to {app.config['input']['videoCachePath']}")
+
+    #print the entire config to info log on startup:
+    app.logger.info(printable_config(app.config))    
 
     # initialize the cache database
     app.logger.info(f"initializing cache database")
