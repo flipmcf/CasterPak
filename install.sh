@@ -6,7 +6,7 @@ echo "--- CasterPak Alpha Installation ---"
 
 # 1. Download the project files from GitHub
 echo "[1/3] Fetching deployment manifests..."
-REPO_URL="https://raw.githubusercontent.com/flipmcf/casterpak/main"
+REPO_URL="https://raw.githubusercontent.com/flipmcf/casterpak/refs/heads/master/"
 
 # Download docker-compose.yml
 curl -sSL "$REPO_URL/docker-compose.yml" -o docker-compose.yml
