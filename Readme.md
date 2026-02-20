@@ -7,13 +7,13 @@ This software provides HLS Stream packaging for Video-On-Demand (VOD) with a bui
 If you don't want to read and just get it, type this onto your shell.
 
 ```bash
-curl -sSL [https://raw.githubusercontent.com/flipmcf/casterpak/master/install](https://raw.githubusercontent.com/flipmcf/casterpak/master/install) | bash
+curl -sL https://raw.githubusercontent.com/flipmcf/casterpak/master/install | bash
 ```
 
-The problem it solves is to balance your CPU and Storage costs for streaming Video-on-demand.
-Creating an HLS (m3u8) stream from a video file (mp4, et. al.) is CPU cheap and fast compared to video encoding.
+The problem this solves is to balance your CPU and Storage costs for streaming Video-on-demand.
+Creating an HLS (m3u8) stream from a video file (mp4, et. al.) is CPU cheap and fast compared to video encoding - which this can also do if you really want.
 
-It's a very good fit for use cases where videos serve the 'popular' model of access.  Videos that are frequently
+Casterpak a very good fit for use cases where videos serve the 'popular' model of access.  Videos that are frequently
 accessed remain cached at this server and videos that are not accessed are deleted from cache.
 
 Also it's a great fit for those who own a large 'archive' video file on inexpensive, slow-access storage like AWS S3 Glacier or Microsoft Azure Archive.  
