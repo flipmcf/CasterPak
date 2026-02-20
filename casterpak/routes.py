@@ -54,6 +54,7 @@ def single_bitrate_manifest(dir_name: str):
     ## TEST ME (os.path.join was replaced with 'safe_join')
     files = [safe_join(dirname, filename), ]
 
+    ## TODO: is 'dirname' safe - it's not 'safe joined' and comes directly from the URL
     vodhls_manager = vodhls_master_playlist_factory(files, dirname)
 
     if not vodhls_manager.manifest_exists():
@@ -75,8 +76,16 @@ def abr_manifest(dir_name: str):
     This endpoint will spin up encoding jobs for renditions.
     """
     
+    #determine output dir for segments    
+    (dirname, filename) = os.path.split(dir_name)
+    #sanitize
+    filename = filenameRE.sub('', filename)
+    output_dirname = dirnameRE.sub('', dirname)
+    
+    #determine input directory for origonal video file.
     localdir = current_app.config['filesystem']['videoParentPath']
     video_file = safe_join(localdir, dir_name)
+
 
     # This is where we decide IF we create renditions.
     # It checks the .transcodes folder and handles the FFmpeg logic.
@@ -86,11 +95,11 @@ def abr_manifest(dir_name: str):
         rendition_paths = encoder.get_renditions()
     except FileNotFoundError:
         return abort(404, description="Original source video at videoParentPath/{dir_name} not found.")
-    except Exception as e:
-        return abort(504, description=f"Encoding failed: {e}")
-
+    #except Exception as e:
+    #    return abort(504, description=f"Encoding failed: {e}")
+    ## FOR NOW - don't catch encoding exceptions, debug them.
     
-    vodhls_manager = vodhls_master_playlist_factory(rendition_paths, source_dir)
+    vodhls_manager = vodhls_master_playlist_factory(rendition_paths, output_dirname)
 
     #the input file cache should be updated with the new renditions.
     if not vodhls_manager.manifest_exists():
