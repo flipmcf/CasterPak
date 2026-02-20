@@ -11,4 +11,7 @@ COPY ./nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf
 # Testing pages to verify HLS streaming
 COPY ./tests/html/ /etc/nginx/html/testing/
 
+# Configuration overrides for debugging or container customization
+COPY ./nginx/config_overrides/ /etc/nginx/config_overrides/
+
 EXPOSE 80
