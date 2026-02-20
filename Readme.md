@@ -4,6 +4,12 @@
 
 This software provides HLS Stream packaging for Video-On-Demand (VOD) with a built in file cache.
 
+If you don't want to read and just get it, type this onto your shell.
+
+```bash
+curl -sSL [https://raw.githubusercontent.com/flipmcf/casterpak/master/install](https://raw.githubusercontent.com/flipmcf/casterpak/master/install) | bash
+```
+
 The problem it solves is to balance your CPU and Storage costs for streaming Video-on-demand.
 Creating an HLS (m3u8) stream from a video file (mp4, et. al.) is CPU cheap and fast compared to video encoding.
 
