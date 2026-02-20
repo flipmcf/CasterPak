@@ -20,3 +20,11 @@ __pycache__
 #IDE stuff
 .vscode/
 .idea/
+
+# Nginx
+
+# Ignore any active overrides generated locally
+nginx/config_overrides/*.conf
+
+# Explicitly allow the inactive templates
+!nginx/config_overrides/*.inactive
