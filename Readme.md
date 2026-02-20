@@ -1,14 +1,13 @@
 # CasterPak
 
-## The CAching STrEam [R] PAcKager:
-
-This software provides HLS Stream packaging for Video-On-Demand (VOD) with a built in file cache.
-
-If you don't want to read and just get it, type this onto your shell.
-
 ```bash
 curl -sL https://raw.githubusercontent.com/flipmcf/casterpak/master/install | bash
 ```
+
+
+## The CAching STrEam [R] PAcKager:
+
+This software provides HLS Stream packaging for Video-On-Demand (VOD) with a built in cache.
 
 The problem this solves is to balance your CPU and Storage costs for streaming Video-on-demand.
 Creating an HLS (m3u8) stream from a video file (mp4, et. al.) is CPU cheap and fast compared to video encoding - which this can also do if you really want.
@@ -132,8 +131,8 @@ For dev installs, it's best to get things working without a container, then do a
 as a developer, you are responsible for running the flask app 'casterpak' and the cache cleanup process separately helps debug stuff.
 
 ### configuration
-for development, the 'config.ini' is your best place, but for production, use env vars.
-All of the options in config.ini will be overridden by environment variables for containerized builds, which is the production path.
+for development, the 'config.ini' is your best place, but for containerised production installs, use env vars. The setup script will help setup the bare minimum config in .env for you.   
+Config values in the environment take presidence over config.ini values. Think of config.ini as 'hard coded' defaults, and .env as production configurations if you are a developer.
 
 
 ### Install System Dependencies:
