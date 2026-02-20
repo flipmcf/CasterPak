@@ -157,6 +157,8 @@ Once your dependencies are met...
 
    `python3 -m venv .`
 
+sometimes you gotta force pip - `python -m pip install --upgrade pip`
+
 3. install python dependencies
 
    `./bin/pip install -r requirements.txt`
@@ -243,6 +245,9 @@ create a file /var/log/casterpak.cache.log and give the application user rights 
 
 Hopefully, a lot of this will be automated soon, but here is the basic testing path.
 Before a commit to main:
+
+try to run ./bin/pytest first !!! it's almost working
+./bin/pytest tests/containertests/run_tests.py -vv  (get containertests to run automatically)
 
 1. execute `run.sh` at the root of the repository with your testing setup.  
     Make sure videos are served (use VLC "media->open network stream" and hit a master.m3u8 url)

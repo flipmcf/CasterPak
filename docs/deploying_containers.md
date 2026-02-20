@@ -2,7 +2,7 @@
 Remember, this is a "publish to production" move.   Don't leave any debug stuff in, or 
 after making sure the container passes all tests on your local dev enviornment
 
-Build the container(s)
+Build the container(s) using the dockerfile
 
 ```
 docker compose build nginx
@@ -17,3 +17,7 @@ docker login
 ```
 docker push flipmcf/casterpak-nginx:latest
 ```
+
+Tagging:
+
+to bump a version number:
