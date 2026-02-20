@@ -27,7 +27,9 @@ def get_base_url(dir_name: t.Union[os.PathLike, str]) -> str:
             protocol = 'https'
         else:
             protocol = 'http'
-        baseurl = f"{protocol}://{app_config['output'].get('serverName')}/i/{dir_name}/"
+        baseurl = f"{protocol}://{app_config['output'].get('serverName')}/i/"
+        if dir_name:
+            baseurl += dir_name + '/'
     else:
         baseurl = ''
 
