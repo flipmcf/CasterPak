@@ -14,14 +14,14 @@ REPO_URL="https://raw.githubusercontent.com/flipmcf/casterpak/refs/heads/master"
 curl -sSL "$REPO_URL/docker-compose.yml" -o docker-compose.yml
 
 # Download setup.sh (making sure we overwrite any old version)
-curl -sSL "$REPO_URL/setup.sh" -o setup.sh
-chmod +x setup.sh 
+curl -sSL "$REPO_URL/setup" -o setup
+chmod +x setup
 
 # 2. Hand off to the Setup Script for user configuration
 
 echo "[2/3] Launching configuration wizard..."
 #  /dev/tty directs input back to the keyboard so 'read' works during a piped install
-./setup.sh < /dev/tty
+./setup < /dev/tty
 
 # 4. Final Launch
 echo "[3/3] Starting CasterPak containers..."
