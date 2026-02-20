@@ -1,0 +1,5 @@
+# Ignore any active overrides generated locally
+config_overrides/*.conf
+
+# Explicitly allow the inactive templates
+!config_overrides/*.inactive
