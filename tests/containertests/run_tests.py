@@ -46,6 +46,29 @@ def casterpak_stack():
     subprocess.run(["docker", "compose", "down", "-v"], check=True)
 
 
+## run this to cleanup after each test
+@pytest.fixture(scope="function", autouse=True)
+def casterpak_clean():
+
+    pass
+
+    yield
+
+    #truncate the database tables
+    SEGMENT_FILE_CACHE = 'segmentfile'
+    INPUT_FILE_CACHE = 'inputfile'
+    
+    container = client.containers.get("casterpak_server")
+    
+    for table in [SEGMENT_FILE_CACHE, INPUT_FILE_CACHE]:
+        _, out = container.exec_run(f'sqlite3 sqlite.db "DELETE FROM {table}"')
+
+    
+    #remove any files generated
+    container.exec_run('rm -rf /tmp/segments/*')
+    container.exec_run('rm -rf /tmp/video_input/*')
+
+
 #nginx tests
 
 def test_nginx_proxy_to_flask():
@@ -87,7 +110,17 @@ def test_nginx_config():
 def test_route_single_bitrate_manifest():
     ## drop a video test into (or bake in an easter egg video) to the container
     ##  http://localhost/i/test_video.mp4/master.m3u8
-    pass
+    
+    #First, make sure there are no segments generated.
+    container = client.containers.get("casterpak_server")
+    _, out = container.exec_run("ls -l /tmp/segments")
+    assert out.startswith(b"total 0")
+
+    #Request the single bitrate manifest:
+    response = requests.get("http://localhost:80/i/test_video.mp4/master.m3u8")
+
+    assert "http://localhost/i/test_video.mp4/index_0_av.m3u8" in response.text
+
 
 def test_route_csmil_parent_manifest():
     ## Must upload encodings first, then test
@@ -97,7 +130,12 @@ def test_route_csmil_parent_manifest():
     ##  should return an adaptive bitrate master.m3u8
     ##
     ## follow the links in that also, and test a few segments exist, exercising bento4
-    pass
+
+    #First, make sure there are no segments generated.
+    container = client.containers.get("casterpak_server")
+    _, out = container.exec_run("ls -l /tmp/segments")
+    assert out.startswith(b"total 0")
+
 
 def test_child_manifest():
     ## /i/test_video.mp4/index_0_av.m3u8
