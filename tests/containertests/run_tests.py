@@ -1,3 +1,4 @@
+import os
 import time
 import pytest
 import docker
@@ -5,6 +6,11 @@ import requests
 import subprocess
 
 client = docker.from_env()
+
+test_env = os.environ.copy()
+
+# when testing, use video files here as the source.
+test_env["CASTERPAK_FILESYSTEM_VIDEOPARENTPATH"] = "/var/lib/casterpak/samples" 
 
 def wait_for_log_signal(container_name, signal_text, timeout=30):
     """
@@ -21,11 +27,24 @@ def wait_for_log_signal(container_name, signal_text, timeout=30):
             pytest.fail(f"Timeout: Did not find '{signal_text}' in {container_name} logs.")
     return False
 
+
+# The Logic: find all files in the directory. 
+# If it returns any output, the directory isn't empty.
+def assert_dir_empty(container, path):
+    # -mindepth 1 ensures we don't count the directory itself
+    # -print -quit makes it fast: it stops as soon as it finds one item
+    cmd = f"sh -c 'find {path} -mindepth 1 -print -quit'"
+    _, out = container.exec_run(cmd)
+    assert out.strip() == b"", f"{path} not empty."
+
+
+
 @pytest.fixture(scope="module", autouse=True)
 def casterpak_stack():
+
     print("\n🚀 Building and starting CasterPak...")
-    subprocess.run(["docker", "compose", "build", "--no-cache"], check=True)
-    subprocess.run(["docker", "compose", "up", "-d"], check=True)
+    subprocess.run(["docker", "compose", "build", "--no-cache" ], check=True, env=test_env)
+    subprocess.run(["docker", "compose", "up", "-d", "--remove-orphans"] , check=True, env=test_env)
 
     # 1. Wait for Flask Backend (adjust signal to match your actual startup log)
     # Common Gunicorn/Flask signal: "Listening at: http://0.0.0.0:5000"
@@ -39,6 +58,13 @@ def casterpak_stack():
     wait_for_log_signal("casterpak_nginx", "start worker process")
 
     print("✅ Stack is fully initialized and signaling health.")
+
+    container = client.containers.get("casterpak_server")
+    target_file = "/var/lib/casterpak/samples/test-video.mp4"
+    exit_code, _ = container.exec_run(f"test -f {target_file}")
+    
+    assert exit_code == 0, f"Critical failure: {target_file} not found in container."
+    print(f"✅ Verified test asset: {target_file}")
     
     yield 
 
@@ -47,13 +73,12 @@ def casterpak_stack():
 
 
 ## run this to cleanup after each test
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(scope="function")
 def casterpak_clean():
 
-    pass
-
+    print("entering casterpak cleanup fixture")
     yield
-
+    print("leaving casterpak cleanup fixture")
     #truncate the database tables
     SEGMENT_FILE_CACHE = 'segmentfile'
     INPUT_FILE_CACHE = 'inputfile'
@@ -65,8 +90,45 @@ def casterpak_clean():
 
     
     #remove any files generated
-    container.exec_run('rm -rf /tmp/segments/*')
-    container.exec_run('rm -rf /tmp/video_input/*')
+    # Instead of: container.exec_run("rm /path/*.txt") explicity call shell to expand the '*'
+    container.exec_run("sh -c 'rm -rf /tmp/segments/* /tmp/video_input/*'")
+
+    assert_dir_empty(container, "/tmp/segments")
+    assert_dir_empty(container, "/tmp/video_input")
+
+
+@pytest.fixture(scope="function")
+def with_encodings(casterpak_clean):
+
+    container = client.containers.get("casterpak_server")
+    test_dir = test_env["CASTERPAK_FILESYSTEM_VIDEOPARENTPATH"]
+    encoding_output_dir = f"{test_dir}/test-video.mp4.transcodes"
+
+    check_cmd = f"test -f {encoding_output_dir}/test-video_360.mp4"
+    exit_code, _ = container.exec_run(check_cmd)
+
+    if exit_code == 0:
+        print("✨ Transcoded variants already exist. Skipping FFmpeg...")
+    else:
+        code, _ = container.exec_run(f"mkdir {encoding_output_dir}")
+
+        #be nice  use half available cpu's
+        max_cpu = os.cpu_count() or 4  ## Fallback to 4 if cpu_count() returns None
+        max_threads = max(1, int(max_cpu/2))
+        threads = f"-threads {max_threads}"
+        nice = "nice -n 19"
+
+        #create a few encodings manually using our test asset:
+        ffmpeg_cmd = (
+            f"{nice} ffmpeg -y {threads} -i /mnt/data/test_video.mp4 "
+            f"-vf scale=-2:720 -c:v libx264 -b:v 2500k -g 60 -keyint_min 60 -sc_threshold 0 {encoding_output_dir}/test-video_720.mp4 "
+            f"-vf scale=-2:480 -c:v libx264 -b:v 1200k -g 60 -keyint_min 60 -sc_threshold 0 {encoding_output_dir}/test-video_480.mp4 "
+            f"-vf scale=-2:360 -c:v libx264 -b:v 600k  -g 60 -keyint_min 60 -sc_threshold 0 {encoding_output_dir}/test-video_360.mp4"
+        )
+        
+        print("🎬 Transcoding test variants...")
+        exit_code, output = container.exec_run(f"sh -c '{ffmpeg_cmd}'")
+        assert exit_code == 0, f"FFmpeg failed: {output.decode()}"
 
 
 #nginx tests
@@ -107,48 +169,54 @@ def test_nginx_config():
 
 ## Casterpak Route tests
 
-def test_route_single_bitrate_manifest():
-    ## drop a video test into (or bake in an easter egg video) to the container
-    ##  http://localhost/i/test_video.mp4/master.m3u8
+def test_route_single_bitrate_manifest(casterpak_clean):
+    ## use test asset video to generate a single-bitrate manifest
+    ##  http://localhost/i/test-video.mp4/master.m3u8
     
-    #First, make sure there are no segments generated.
-    container = client.containers.get("casterpak_server")
-    _, out = container.exec_run("ls -l /tmp/segments")
-    assert out.startswith(b"total 0")
-
     #Request the single bitrate manifest:
-    response = requests.get("http://localhost:80/i/test_video.mp4/master.m3u8")
-
-    assert "http://localhost/i/test_video.mp4/index_0_av.m3u8" in response.text
-
-
-def test_route_csmil_parent_manifest():
-    ## Must upload encodings first, then test
-    ## /i/test_video_encodings/test_video_,480p,720p,1080p,.mp4.csmil/master.m3u8
-    ## assuming a directory /test_video_encodings/
-    ##  containing test_video_480p.mp4, test_video_720p.mp4 and test_video_1080p.mp4
-    ##  should return an adaptive bitrate master.m3u8
-    ##
-    ## follow the links in that also, and test a few segments exist, exercising bento4
-
-    #First, make sure there are no segments generated.
-    container = client.containers.get("casterpak_server")
-    _, out = container.exec_run("ls -l /tmp/segments")
-    assert out.startswith(b"total 0")
+    response = requests.get("http://localhost:80/i/test-video.mp4/master.m3u8")
+    
+    assert response.status_code == 200
+    assert "http://localhost/i/test-video.mp4/index_0_av.m3u8" in response.text
 
 
-def test_child_manifest():
+def test_route_csmil_parent_manifest(with_encodings):
+   
+    """test the route /i/test_video_encodings/test_video_,480p,720p,1080p,.mp4.csmil/master.m3u8
+    assuming a directory /test_video_encodings/
+    containing test_video_480p.mp4, test_video_720p.mp4 and test_video_1080p.mp4
+    should return an adaptive bitrate master.m3u8
+    follow the links in that also, and test a few segments exist, exercising bento4
+    """
+    # The fixture created our encodings.
+
+    # 1. Exercise the CSMIL route
+    response = requests.get("http://localhost:80/i/test-video.mp4.transcodes/test-video_,360,480,720,.mp4.csmil/master.m3u8")
+    
+    assert response.status_code == 200
+    
+    # Assert that all three variants are present in the master manifest
+    assert "test-video_720.mp4" in response.text
+    assert "test-video_480.mp4" in response.text
+    assert "test-video_360.mp4" in response.text
+    
+    print("✅ CSMIL Master Manifest verified with 3 bitrates.")
+    
+    pass
+
+
+def test_child_manifest(casterpak_clean):
     ## /i/test_video.mp4/index_0_av.m3u8
     ## explicitly do this as the first request.
     ## we want this to work without calling master.m3u8 in case of a cache miss or server restart
     pass
 
-def test_segment():
+def test_segment(casterpak_clean):
     ## /i/test_video.mp4/segment-1.ts
     ## explicitly do this as the first request - assume the browswer had a cached index_0_av and we just woke up.
     pass
 
-def test_route_abr_manifest():
+def test_route_abr_manifest(casterpak_clean):
     ## Big test - do an encoding with a specified ladder
     pass
 

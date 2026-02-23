@@ -41,7 +41,7 @@ COPY --from=ffmpeg-provider /ffmpeg /usr/local/bin/
 COPY --from=ffmpeg-provider /ffprobe /usr/local/bin/
 
 # Setup non-root user for security (Best Practice)
-RUN adduser --disabled-password --gecos "" casteruser
+RUN adduser --disabled-password --gecos "" --shell /usr/sbin/nologin casteruser
 WORKDIR /app
 
 # Install Python dependencies as a layer before copying source code for better caching
@@ -53,6 +53,9 @@ RUN pip install -r requirements.txt
 
 #  Copy application source
 COPY . .
+
+# Copy testing videos
+COPY tests/assets/test-video.mp4 /var/lib/casterpak/samples/test-video.mp4
 
 # If config.ini doesn't exist, use the example as a template
 # This is not the correct way to configure or tune, use .env.
@@ -79,6 +82,7 @@ ENV CASTERPAK_BENTO4_BINARYPATH=/usr/local/bin
 
 #  Final setup
 RUN chown -R casteruser:casteruser /app
+RUN chown -R casteruser:casteruser /var/lib/casterpak/samples
 USER casteruser
 
 EXPOSE 5000

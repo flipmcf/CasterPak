@@ -14,7 +14,7 @@ services:
     environment:
       - FLASK_ENV=production
       - PYTHONUNBUFFERED=1
-      - CASTERPAK_FILESYSTEM_VIDEOPARENTPATH=/mnt/data
+      - CASTERPAK_FILESYSTEM_VIDEOPARENTPATH=${CASTERPAK_FILESYSTEM_VIDEOPARENTPATH:-/mnt/data}
       - CASTERPAK_OUTPUT_SERVERNAME=${CASTERPAK_OUTPUT_SERVERNAME:-localhost}
       #and we want to send all logs to stdout/stderr
       - CASTERPAK_LOGGING_ACCESS_LOG=-

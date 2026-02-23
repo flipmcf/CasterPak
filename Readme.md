@@ -27,8 +27,12 @@ It supports the '.csmil' endpoint that Akamai used to support to generate master
 and creates media playlists and segments your renditions.
 
 ** New in version 0.9 **
-   Auto encoding of video renditions.
-The first endpoint is the master manifest.  it uses the same syntax as Akamai's Media Services On Demand 'csmil' url construction:
+   Auto encoding of video renditions.  Work in progress.
+
+
+one great feature is the client-side SMIL urls (.csmil) to get the master manifest.  it uses a similar syntax as Akamai's Media Services On Demand 'csmil' url construction:
+
+For casterpak, we use HLS for now, so the url looks like:
 
 http://example.com/i/path/<common_filename_prefix>,< bitrate >,< bitrate >,< bitrate >,< bitrate >,<common_filename_suffix>.csmil/master.m3u8
 
