@@ -4,6 +4,7 @@ import pytest
 import docker
 import requests
 import subprocess
+import hashlib
 
 client = docker.from_env()
 
@@ -99,6 +100,14 @@ def casterpak_clean():
 
 @pytest.fixture(scope="function")
 def with_encodings(casterpak_clean):
+    """
+    This fixture takes the test video and creates encodings to test MBR manifests
+    Since we're not in production, we're going to really cheat and run ffmpeg with speed, not quality
+    # -t 5: Only process 5 seconds of the video
+    # -preset ultrafast: Skip heavy compression algorithms
+    # -r 15: Drop framerate to 15 fps to halve the workload
+    # set -g and -keyint_min to 30 to get 30frames/15fps = 2 second keyframes for segmentation.
+    """
 
     container = client.containers.get("casterpak_server")
     test_dir = test_env["CASTERPAK_FILESYSTEM_VIDEOPARENTPATH"]
@@ -110,7 +119,9 @@ def with_encodings(casterpak_clean):
     if exit_code == 0:
         print("✨ Transcoded variants already exist. Skipping FFmpeg...")
     else:
-        code, _ = container.exec_run(f"mkdir {encoding_output_dir}")
+        exit_code, _ = container.exec_run(f"mkdir {encoding_output_dir}")
+
+        test_file = "/mnt/data/test_video.mp4"
 
         #be nice  use half available cpu's
         max_cpu = os.cpu_count() or 4  ## Fallback to 4 if cpu_count() returns None
@@ -120,10 +131,10 @@ def with_encodings(casterpak_clean):
 
         #create a few encodings manually using our test asset:
         ffmpeg_cmd = (
-            f"{nice} ffmpeg -y {threads} -i /mnt/data/test_video.mp4 "
-            f"-vf scale=-2:720 -c:v libx264 -b:v 2500k -g 60 -keyint_min 60 -sc_threshold 0 {encoding_output_dir}/test-video_720.mp4 "
-            f"-vf scale=-2:480 -c:v libx264 -b:v 1200k -g 60 -keyint_min 60 -sc_threshold 0 {encoding_output_dir}/test-video_480.mp4 "
-            f"-vf scale=-2:360 -c:v libx264 -b:v 600k  -g 60 -keyint_min 60 -sc_threshold 0 {encoding_output_dir}/test-video_360.mp4"
+            f"{nice} ffmpeg -y {threads} -t 5 -i {test_file} "
+            f"-vf scale=-2:720 -c:v libx264 -preset ultrafast -b:v 2500k -r 15 -g 30 -keyint_min 30 -sc_threshold 0 {encoding_output_dir}/test-video_720.mp4 "
+            f"-vf scale=-2:480 -c:v libx264 -preset ultrafast -b:v 1200k -r 15 -g 30 -keyint_min 30 -sc_threshold 0 {encoding_output_dir}/test-video_480.mp4 "
+            f"-vf scale=-2:360 -c:v libx264 -preset ultrafast -b:v 600k  -r 15 -g 30 -keyint_min 30 -sc_threshold 0 {encoding_output_dir}/test-video_360.mp4 "
         )
         
         print("🎬 Transcoding test variants...")
@@ -180,6 +191,7 @@ def test_route_single_bitrate_manifest(casterpak_clean):
     assert "http://localhost/i/test-video.mp4/index_0_av.m3u8" in response.text
 
 
+# The big honkin functional test.
 def test_route_csmil_parent_manifest(with_encodings):
    
     """test the route /i/test_video_encodings/test_video_,480p,720p,1080p,.mp4.csmil/master.m3u8
@@ -187,6 +199,7 @@ def test_route_csmil_parent_manifest(with_encodings):
     containing test_video_480p.mp4, test_video_720p.mp4 and test_video_1080p.mp4
     should return an adaptive bitrate master.m3u8
     follow the links in that also, and test a few segments exist, exercising bento4
+    then actually look at the binary that comes from the url, and compare to the on-disk binary.
     """
     # The fixture created our encodings.
 
@@ -201,9 +214,56 @@ def test_route_csmil_parent_manifest(with_encodings):
     assert "test-video_360.mp4" in response.text
     
     print("✅ CSMIL Master Manifest verified with 3 bitrates.")
-    
-    pass
 
+    # Assert that the url's are well-formed
+    assert "http://localhost/i/test-video.mp4.transcodes/test-video_360.mp4/index_0_av.m3u8" in response.text
+
+    response = requests.get("http://localhost/i/test-video.mp4.transcodes/test-video_360.mp4/index_0_av.m3u8")
+
+    assert response.status_code == 200
+    #make sure all the segments are there, and they are 2 seconds long.
+
+    # Normalize the response into a list of strings, stripping \r\n
+    lines = [line.strip() for line in response.text.splitlines() if line.strip()]
+
+    # 1. Assert the required HLS structure
+    assert lines[0] == "#EXTM3U"
+    assert "#EXT-X-VERSION:3" in lines
+    assert "#EXT-X-TARGETDURATION:2" in lines
+    assert lines[-1] == "#EXT-X-ENDLIST" # Ensure the VOD playlist is closed
+
+    # 2. Assert the strict GOP segments (first two should be exactly 2 seconds)
+    # We expect this exact string to appear at least twice.
+    #  The final segment will not be 2 seconds, and will likely be a float like 1.066667 - forget testing that.
+    assert lines.count("#EXTINF:2.000000,") >= 2
+
+    # 3. Assert the actual segment files are correctly pathed
+    assert "http://localhost/i/test-video.mp4.transcodes/test-video_360.mp4/segment-0.ts" in lines
+    assert "http://localhost/i/test-video.mp4.transcodes/test-video_360.mp4/segment-1.ts" in lines
+    assert "http://localhost/i/test-video.mp4.transcodes/test-video_360.mp4/segment-2.ts" in lines
+    
+    # 4. Optional: Assert the terminal segment exists and is a float > 0
+    # We know segment-2 exists, we just don't care about its exact fractional length.
+
+    # 5. Test that nginx hasn't corrupted the binary (by gzip, bad mime header, or something else)
+    # The paths to the exact same file
+    container = client.containers.get("casterpak_server")
+    segment_path = "/tmp/segments/test-video.mp4.transcodes/test-video_360.mp4/segment-0.ts"
+    segment_url = "http://localhost/i/test-video.mp4.transcodes/test-video_360.mp4/segment-0.ts"
+    
+    exit_code, output = container.exec_run(f"sha256sum {segment_path}")
+    assert exit_code == 0, f"Could not hash file on disk: {output.decode()}"
+    
+    # sha256sum outputs "hash  filename\n", so we split it to just get the hash string
+    expected_hash = output.decode().split()[0]
+
+    # 2. Download the segment via Nginx or whatever serves as the proxy
+    response = requests.get(segment_url)
+    assert response.status_code == 200
+
+    actual_hash = hashlib.sha256(response.content).hexdigest()
+
+    assert actual_hash == expected_hash, "❌ Binary mismatch! HTTP proxy altered the data stream."
 
 def test_child_manifest(casterpak_clean):
     ## /i/test_video.mp4/index_0_av.m3u8
