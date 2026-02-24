@@ -112,7 +112,7 @@ class MultivariantManager(object):
         try:
             return self.config['output']['segmentDuration']
         except KeyError:
-            return '6'
+            return '2'
 
     def output_hls(self):
         """ output the master manifest file.
