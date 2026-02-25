@@ -1,3 +1,5 @@
+## Run this with ./bin/pytest path-to-this-file/run_tests.py -vv
+
 import os
 import time
 import pytest
@@ -22,6 +24,7 @@ def wait_for_log_signal(container_name, signal_text, timeout=30):
     
     # .logs(stream=True) returns a generator that yields log lines as they appear
     for line in container.logs(stream=True, follow=True):
+        print(line)
         if signal_text.encode('utf-8') in line:
             return True
         if time.time() - start_time > timeout:
@@ -50,13 +53,13 @@ def casterpak_stack():
     # 1. Wait for Flask Backend (adjust signal to match your actual startup log)
     # Common Gunicorn/Flask signal: "Listening at: http://0.0.0.0:5000"
     print("⏳ Waiting for Flask backend signal...")
-    wait_for_log_signal("casterpak_server", "[INFO] Listening at: http://0.0.0.0:5000")
+    assert wait_for_log_signal("casterpak_server", "[INFO] Listening at: http://0.0.0.0:5000"), "casterpak crashed"
 
 
     # 2. Wait for Nginx (adjust signal to match your actual startup log)
     # Common Nginx signal: "start worker process" or "ready for connections"
     print("⏳ Waiting for Nginx proxy signal...")
-    wait_for_log_signal("casterpak_nginx", "start worker process")
+    assert wait_for_log_signal("casterpak_nginx", "start worker process"), "Nginx crashed" 
 
     print("✅ Stack is fully initialized and signaling health.")
 
@@ -87,7 +90,7 @@ def casterpak_clean():
     container = client.containers.get("casterpak_server")
     
     for table in [SEGMENT_FILE_CACHE, INPUT_FILE_CACHE]:
-        _, out = container.exec_run(f'sqlite3 sqlite.db "DELETE FROM {table}"')
+        _, out = container.exec_run(f'sqlite3 /var/lib/casterpak/data/cacheDB.db "DELETE FROM {table}"')
 
     
     #remove any files generated
@@ -144,21 +147,6 @@ def with_encodings(casterpak_clean):
 
 #nginx tests
 
-def test_nginx_proxy_to_flask():
-    """Verify that Nginx successfully proxies to the Flask backend."""
-    response = requests.get("http://localhost:80/")
-
-    #there is nothing at the root of nginx
-    assert response.status_code == 404
-
-    #a failure is a 'cannot connect'
-    
-def test_nginx_static_testing_route():
-    """Verify the /testing/ alias is serving the test player."""
-    response = requests.get("http://localhost:80/testing/test_player.html")
-    assert response.status_code == 200
-    assert "text/html" in response.headers["Content-Type"]
-
 def test_nginx_config():
     """
     Verify NginX configuration is sane.
@@ -177,6 +165,23 @@ def test_nginx_config():
     assert b"proxy_read_timeout 600s;" not in config_output
     assert b"proxy_connect_timeout 600s;" not in config_output
     assert b"proxy_send_timeout 600s;" not in config_output
+
+def test_nginx_proxy_to_flask():
+    """Verify that Nginx successfully proxies to the Flask backend."""
+    response = requests.get("http://localhost:80/")
+
+    #there is nothing at the root of nginx or at the root of flask.
+    assert response.status_code == 404
+
+    #a failure is a 'cannot connect' or any other response.
+    
+def test_nginx_static_testing_route():
+    """Verify the /testing/ alias is serving the test player."""
+    response = requests.get("http://localhost:80/testing/test_player.html")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["Content-Type"]
+
+
 
 ## Casterpak Route tests
 
@@ -264,6 +269,47 @@ def test_route_csmil_parent_manifest(with_encodings):
     actual_hash = hashlib.sha256(response.content).hexdigest()
 
     assert actual_hash == expected_hash, "❌ Binary mismatch! HTTP proxy altered the data stream."
+
+def test_nginx_to_flask_x_accel_handoff(casterpak_stack):
+    """
+    Verify Flask sends the X-Accel-Redirect header to Nginx.
+    Executed from inside the Nginx container to simulate the proxy network path.
+    """
+    flask_container = client.containers.get("casterpak_server")
+    nginx_container = client.containers.get("casterpak_nginx")
+    
+    # 1. Setup the fake segment file environment
+    video_dir = "/tmp/segments/test-video.mp4.transcodes/test-video_360.mp4"
+    segment_file = f"{video_dir}/segment-0.ts"
+    
+    flask_container.exec_run(f"mkdir -p {video_dir}")
+    flask_container.exec_run(f"sh -c 'echo \"test binary data\" > {segment_file}'")
+
+    # We query the upstream Flask server exactly how Nginx does it via proxy_pass
+    internal_flask_url = "http://casterpak_server:5000/i/test-video.mp4.transcodes/test-video_360.mp4/segment-0.ts"
+    
+    # Use curl to fetch only the headers (-I) from the upstream app
+    exit_code, output = nginx_container.exec_run(f"curl -s -I {internal_flask_url}")
+    
+    assert exit_code == 0, f"Nginx container could not reach Flask. Network issue? Output: {output.decode()}"
+    
+    headers = output.decode('utf-8')
+    
+    # 1. Assert Flask returns 200 OK
+    assert "200 OK" in headers, f"Flask did not return a 200 OK status. Headers:\n{headers}"
+    
+    # 2. Assert the handoff header is present
+    assert "X-Accel-Redirect:" in headers, f"The X-Accel-Redirect header is missing! Headers:\n{headers}"
+    
+    # 3. Verify the exact internal routing path
+    expected_path = "/protected_media/test-video.mp4.transcodes/test-video_360.mp4/segment-0.ts"
+    assert expected_path in headers, f"Wrong internal path. Expected to find: {expected_path}"
+    
+    # 4. Verify the MIME type
+    assert "Content-Type: video/MP2T" in headers, "MIME type is not set to video/MP2T"
+    
+    print("✅ Nginx successfully reached Flask and received the X-Accel-Redirect instructions.")
+
 
 def test_child_manifest(casterpak_clean):
     ## /i/test_video.mp4/index_0_av.m3u8

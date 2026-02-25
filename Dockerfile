@@ -2,8 +2,6 @@
 ##  There should be /casterpak/ The docker image and /casterpak/casterpak the python module.
 ## Then, update docker-compose.yml to build from ./casterpak instead of .
 
-
-
 # --- Stage 1: The Bento4 Extractor ---
 FROM alpine:latest AS bento-builder
 RUN apk add --no-cache curl unzip
@@ -66,6 +64,7 @@ RUN if [ ! -f config.ini ]; then cp config_example.ini config.ini; fi
 ## Create input cache directory and grant permissions
 ## TODO: this path is (for some reason) configurable in config.ini.  Hard-Code it.
 RUN mkdir -p /tmp/video_input && chown casteruser /tmp/video_input
+RUN mkdir -p /tmp/segments && chown casteruser /tmp/segments
 
 #  Create log files for casterpak and grant permissions
 RUN touch /var/log/casterpak.error.log && chown casteruser /var/log/casterpak.error.log
@@ -82,7 +81,13 @@ ENV CASTERPAK_BENTO4_BINARYPATH=/usr/local/bin
 
 #  Final setup
 RUN chown -R casteruser:casteruser /app
+
+# Testing data
 RUN chown -R casteruser:casteruser /var/lib/casterpak/samples
+
+# database directory
+RUN mkdir -p /var/lib/casterpak/data && chown -R casteruser:casteruser /var/lib/casterpak/data
+
 USER casteruser
 
 EXPOSE 5000

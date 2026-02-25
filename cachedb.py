@@ -18,14 +18,17 @@ from typing import Iterable
 import datetime
 import sqlite3
 import logging
+import os
 
 logger = logging.getLogger("casterpak cleanup")
 
 # cache names
 SEGMENT_FILE_CACHE = 'segmentfile'
 INPUT_FILE_CACHE = 'inputfile'
+#DB_PATH = "/var/lib/casterpak/data/cacheDB.db"
+DB_PATH = os.environ.get("CASTERPAK_DB_PATH", "cacheDB.db")
 
-def initialize_cache_db(dbname: str = 'cacheDB.db'):
+def initialize_cache_db(dbname: str = DB_PATH):
     """Initialize the cache database with the necessary tables and WAL mode.
        This should be called once at application startup before any requests are handled.
     """
@@ -45,7 +48,7 @@ def initialize_cache_db(dbname: str = 'cacheDB.db'):
             logger.debug(f"Ensured table '{table_name}' exists in database {dbname}")
 
 class SQLite(object):
-    def __init__(self, file='sqlite.db'):
+    def __init__(self, file=DB_PATH):
         self.file = file
 
     def __enter__(self):
@@ -61,7 +64,7 @@ class SQLite(object):
 
 
 class CacheDB(object):
-    def __init__(self, dbname: str = 'cacheDB.db', cache_name: str = None) -> None:
+    def __init__(self, dbname: str = DB_PATH, cache_name: str = None) -> None:
         """create a new instance of a CacheDB
            in the case of holding multiple caches (like input file cache and output file cache)
            a 'cache_name' can be passed to differentiate different caches

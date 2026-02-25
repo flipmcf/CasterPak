@@ -2,7 +2,7 @@ import os
 import re
 import typing as t
 
-from flask import Blueprint, abort, current_app, send_from_directory, send_file
+from flask import Blueprint, abort, current_app, send_from_directory, send_file, make_response
 from werkzeug.utils import safe_join
 
 import cachedb
@@ -212,6 +212,7 @@ def segment(dir_name: t.Union[os.PathLike, str], filename: str):
     except FileNotFoundError:
         abort(404)
 
+    # Create the stream if it's missing.
     if not hls_manager.segment_exists(filename):
         current_app.logger.info(f"request for segment {filepath} that does not exist. creating manifest")
 
@@ -221,13 +222,38 @@ def segment(dir_name: t.Union[os.PathLike, str], filename: str):
         except EncodingError:
             abort(500)
 
+
+    # track the hit to keep the cache fresh.
     db = cachedb.CacheDB(cache_name=cachedb.SEGMENT_FILE_CACHE)
     db.addrecord(filename=dir_name)
 
-    return send_from_directory(directory=current_app.config['output']['segmentParentPath'],
-                               path=filepath,
-                               mimetype="video/MP2T"
-                               )
+    # Nginx Handoff
+    # We return an empty body, but tell Nginx where the file is located internally
+    response = make_response("")
+    response.headers['Content-Type'] = 'video/MP2T'
+    
+    # This path must match the internal location block in nginx.conf
+    internal_nginx_path = f"/protected_media/{filepath}"
+    response.headers['X-Accel-Redirect'] = internal_nginx_path
+    
+    return response
+
+
+    ## TODO 2 - update nginx with:
+    # The hidden, lightning-fast delivery route
+    # location /protected_media/ {
+    #     internal;
+        
+    #     # This points to the actual disk mount point inside the Nginx container
+    #     # Note: Your Nginx container MUST have the same volume mounted as your Flask container!
+    #     alias /var/lib/casterpak/samples/; 
+        
+    #     # Performance tuning for video delivery
+    #     sendfile on;
+    #     tcp_nopush on;
+    #     tcp_nodelay on;
+    # }
+
 
 
 @bp.route('/i/<path:dir_name>/figure/this/out/media.m3u8')

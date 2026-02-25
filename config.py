@@ -12,8 +12,14 @@ dname = os.path.dirname(abspath)
 os.chdir(dname)
 
 
+import logging
+level = logging.DEBUG
+logger = logging.getLogger("config")
+
 def get_config() -> ConfigParser:
+    logger.debug("config was (re)read.")
     config: ConfigParser = configparser.ConfigParser()
+    
     successfully_read = config.read('config.ini')
 
     if 'config.ini' not in successfully_read:

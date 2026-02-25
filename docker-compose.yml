@@ -16,6 +16,7 @@ services:
       - PYTHONUNBUFFERED=1
       - CASTERPAK_FILESYSTEM_VIDEOPARENTPATH=${CASTERPAK_FILESYSTEM_VIDEOPARENTPATH:-/mnt/data}
       - CASTERPAK_OUTPUT_SERVERNAME=${CASTERPAK_OUTPUT_SERVERNAME:-localhost}
+      - CASTERPAK_DB_PATH=/var/lib/casterpak/data/cacheDB.db
       #and we want to send all logs to stdout/stderr
       - CASTERPAK_LOGGING_ACCESS_LOG=-
       - CASTERPAK_LOGGING_ERROR_LOG=-
@@ -26,13 +27,14 @@ services:
       # 1. IF YOU ARE USING FILESYSTEM CONFIG for input (recommended)
       # map the local path to source video files (Change left side to your actual path)
       # best placed in .env - run 'setup.sh'
+      # your 'host_video_path' on the host system (where docker engine runs) becomes /mnt/data inside casterpak.
       - ${HOST_VIDEO_PATH:-~/Videos}:/mnt/data
       
-      # 3. Persistent cache directories (so they survive container restarts)
-      # IF YOU DO NOT MOUNT THESE, CasterPak will have to re-generate all segments and metadata on every restart.
-      # ./tmp/video_input:/tmp/video_input
-      # - /tmp/segments:/tmp/segments
-      
+      # this is where HLS/DASH/CMAF files are stored and cached.
+      - segment_cache:/tmp/segments
+      # This is where the database files live that maintain the cache.
+      - casterpak_data:/var/lib/casterpak/data
+
     # Ensures the container restarts automatically if it crashes or if the server restarts
     restart: unless-stopped
 
@@ -46,3 +48,17 @@ services:
       - "80:80"
     depends_on:
       - casterpak
+    volumes:
+      # Casterpak will write to this same volume, nginx reads from it to serve segments.
+      - segment_cache:/tmp/segments:ro
+    
+volumes:
+  segment_cache:
+    labels:
+      com.openforgesolutions.description: "Video Stream Segment Cache"
+      com.openforgesolutions.label: ""
+  casterpak_data:
+    labels:
+      com.openforgesolutions.description: "Database"
+      com.openforgesolutions.label: ""
+  

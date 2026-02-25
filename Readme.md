@@ -280,7 +280,7 @@ you can also point VLC or any other video player that can open a network path to
 ### Testing Cache Cleanup.
 
 the entire cache can be invalidated with a single SQL query:
- `sqlite3 /app/cacheDB.db "UPDATE segmentfile SET timestamp = 0; UPDATE inputfile SET timestamp = 0;"`
+ `sqlite3 /var/lib/casterpak/data/cacheDB.db "UPDATE segmentfile SET timestamp = 0; UPDATE inputfile SET timestamp = 0;"`
 
 setting everything to a timestamp of last access, Jan 1, 1970.   Cleanup should wake up every 300 seconds by default, and wipe the cache.
 
