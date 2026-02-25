@@ -105,7 +105,7 @@ class MediaManager_Base(object):
             'segment_filename_template': os.path.join(self.output_dir, 'segment-%d.ts'),
             'segment_url_template': urljoin(self.base_url, 'segment-%d.ts'),
             'segment_duration': str(self.segment_duration),
-            'allow-cache': True,
+            'allow-cache': "YES",
         }
 
         options = OptionsConfig(hls_config)
