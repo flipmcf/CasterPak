@@ -4,7 +4,9 @@ import typing as t
 import subprocess
 import time
 
-from flask import Blueprint, abort, current_app, send_from_directory, send_file, make_response
+from flask import Blueprint, Response
+from flask import abort, current_app, send_from_directory, send_file, make_response, redirect
+
 from werkzeug.utils import safe_join
 
 import cachedb
@@ -128,7 +130,12 @@ def single_bitrate_manifest(dir_name: str):
 @bp.route('/i/abr/<path:dir_name>/master.m3u8')
 def abr_manifest(dir_name: str):
     """
-    This endpoint will spin up encoding jobs for renditions.
+    # This is the expensive endpoint, use with caution
+    This endpoint acts as the State Manager. 
+    If encodings exist, redirects to CSMIL. 
+    If not:
+       a. start background ABR transcodes (cpu killer)
+       b. starts JIT encode, and returns emergency stream. (sub optimal playback)
     """
     
     #determine output dir for segments    
@@ -141,13 +148,40 @@ def abr_manifest(dir_name: str):
     localdir = current_app.config['filesystem']['videoParentPath']
     video_file = safe_join(localdir, dir_name)
 
-
-    # This is where we decide IF we create renditions.
-    # It checks the .transcodes folder and handles the FFmpeg logic.
     encoder = EncodingManager(video_file)
 
     try:
-        rendition_paths = encoder.get_renditions()
+        if encoder.renditions_exist():
+            # TIER 2: Encodings are ready. Redirect to stateless CSMIL delivery.
+            csmil_str = encoder.get_csmil_url_string()
+            transcode_dir = f"{filename}.transcodes"
+
+            # e.g., /i/test-video.mp4.transcodes/test-video_,1080p,720p,.mp4.csmil/master.m3u8
+            redirect_url = f"/i/{transcode_dir}/{csmil_str}/master.m3u8"
+            return redirect(redirect_url, code=302)
+        else:
+            # TIER 3: Emergency. Start the heavy worker...
+            encoder.start_background_encoding()
+            
+            # ...and start the lightweight JIT emergency stream
+            hls_manager = vodhls_media_playlist_factory(dir_name)
+            trigger_emergency_encoding(
+                input_filepath=hls_manager.source_file, 
+                output_dir=hls_manager.output_dir,
+                manifest_path=hls_manager.output_manifest_filename
+            )
+            
+            # Return a dynamic Master Manifest pointing to the new JIT stream
+            child_url = f"/i/{dir_name}/index_0_av.m3u8"
+            
+            m3u8_text = (
+                "#EXTM3U\n"
+                "#EXT-X-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=854x480\n"
+                f"{child_url}\n"
+            )
+            
+            return Response(m3u8_text, mimetype='application/vnd.apple.mpegurl')
+
     except FileNotFoundError:
         return abort(404, description="Original source video at videoParentPath/{dir_name} not found.")
     #except Exception as e:

@@ -1,7 +1,6 @@
 import os
 import unittest
 import configparser
-import shutil
 
 from unittest.mock import patch
 
