@@ -11,7 +11,7 @@ class TestFFmpegCommands(unittest.TestCase):
 
         self.input_dir = '/tmp/test_input'
         self.output_dir = '/tmp/test_output'
-        self.video_name = 'test_file.mp4'
+        self.video_name = 'file.mp4'
 
         #start the patcher for the 'get_config' function.
         self.patcher = patch('encoding.encodingmanager.get_config')
@@ -41,8 +41,10 @@ class TestFFmpegCommands(unittest.TestCase):
         generated_cmd = self.manager.get_ffmpeg_command()
         expected_output_dir = os.path.join(self.output_dir, f"{self.video_name}.transcodes")
 
-        expected_cmd = [
-            'ffmpeg', '-y', '-i', self.input_dir + '/' + self.video_name,
+        expected_cmd = ["nice", "-n", "10",
+            'ffmpeg', '-y', 
+            '-threads', '7',  ## TODO - variable threads in test
+            '-i', self.input_dir + '/' + self.video_name,
             '-c:a', 'aac', '-b:a', '128k', '-ac', '2', '-ar', '48000',
             '-map', '0:v:0', '-c:v:0', 'libx264', '-preset:0', 'veryfast', '-s:v:0',
             '1920x1080', '-b:v:0', '5000k', '-g:0', '60', '-keyint_min:0', '60', '-sc_threshold:0', '0', '-r:0', '30',
@@ -60,8 +62,6 @@ class TestFFmpegCommands(unittest.TestCase):
             os.path.join(expected_output_dir, 'file_360p.mp4'),
             os.path.join(expected_output_dir, 'file_240p.mp4')
         ]
-        
-
         # I'll assert list equality. This is strict and good.
         self.assertListEqual(generated_cmd, expected_cmd)
 
