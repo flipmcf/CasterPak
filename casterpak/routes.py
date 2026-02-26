@@ -1,6 +1,8 @@
 import os
 import re
 import typing as t
+import subprocess
+import time
 
 from flask import Blueprint, abort, current_app, send_from_directory, send_file, make_response
 from werkzeug.utils import safe_join
@@ -34,6 +36,57 @@ def get_base_url(dir_name: t.Union[os.PathLike, str]) -> str:
         baseurl = ''
 
     return baseurl
+
+def trigger_emergency_encoding(input_filepath, output_dir, manifest_path):
+    """
+    Spawns a detached FFmpeg process to generate a live, appendable HLS stream.
+    this is because we did not find a ffmpeg encoded video file, so there is nothing for 
+    bento4 to work with. 
+    Waits for the first segment to appear before returning.
+
+    This is a failsafe.  It's preferred that files be provided pre-transcoded for ABR support.
+    But if casterpak discovers there is only one file, it will attempt to transcode it on the fly.
+
+    If you're reading this, you're probably spending too much money and it's time to optomize your video library
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # We must match Bento4's exact naming convention from media_manifest_base.py
+    segment_template = os.path.join(output_dir, "segment-%d.ts")
+    first_segment_path = os.path.join(output_dir, "segment-0.ts")
+
+    cmd = [
+        "ffmpeg", "-y", "-i", input_filepath,
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-vf", "scale=-2:480",
+        "-c:a", "aac", "-b:a", "128k", "-ac", "2",
+        "-f", "hls",
+        "-hls_time", "2",
+        "-hls_list_size", "0", 
+        "-hls_playlist_type", "event", 
+        "-hls_segment_filename", segment_template,
+        manifest_path
+    ]
+
+    current_app.logger.info(f"Spawning Emergency JIT Transcode for {input_filepath}")
+    
+    # Popen detaches the process. stdout/stderr to DEVNULL keeps Docker logs clean.
+    process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    # Polling Loop
+    timeout = 5.0 
+    start_time = time.time()
+    
+    while True:
+        if os.path.exists(first_segment_path):
+            current_app.logger.info("First JIT segment detected! Releasing request to Nginx.")
+            return True
+            
+        if time.time() - start_time > timeout:
+            current_app.logger.error("JIT Transcoding timed out.")
+            process.kill() 
+            raise EncodingError("JIT Transcoding failed to start in time.")
+            
+        time.sleep(0.1) 
 
 
 @bp.route('/i/<path:dir_name>')
