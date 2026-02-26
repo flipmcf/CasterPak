@@ -315,15 +315,46 @@ def test_child_manifest(casterpak_clean):
     ## /i/test_video.mp4/index_0_av.m3u8
     ## explicitly do this as the first request.
     ## we want this to work without calling master.m3u8 in case of a cache miss or server restart
-    pass
+    assert False, "write this test!"
 
 def test_segment(casterpak_clean):
     ## /i/test_video.mp4/segment-1.ts
     ## explicitly do this as the first request - assume the browswer had a cached index_0_av and we just woke up.
-    pass
+    assert False, "write this test!"
 
-def test_route_abr_manifest(casterpak_clean):
-    ## Big test - do an encoding with a specified ladder
-    pass
+def test_route_abr_manifest_emergency(casterpak_clean):
+    """
+    Test Tier 3: Encodings are missing. 
+    Should return a 200 OK with a dynamic JIT manifest.
+    """
+    response = requests.get("http://localhost:80/i/abr/test-video.mp4/master.m3u8")
+    
+    assert response.status_code == 200
+    
+    # Verify it generated the Emergency Master Manifest
+    assert "#EXTM3U" in response.text
+    assert "RESOLUTION=854x480" in response.text
+    assert "/i/test-video.mp4/index_0_av.m3u8" in response.text
+    
+    # We could also optionally check the container to ensure the FFmpeg process started, 
+    # but receiving the emergency manifest proves the routing logic fired correctly.
+
+def test_route_abr_manifest_redirect(with_encodings):
+    """
+    Test Tier 2: Encodings exist. 
+    Should return a 302 Found redirecting to the .csmil endpoint.
+    """
+    # allow_redirects=False is critical here so we can inspect the 302 response itself
+    response = requests.get(
+        "http://localhost:80/i/abr/test-video.mp4/master.m3u8", 
+        allow_redirects=False
+    )
+    
+    assert response.status_code == 302
+    
+    # Verify the Location header was built correctly
+    expected_redirect = "/i/test-video.mp4.transcodes/test-video_,360,480,720,.mp4.csmil/master.m3u8"
+    assert response.headers['Location'] == expected_redirect
+
 
 
