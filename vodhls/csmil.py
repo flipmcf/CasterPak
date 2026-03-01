@@ -7,6 +7,7 @@ filenameRE = re.compile(r'[^.a-zA-Z\d_-]')
 dirnameRE = re.compile(r'[^.a-zA-Z\d_/-]')
 
 class CsmilDescriptor:
+    """ constructs and deconstructs csmil strings"""
     def __init__(self, dirname: str, basename: str, ext: str, bitrates: list):
         self.dirname = dirname
         self.basename = basename
@@ -33,14 +34,13 @@ class CsmilDescriptor:
         file_chunks = files.split(',')
 
         dirs = [filenameRE.sub('', d) for d in dirs]
-        common_filename_prefix = filenameRE.sub('', file_chunks[0])
+        basename = filenameRE.sub('', file_chunks[0])
         bitrates = [filenameRE.sub('', f) for f in file_chunks[1:-1]]
         ext = common_filename_suffix = filenameRE.sub('', file_chunks[-1])
 
-        dirname = os.path.join(*dirs)
-        basename = common_filename_prefix + common_filename_suffix
-        filenames = [common_filename_prefix+bitrate+common_filename_suffix for bitrate in bitrates]
-        files = [os.path.join(dir, filename) for filename in filenames]
+        dirname = os.path.join(*dirs) if dirs else ''
+        filenames = [basename+'_'+bitrate+common_filename_suffix for bitrate in bitrates]
+        files = [os.path.join(dirname, filename) for filename in filenames]
         
         return cls(dirname, basename, ext, bitrates)   
         
@@ -60,10 +60,3 @@ class CsmilDescriptor:
         This completely removes the file-guessing logic from routes.py!
         """
         return [f"{self.basename}_{b}{self.ext}" for b in self.bitrates]
-
-    def url(filename, bitrates):
-
-        h = blake2b(digest_size=16)   # usedforsecurity = False
-        for item in sorted(self.files):
-            h.update(item.encode("ascii"))
-        return f"{h.hexdigest()}.m3u8"
