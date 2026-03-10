@@ -61,15 +61,15 @@ For example, http://this_application/i/my_video_highdef.mp4/index_0_av.m3u8 will
     #EXT-X-PLAYLIST-TYPE:VOD
     #EXT-X-VERSION:3
     #EXT-X-MEDIA-SEQUENCE:1
-    #EXTINF:10.000,
+    #EXTINF:2.000,
     http://this_application/i/my_video_highdef.mp4/segment1_0_av.ts
-    #EXTINF:10.000,
+    #EXTINF:2.000,
     http://this_application/i/my_video_highdef.mp4/segment2_0_av.ts
-    #EXTINF:10.000,
+    #EXTINF:2.000,
     http://this_application/i/my_video_highdef.mp4/segment3_0_av.ts
-    #EXTINF:10.000,
+    #EXTINF:2.000,
     ...
-    #EXTINF:6.186,
+    #EXTINF:1.186,
     http://this_application/i/my_video_highdef.mp4/segment19_0_av.ts
     #EXT-X-ENDLIST
 
