@@ -98,7 +98,7 @@ In the future, we will support directly configuring FTP, SCP, and others so netw
 
 after cloning this repository:
 
-run './setup.py' for required configuration.
+`./setup`
 
 `docker-compose up -d --build`
 
