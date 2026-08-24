@@ -15,6 +15,11 @@ test_env = os.environ.copy()
 # when testing, use video files here as the source.
 test_env["CASTERPAK_FILESYSTEM_VIDEOPARENTPATH"] = "/var/lib/casterpak/samples" 
 
+# Define a custom encoding ladder. what the test encoder should build so it doesn't expect 1080p or 240p
+test_env["CASTERPAK_ENCODING_LADDER_720"] = "1280x720, 2500k"
+test_env["CASTERPAK_ENCODING_LADDER_480"] = "854x480, 1000k"
+test_env["CASTERPAK_ENCODING_LADDER_360"] = "640x360, 750k"
+
 def wait_for_log_signal(container_name, signal_text, timeout=30):
     """
     Streams logs from a container and returns only when signal_text is found.
@@ -312,15 +317,27 @@ def test_nginx_to_flask_x_accel_handoff(casterpak_stack):
 
 
 def test_child_manifest(casterpak_clean):
-    ## /i/test_video.mp4/index_0_av.m3u8
-    ## explicitly do this as the first request.
-    ## we want this to work without calling master.m3u8 in case of a cache miss or server restart
-    assert False, "write this test!"
+    """Verify requesting an index directly invokes Bento4 and returns a valid VOD manifest."""
+    response = requests.get("http://localhost:80/i/test-video.mp4/index_0_av.m3u8")
+    
+    assert response.status_code == 200
+    assert "#EXTM3U" in response.text
+    assert "#EXT-X-TARGETDURATION" in response.text
+    assert "segment-0.ts" in response.text
+    assert "#EXT-X-ENDLIST" in response.text
+   
 
 def test_segment(casterpak_clean):
-    ## /i/test_video.mp4/segment-1.ts
-    ## explicitly do this as the first request - assume the browswer had a cached index_0_av and we just woke up.
-    assert False, "write this test!"
+    """Verify requesting a segment directly creates it via Flask 404 fallback."""
+    # Hit segment-1 directly, simulating a cached manifest but purged disk)
+    response = requests.get("http://localhost:80/i/test-video.mp4/segment-0.ts")
+    
+    assert response.status_code == 200
+    # Confirm Nginx successfully delivered the binary stream
+    assert response.headers['Content-Type'] == 'video/MP2T'
+    # Ensure it's not a 0-byte file
+    assert len(response.content) > 1000
+    
 
 def test_route_abr_manifest_emergency(casterpak_clean):
     """

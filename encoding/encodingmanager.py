@@ -70,14 +70,6 @@ class EncodingManager:
             logger.info(f"Starting background ABR encoding for {self.full_path_filename}")
             self._trigger_encoding()
 
-    def get_csmil_url_string(self) -> str:
-        """
-        Generates the comma-separated string for the csmil endpoint based on the ladder.
-        e.g. 'test-video_,1080p,720p,480p,360p,240p,.mp4.csmil'
-        """
-        labels = ",".join(self.bitrates)
-        return f"{self.file_basename}_,{labels},{self.file_ext}.csmil"    
-
     def list_rendition_files(self) -> list[str]:
 
         ## Note that the order of the files matters.   

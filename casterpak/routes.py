@@ -11,11 +11,14 @@ from werkzeug.utils import safe_join
 
 import cachedb
 from vodhls import EncodingError
+from vodhls.csmil import CsmilDescriptor
 from vodhls.factory import (vodhls_master_playlist_factory,
                             vodhls_media_playlist_factory)
 
 from encoding import EncodingManager
 
+
+## TODO - this is duplicated in vodhls/csmil.py
 # valid characters in a filename
 filenameRE = re.compile(r'[^.a-zA-Z\d_-]')
 # valid characters in a directory path:
@@ -27,7 +30,7 @@ bp = Blueprint('casterpak', __name__)
 def get_base_url(dir_name: t.Union[os.PathLike, str]) -> str:
     app_config = current_app.config
     if app_config['output'].get('serverName'):
-        if app_config['output'].getboolean('use_https', fallback=False):
+        if app_config['output']['use_https']:
             protocol = 'https'
         else:
             protocol = 'http'
@@ -142,22 +145,22 @@ def abr_manifest(dir_name: str):
     (dirname, filename) = os.path.split(dir_name)
     #sanitize
     filename = filenameRE.sub('', filename)
-    output_dirname = dirnameRE.sub('', dirname)
+
+    basename, ext = os.path.splitext(filename)
     
     #determine input directory for origonal video file.
     localdir = current_app.config['filesystem']['videoParentPath']
     video_file = safe_join(localdir, dir_name)
 
     encoder = EncodingManager(video_file)
-
     try:
         if encoder.renditions_exist():
             # TIER 2: Encodings are ready. Redirect to stateless CSMIL delivery.
-            csmil_str = encoder.get_csmil_url_string()
-            transcode_dir = f"{filename}.transcodes"
+            from vodhls.csmil import CsmilDescriptor
+            transcodes_dir = os.path.join(dirname, f"{filename}.transcodes")
+            csmil = CsmilDescriptor(transcodes_dir, basename, ext, encoder.bitrates)
+            redirect_url = f"/i/{transcodes_dir}/{csmil.csmil_string}.csmil/master.m3u8"
 
-            # e.g., /i/test-video.mp4.transcodes/test-video_,1080p,720p,.mp4.csmil/master.m3u8
-            redirect_url = f"/i/{transcode_dir}/{csmil_str}/master.m3u8"
             return redirect(redirect_url, code=302)
         else:
             # TIER 3: Emergency. Start the heavy worker...
@@ -186,31 +189,7 @@ def abr_manifest(dir_name: str):
         return abort(404, description="Original source video at videoParentPath/{dir_name} not found.")
     #except Exception as e:
     #    return abort(504, description=f"Encoding failed: {e}")
-    ## FOR NOW - don't catch encoding exceptions, debug them.
-    
-    vodhls_manager = vodhls_master_playlist_factory(rendition_paths, output_dirname)
-
-    #the input file cache should be updated with the new renditions.
-    if not vodhls_manager.manifest_exists():
-        vodhls_manager.set_baseurl(get_base_url(dir))   
-   
-    # Create or verify the rendition for each bitrate
-    try:
-        vodhls_manager.output_hls()
-    except FileNotFoundError:
-        abort(404)
-
-    #the segment files 
-    for manager in vodhls_manager.segment_managers:
-        if manager['status'] != 'ready':
-            continue
-        segment_dir_name = manager['segment_manager'].filename
-        db = cachedb.CacheDB(cache_name=cachedb.SEGMENT_FILE_CACHE)
-        db.addrecord(filename=segment_dir_name)
-
-    return send_from_directory(directory=vodhls_manager.output_dir,
-                               path=vodhls_manager.master_playlist_name,
-                               mimetype="application/vnd.apple.mpegurl")
+    ## FOR NOW - don't catch encoding exceptions, debug them.   
 
 @bp.route('/i/<path:csmil_str>.csmil/master.m3u8')
 def csmil_parent_manifest(csmil_str: str):
@@ -221,24 +200,11 @@ def csmil_parent_manifest(csmil_str: str):
     This is useful when the renditions are already available, and are in an arbitrary naming format.
     """
 
-    csmil_chunks = csmil_str.split('/')
-    dirs = csmil_chunks[:-1]
-    files = csmil_chunks[-1]
-    file_chunks = files.split(',')
+    csmil_data = CsmilDescriptor.from_string(csmil_str)
 
-    dirs = [filenameRE.sub('', d) for d in dirs]
-    common_filename_prefix = filenameRE.sub('', file_chunks[0])
-    bitrates = [filenameRE.sub('', f) for f in file_chunks[1:-1]]
-    common_filename_suffix = filenameRE.sub('', file_chunks[-1])
-
-    dir = os.path.join(*dirs)
-    filenames = [common_filename_prefix+bitrate+common_filename_suffix for bitrate in bitrates]
-    files = [os.path.join(dir, filename) for filename in filenames]
-    vodhls_manager = vodhls_master_playlist_factory(files, dir)
+    vodhls_manager = vodhls_master_playlist_factory(csmil_data)
 
     if not vodhls_manager.manifest_exists():
-        vodhls_manager.set_baseurl(get_base_url(dir))
-
         try:
             vodhls_manager.output_hls()
         except FileNotFoundError:
@@ -325,25 +291,12 @@ def segment(dir_name: t.Union[os.PathLike, str], filename: str):
     
     return response
 
-
-    ## TODO 2 - update nginx with:
-    # The hidden, lightning-fast delivery route
-    # location /protected_media/ {
-    #     internal;
-        
-    #     # This points to the actual disk mount point inside the Nginx container
-    #     # Note: Your Nginx container MUST have the same volume mounted as your Flask container!
-    #     alias /var/lib/casterpak/samples/; 
-        
-    #     # Performance tuning for video delivery
-    #     sendfile on;
-    #     tcp_nopush on;
-    #     tcp_nodelay on;
-    # }
-
-
-
-@bp.route('/i/<path:dir_name>/figure/this/out/media.m3u8')
+@bp.route('/d/<path:dir_name>/figure/this/out/media.m3u8')
 def dash(dir_name: t.Union[os.PathLike, str]):
     current_app.logger.debug(f"calling dash with {dir_name}")
+    raise NotImplementedError
+
+@bp.route('/c/<path:dir_name>/figure/this/out/media.m3u8')
+def cmaf(dir_name: t.Union[os.PathLike, str]):
+    current_app.logger.debug(f"calling cmaf with {dir_name}")
     raise NotImplementedError

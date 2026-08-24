@@ -3,27 +3,31 @@
 #See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
 import os
 import typing as t
-from hashlib import blake2b
 
 from . import ConfigurationError
 
 from config import get_config
 from vodhls.factory import vodhls_media_playlist_factory
 from vodhls.media_manifest_base import OptionsConfig
+from csmil import CsmilDescriptor
 
 import logging
 logger = logging.getLogger('vodhls')
 
-
+## also known as the ABR (adaptive bitrate) manager...
 class MultivariantManager(object):
     config = get_config()
 
-    def __init__(self, files, output_dir):
+    def __init__(self, csmil_data, output_dir):
         self.__master_playlist_dir = output_dir
-        self.files: t.Iterable[t.Union[os.PathLike, str]] = files
         self.segment_managers = []
         self.baseurl = None
         self.input_files_processed = False
+        self.csmil_data = csmil_data
+
+        self.files = csmil_data.rendition_filenames
+
+
 
     def process_input_files(self):
         """ for each segment manager, pull the input file into cache and reset it's ttl
@@ -56,27 +60,14 @@ class MultivariantManager(object):
         self.baseurl = url
 
     @property
-    def master_playlist_name(self):
+    def master_playlist_filename(self):
         """ return the filename of the master_playlist on the filesystem.
-            This is a cache-key, so we _attempt_ to do some heuristics to match
-            this name with a deterministic output of this specific vodhls manager instance.
-
-            If two separate instances of this class would create the same master playlist,
-            we try hard to return that unique playlist name here.
-
-            a file list of [a,b,c,d] and a file list of [b,a,c,d] should return the same manifest.
-
-            (not implemented)
-            a file list of [a,b,c,d,e] but 'e' is not a valid file,
-            should return the same manifest as [a,b,c,d]
-
+            a file list of [a,b,c,d] and a file list of [b,a,c,d] \
+            should return the same manifest.
         """
-
-        h = blake2b(digest_size=16)   # usedforsecurity = False
-        for item in sorted(self.files):
-            h.update(item.encode("ascii"))
-
-        return f"{h.hexdigest()}.m3u8"
+        #just ask the csmil descriptor for its safe, unique string
+    
+        return f"{self.csmil_data.csmil_string}.m3u8"
 
     def manifest_exists(self) -> bool:
         manifest_path = os.path.join(self.output_dir, self.master_playlist_name)

@@ -20,3 +20,5 @@ config.ini
 .vscode/
 .idea/
 
+#AI
+CLAUDE.md

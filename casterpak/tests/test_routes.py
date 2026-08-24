@@ -30,7 +30,7 @@ class TestABRRoute(unittest.TestCase):
         # Mock the manager to say "Yes, encodings are finished"
         mock_encoder = MagicMock()
         mock_encoder.renditions_exist.return_value = True
-        mock_encoder.get_csmil_url_string.return_value = 'test_file_,1080p,720p,.mp4.csmil'
+        mock_encoder.bitrates = ['1080p', '720p']
         mock_encoding_manager_class.return_value = mock_encoder
 
         # Simulate the user requesting the ABR manifest

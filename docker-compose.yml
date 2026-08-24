@@ -12,6 +12,7 @@ services:
 
     # Environment variables (overrides for your config logic)
     environment:
+      - CASTERPAK_APPLICATION_DEBUG=False
       - FLASK_ENV=production
       - PYTHONUNBUFFERED=1
       - CASTERPAK_FILESYSTEM_VIDEOPARENTPATH=${CASTERPAK_FILESYSTEM_VIDEOPARENTPATH:-/mnt/data}

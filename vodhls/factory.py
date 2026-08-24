@@ -6,17 +6,20 @@ import typing as t
 import os
 
 from config import get_config
+from flask import current_app
 
 logger = logging.getLogger('vodhls')
 
 
-def vodhls_master_playlist_factory(files: t.Iterable[t.Union[os.PathLike, str]], output_dir: t.Union[os.PathLike, str]):
+def vodhls_master_playlist_factory(files: t.Iterable[t.Union[os.PathLike, str]]):
     """
     :param files: an iterable with full paths to all input files relative to the configured input directory
     :param output_dir: output directory for segments relative to configured output directory (typically a common dirname of files)
     :return: an instance of a Multivariant 'master' HLS manager
     """
     from vodhls.master_manifest import MultivariantManager
+    output_dir = current_app.config['output']['segmentParentPath']
+
     return MultivariantManager(files, output_dir)
 
 

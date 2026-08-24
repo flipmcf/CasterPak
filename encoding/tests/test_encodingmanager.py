@@ -29,11 +29,6 @@ class TestEncodingManagerMethods(unittest.TestCase):
     def tearDown(self):
         self.patcher.stop()
 
-    def test_get_csmil_url_string(self):
-        expected = "test_file_,1080p,720p,480p,360p,240p,.mp4.csmil"
-        result = self.manager.get_csmil_url_string()
-        self.assertEqual(result, expected)
-
     @patch.object(EncodingManager, '_all_exist')
     def test_renditions_exist(self, mock_all_exist):
         mock_all_exist.return_value = True
@@ -63,6 +58,40 @@ class TestEncodingManagerMethods(unittest.TestCase):
         
         mock_ensure_dir.assert_called_once()
         mock_trigger.assert_not_called()
+
+    @patch('encoding.encodingmanager.get_config')
+    def test_custom_encoding_ladder_labels(self, mock_get_config):
+        """
+        Prove that EncodingManager respects custom labels like 'high', 'medium', 'low'
+        instead of defaulting to the standard '1080p', '720p' format.
+        """
+        # 1. Build a custom ConfigParser object
+        custom_config = configparser.ConfigParser()
+        custom_config.add_section('input')
+        custom_config.set('input', 'videoCachePath', '/tmp/test_output')
+        
+        # 2. Add the custom ladder!
+        custom_config.add_section('encoding_ladder')
+        custom_config.set('encoding_ladder', 'high', '1920x1080, 5000k')
+        custom_config.set('encoding_ladder', 'medium', '1280x720, 2500k')
+        custom_config.set('encoding_ladder', 'low', '426x240, 400k')
+        
+        # 3. Tell get_config() to return our custom config
+        mock_get_config.return_value = custom_config
+        
+        # 4. Instantiate the manager and check the generated filenames
+        manager = EncodingManager('/tmp/test_input/test_video.mp4')
+        
+        files = manager.list_rendition_files()
+        
+        # Assert the manager generated exact filenames matching our custom labels
+        self.assertIn('/tmp/test_output/test_video.mp4.transcodes/test_video_high.mp4', files)
+        self.assertIn('/tmp/test_output/test_video.mp4.transcodes/test_video_medium.mp4', files)
+        self.assertIn('/tmp/test_output/test_video.mp4.transcodes/test_video_low.mp4', files)
+        
+        # Assert it completely ignored the fallback defaults
+        self.assertEqual(len(files), 3)
+
 
 if __name__ == "__main__":
     unittest.main()
