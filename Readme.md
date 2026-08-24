@@ -10,10 +10,9 @@ curl -sL https://raw.githubusercontent.com/flipmcf/casterpak/master/install | ba
 This software provides HLS Stream packaging for Video-On-Demand (VOD) with a built in cache.
 
 The problem this solves is to balance your CPU and Storage costs for streaming Video-on-demand.
-Creating an HLS (m3u8) stream from a video file (mp4, et. al.) is CPU cheap and fast compared to video encoding - which this can also do if you really want.
+Creating an HLS (m3u8) stream from a video file (mp4, et. al.) is CPU cheap and fast compared to video encoding.
 
-Casterpak a very good fit for use cases where videos serve the 'popular' model of access.  Videos that are frequently
-accessed remain cached at this server and videos that are not accessed are deleted from cache.
+Casterpak a very good fit for use cases where videos serve the 'popular' model of access.  Videos that are frequently accessed remain cached at this server and videos that are not accessed are deleted from cache.
 
 Also it's a great fit for those who own a large 'archive' video file on inexpensive, slow-access storage like AWS S3 Glacier or Microsoft Azure Archive.  
 CasterPak can retrieve source video files from network addressess, copy them locally, and then deliver.   The first video play may be slow, but subsequent access to the same video is then fast. 
@@ -22,36 +21,40 @@ You don't want to store your HLS stream forever, neither do you want to re-creat
 This software provides the utilities to configure how long to store origional video files locally (video input cache ttl), files ready for streaming (streaming cache ttl), and creates stream packages on-demand from your encoded renditions
 if the files don't exist (handle cache miss).
 
-This package is a good drop-in replacement for Akamai Media Services On Demand (MSOD) for video streaming.
-It supports the '.csmil' endpoint that Akamai used to support to generate master manifests of renditions,
-and creates media playlists and segments your renditions.
+This package is a good drop-in replacement for Akamai Media Services On Demand (MSOD) for video streaming.  It supports the '.csmil' endpoint that Akamai used to support to generate master manifests of renditions, and creates media playlists and segments your renditions.
 
 ** New in version 0.9 **
-   Auto encoding of video renditions.  Work in progress.
+   Encoding of video renditions.  Work in progress.
 
 
-one great feature is the client-side SMIL urls (.csmil) to get the master manifest.  it uses a similar syntax as Akamai's Media Services On Demand 'csmil' url construction:
+## Basic Usage
+The flagship feature is the client-side SMIL urls (.csmil) to get the master manifest.
 
-For casterpak, we use HLS for now, so the url looks like:
+A "Master Manifest" is a file that describes the quality of a stream (resolution, bandwidth, etc) and a URL to a stream that provides that video in the matching resolution.
 
+It uses a similar syntax as Akamai's Media Services On Demand 'csmil' url construction:
+
+```
 http://example.com/i/path/<common_filename_prefix>,< bitrate >,< bitrate >,< bitrate >,< bitrate >,<common_filename_suffix>.csmil/master.m3u8
+```
 
-For example, if you have a master video 'my_video.mp4' and after video encoding you create a 'my_video_highdef.mp4', 'my_video_medium.mp4', and 'my_video_low.mp4', this URL request will create the following master manifest:
+For example, if you have a master video with three stream qualities: "high", "medium" and "low" saved as 3 files named 'my_video_highdef.mp4', 'my_video_medium.mp4', and 'my_video_low.mp4' a very basic Master Manifest URL and contents would look like this:
 
-http://this_application/i/my_video_,highdef,medium,low,.mp4.csmil/master.m3u8
+
+http://example.com/i/my_video_,highdef,medium,low,.mp4.csmil/master.m3u8
 
 
     #EXTM3U
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=622044,RESOLUTION=854x480
-    http://this_application/i/my_video_low.mp4/index_0_av.m3u8
+    http://example.com/i/my_video_low.mp4/index_0_av.m3u8
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=741318,RESOLUTION=960x540
-    http://this_application/i/my_video_medium.mp4/index_0_av.m3u8
+    http://example.com/i/my_video_medium.mp4/index_0_av.m3u8
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=1156684,RESOLUTION=1280x720
-    http://this_application/i/my_video_highdef.mp4/index_0_av.m3u8
+    http://example.com/i/my_video_highdef.mp4/index_0_av.m3u8
 
-Each one of those url's above will also be served by this application.  We call them 'media manifests' or 'segment manifests' This application will serve segment manifests and the actual segment data.
+Each one of those url's above will also be served by this application.  Each URL contains the defintion of the video stream for that video resolution, saved at that file location.  We call these files 'media manifests' or 'segment manifests' This application will serve segment manifests and the actual segment data.
 
-If the m3u8 manifest is available on-disk, it's served.  Otherwise, it's created and saved
+The caching server will determine if the m3u8 segment manifest is available on-disk, or needs to be created before being served.
 
 For example, http://this_application/i/my_video_highdef.mp4/index_0_av.m3u8 will reply with
 
@@ -61,22 +64,19 @@ For example, http://this_application/i/my_video_highdef.mp4/index_0_av.m3u8 will
     #EXT-X-PLAYLIST-TYPE:VOD
     #EXT-X-VERSION:3
     #EXT-X-MEDIA-SEQUENCE:1
-    #EXTINF:2.000,
+    #EXTINF:10.000,
     http://this_application/i/my_video_highdef.mp4/segment1_0_av.ts
-    #EXTINF:2.000,
+    #EXTINF:10.000,
     http://this_application/i/my_video_highdef.mp4/segment2_0_av.ts
-    #EXTINF:2.000,
+    #EXTINF:10.000,
     http://this_application/i/my_video_highdef.mp4/segment3_0_av.ts
-    #EXTINF:2.000,
+    #EXTINF:10.000,
     ...
     #EXTINF:1.186,
     http://this_application/i/my_video_highdef.mp4/segment19_0_av.ts
     #EXT-X-ENDLIST
 
-And each one of those .ts files will be available at this application's endpoint until they are removed by the cache cleanup.
-
-Additionally, this package will setup jobs to remove .ts files after they go unaccessed for
-A certain amount of time.
+Each one of those .ts video segments will be available at this application's endpoint until they are removed by the cache cleanup.
 
 
 ### CACHING RECIPIES & Tuning
@@ -250,8 +250,10 @@ create a file /var/log/casterpak.cache.log and give the application user rights 
 Hopefully, a lot of this will be automated soon, but here is the basic testing path.
 Before a commit to main:
 
-try to run ./bin/pytest first !!! it's almost working
-./bin/pytest tests/containertests/run_tests.py -vv  (get containertests to run automatically)
+first, unit tests `./bin/pytest`
+
+then do integration testing with containers:
+./bin/pytest tests/containertests/run_tests.py -vv  
 
 1. execute `run.sh` at the root of the repository with your testing setup.  
     Make sure videos are served (use VLC "media->open network stream" and hit a master.m3u8 url)
