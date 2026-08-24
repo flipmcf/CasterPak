@@ -205,20 +205,26 @@ class TestCsmilRoute(unittest.TestCase):
     @patch('casterpak.routes.vodhls_master_playlist_factory')
     def test_csmil_deep_path(self, mock_factory, mock_cachedb):
         """Test that deeply nested directory paths are parsed correctly."""
+
+        #mock a situation where the files appear to be in the cache, and we get a parent / master manifest
         mock_manager = MagicMock()
         mock_manager.manifest_exists.return_value = True
         mock_manager.output_dir = '/tmp/mock_output'
         mock_manager.master_playlist_name = 'master.m3u8'
         mock_factory.return_value = mock_manager
 
+        #send a url '/i/foo/bar/baz/clip_,1080,720,480,.mp4.csmil/master.m3u8' to flask.
         with patch('casterpak.routes.send_from_directory', return_value=Response('manifest')):
             response = self.client.get('/i/foo/bar/baz/clip_,1080,720,480,.mp4.csmil/master.m3u8')
 
+        #expect a 200 reply
         self.assertEqual(response.status_code, 200)
+
+        #make sure args were passed correctly - should be a CsmilDescriptor
         args = mock_factory.call_args[0]
-        files_arg, dir_arg = args[0], args[1]
-        self.assertEqual(dir_arg, 'foo/bar/baz')
-        self.assertEqual(len(files_arg), 3)
+        csmil_arg = args[0]
+        self.assertEqual(csmil_arg.dirname, 'foo/bar/baz')
+        self.assertEqual(len(csmil_arg.rendition_filenames), 3)
 
 
 if __name__ == "__main__":
