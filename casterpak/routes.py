@@ -205,6 +205,7 @@ def csmil_parent_manifest(csmil_str: str):
     vodhls_manager = vodhls_master_playlist_factory(csmil_data)
 
     if not vodhls_manager.manifest_exists():
+        vodhls_manager.set_baseurl(get_base_url(csmil_data.dirname))
         try:
             vodhls_manager.output_hls()
         except FileNotFoundError:
@@ -217,6 +218,7 @@ def csmil_parent_manifest(csmil_str: str):
             db = cachedb.CacheDB(cache_name=cachedb.SEGMENT_FILE_CACHE)
             db.addrecord(filename=segment_dir_name)
 
+    
     return send_from_directory(directory=vodhls_manager.output_dir,
                                path=vodhls_manager.master_playlist_name,
                                mimetype="application/vnd.apple.mpegurl")

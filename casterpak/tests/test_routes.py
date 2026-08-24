@@ -126,10 +126,9 @@ class TestCsmilRoute(unittest.TestCase):
         # Factory should have been called with the correct parsed files and directory
         mock_factory.assert_called_once()
         args = mock_factory.call_args[0]
-        files_arg, dir_arg = args[0], args[1]
-        self.assertEqual(dir_arg, 'mydir')
-        self.assertIn('mydir/test-video_720.mp4', files_arg)
-        self.assertIn('mydir/test-video_480.mp4', files_arg)
+        csmil_arg = args[0]
+        self.assertEqual(csmil_arg.dirname, 'mydir')
+        self.assertEqual(len(csmil_arg.rendition_filenames), 2)
 
         # Should NOT have called output_hls since manifest already exists
         mock_manager.output_hls.assert_not_called()
