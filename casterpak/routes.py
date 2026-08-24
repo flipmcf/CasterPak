@@ -191,11 +191,11 @@ def abr_manifest(dir_name: str):
     #    return abort(504, description=f"Encoding failed: {e}")
     ## FOR NOW - don't catch encoding exceptions, debug them.   
 
+# TODO rename function to 'csmil_master_manifest' to keep naming convention of 'master playlist'
 @bp.route('/i/<path:csmil_str>.csmil/master.m3u8')
 def csmil_parent_manifest(csmil_str: str):
     """
-    creates a variant manifest containing multiple bitrate files. the csmil_str is a string of the form
-    dir1/dir2/dir3/file1,bitrate1,file2,bitrate
+    creates a master manifest containing multiple bitrate files.
 
     This is useful when the renditions are already available, and are in an arbitrary naming format.
     """
