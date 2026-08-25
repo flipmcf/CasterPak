@@ -19,6 +19,9 @@ Asking a user to wait 2 minutes while a 1080p transcode starts is a "churn" even
 
 Once 'on the fly' transcoding is done, "Priority Queue" skeleton that could handle that "First 10 Seconds" emergency transcode while keeping the rest of the queue in check?
 
+the 'single bitrate' route - is it really useful?   It only works if the file is already encoded in a way that bento4 likes.  I have examples of iPhone videos that don't work when dropped right into bento4.  We should inspect files to make sure that bento4 likes them first, and encode if it doesn't.
+
+
 Risks:
 CPU Spikes	Queue Management: Limit concurrent transcodes to N (where N=CPU Cores−1).
 
