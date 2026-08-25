@@ -16,7 +16,7 @@ RUN curl -O https://www.bok.net/Bento4/binaries/Bento4-SDK-1-6-0-641.x86_64-unkn
 
 # stage 2: FFmpeg Static Provider Stage ---
 # This image contains just the static binaries for ffmpeg and ffprobe
-FROM mwader/static-ffmpeg:7.1 as ffmpeg-provider
+FROM mwader/static-ffmpeg:7.1 AS ffmpeg-provider
 
 
 # --- Stage 3: The Final Application ---  this is what's in the image
