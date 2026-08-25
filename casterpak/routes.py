@@ -188,9 +188,8 @@ def abr_manifest(dir_name: str):
 
     except FileNotFoundError:
         return abort(404, description="Original source video at videoParentPath/{dir_name} not found.")
-    #except Exception as e:
-    #    return abort(504, description=f"Encoding failed: {e}")
-    ## FOR NOW - don't catch encoding exceptions, debug them.   
+    except Exception as e:
+        return abort(504, description=f"Encoding failed: {e}")
 
 # TODO rename function to 'csmil_master_manifest' to keep naming convention of 'master playlist'
 @bp.route('/i/<path:csmil_str>.csmil/master.m3u8')
