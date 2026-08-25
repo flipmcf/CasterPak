@@ -9,7 +9,6 @@ from . import ConfigurationError
 from config import get_config
 from vodhls.factory import vodhls_media_playlist_factory
 from vodhls.media_manifest_base import OptionsConfig
-from csmil import CsmilDescriptor
 
 import logging
 logger = logging.getLogger('vodhls')
@@ -60,7 +59,7 @@ class MultivariantManager(object):
         self.baseurl = url
 
     @property
-    def master_playlist_filename(self):
+    def master_playlist_name(self):
         """ return the filename of the master_playlist on the filesystem.
             a file list of [a,b,c,d] and a file list of [b,a,c,d] \
             should return the same manifest.

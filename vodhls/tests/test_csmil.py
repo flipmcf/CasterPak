@@ -25,14 +25,27 @@ def test_parse_deep_path():
 def test_rendition_filenames_generation():
     """Test that it generates the exact list of physical files."""
     desc = CsmilDescriptor(
-        dirname="cache", 
-        basename="movie", 
-        ext=".mp4", 
+        dirname="cache",
+        basename="movie",
+        ext=".mp4",
         bitrates=["720", "480"]
     )
-    
+
     expected_files = [
         "movie_480.mp4",
         "movie_720.mp4"
     ]
     assert desc.rendition_filenames == expected_files
+
+def test_rendition_filenames_single_unlabeled_bitrate():
+    """A CsmilDescriptor with one unlabeled ('') bitrate represents a plain,
+    single-bitrate stream -- it must resolve to the bare source filename,
+    with no '_<bitrate>' suffix inserted."""
+    desc = CsmilDescriptor(
+        dirname="",
+        basename="movie",
+        ext=".mp4",
+        bitrates=['']
+    )
+
+    assert desc.rendition_filenames == ["movie.mp4"]

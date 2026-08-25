@@ -30,7 +30,7 @@ bp = Blueprint('casterpak', __name__)
 def get_base_url(dir_name: t.Union[os.PathLike, str]) -> str:
     app_config = current_app.config
     if app_config['output'].get('serverName'):
-        if app_config['output']['use_https']:
+        if app_config['output'].get('use_https'):
             protocol = 'https'
         else:
             protocol = 'http'
@@ -103,7 +103,7 @@ def mp4_file(dir_name: t.Union[os.PathLike, str]):
 
 @bp.route('/i/<path:dir_name>/master.m3u8')
 def single_bitrate_manifest(dir_name: str):
-    """ creates a variant manifest containing a single bitrate file """
+    """ creates a master manifest containing only one URI to a single bitrate """
 
     (dirname, filename) = os.path.split(dir_name)
 
@@ -111,11 +111,13 @@ def single_bitrate_manifest(dir_name: str):
     filename = filenameRE.sub('', filename)
     dirname = dirnameRE.sub('', dirname)
 
-    ## TEST ME (os.path.join was replaced with 'safe_join')
-    files = [safe_join(dirname, filename), ]
+    basename, ext = os.path.splitext(filename)
 
-    ## TODO: is 'dirname' safe - it's not 'safe joined' and comes directly from the URL
-    vodhls_manager = vodhls_master_playlist_factory(files, dirname)
+    # a single-bitrate stream is a CsmilDescriptor with exactly one, unlabeled
+    # rendition -- the bare source file itself, with no bitrate suffix.
+    csmil = CsmilDescriptor(dirname=dirname, basename=basename, ext=ext, bitrates=[''])
+
+    vodhls_manager = vodhls_master_playlist_factory(csmil)
 
     if not vodhls_manager.manifest_exists():
         vodhls_manager.set_baseurl(get_base_url(dirname))
@@ -133,7 +135,6 @@ def single_bitrate_manifest(dir_name: str):
 @bp.route('/i/abr/<path:dir_name>/master.m3u8')
 def abr_manifest(dir_name: str):
     """
-    # This is the expensive endpoint, use with caution
     This endpoint acts as the State Manager. 
     If encodings exist, redirects to CSMIL. 
     If not:

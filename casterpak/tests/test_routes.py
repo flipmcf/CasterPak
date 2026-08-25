@@ -12,7 +12,7 @@ def make_test_config():
     config = configparser.ConfigParser()
     config.read_dict({
         'filesystem': {'videoParentPath': '/tmp/mock_videos'},
-        'output': {'serverName': 'localhost', 'use_https': 'false'},
+        'output': {'serverName': 'localhost', 'use_https': 'false', 'segmentParentPath': '/tmp/mock_segments'},
     })
     return config
 
@@ -224,6 +224,36 @@ class TestCsmilRoute(unittest.TestCase):
         csmil_arg = args[0]
         self.assertEqual(csmil_arg.dirname, 'foo/bar/baz')
         self.assertEqual(len(csmil_arg.rendition_filenames), 3)
+
+
+class TestSingleBitrateRoute(unittest.TestCase):
+    def setUp(self):
+        self.app = Flask(__name__)
+        self.app.register_blueprint(bp)
+
+        config = make_test_config()
+        self.app.config['filesystem'] = config['filesystem']
+        self.app.config['output'] = config['output']
+
+        self.client = self.app.test_client()
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+
+    def tearDown(self):
+        self.app_context.pop()
+
+    def test_missing_source_file_returns_404_not_500(self):
+        """
+        Deliberately does NOT mock vodhls_master_playlist_factory. The bug this is
+        meant to catch lives inside how single_bitrate_manifest builds its
+        CsmilDescriptor and inside MultivariantManager itself -- mocking the factory
+        away (like the other route tests do) hides exactly this class of bug.
+
+        A request for a source file that doesn't exist should fail gracefully with
+        404, not crash with an unhandled exception (500).
+        """
+        response = self.client.get('/i/nonexistent_dir/nonexistent_video.mp4/master.m3u8')
+        self.assertEqual(response.status_code, 404)
 
 
 if __name__ == "__main__":

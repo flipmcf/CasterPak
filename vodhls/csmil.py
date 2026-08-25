@@ -59,4 +59,7 @@ class CsmilDescriptor:
         Generates the exact list of physical .mp4 files this CSMIL represents.
         This completely removes the file-guessing logic from routes.py!
         """
-        return [f"{self.basename}_{b}{self.ext}" for b in self.bitrates]
+        return [
+            f"{self.basename}_{b}{self.ext}" if b else f"{self.basename}{self.ext}"
+            for b in self.bitrates
+        ]
