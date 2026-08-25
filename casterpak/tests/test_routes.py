@@ -255,6 +255,33 @@ class TestSingleBitrateRoute(unittest.TestCase):
         response = self.client.get('/i/nonexistent_dir/nonexistent_video.mp4/master.m3u8')
         self.assertEqual(response.status_code, 404)
 
+    @patch('casterpak.routes.vodhls_master_playlist_factory')
+    def test_single_bitrate_manifest_cache_hit(self, mock_factory):
+        """When the manifest already exists on disk, serve it directly without
+        re-encoding -- and verify the CsmilDescriptor built for a single-bitrate
+        request is the one-unlabeled-rendition shape, not a multi-bitrate CSMIL."""
+        mock_manager = MagicMock()
+        mock_manager.manifest_exists.return_value = True
+        mock_manager.output_dir = '/tmp/mock_output'
+        mock_manager.master_playlist_name = 'master.m3u8'
+        mock_factory.return_value = mock_manager
+
+        with patch('casterpak.routes.send_from_directory', return_value=Response('manifest')):
+            response = self.client.get('/i/mydir/test-video.mp4/master.m3u8')
+
+        self.assertEqual(response.status_code, 200)
+
+        mock_factory.assert_called_once()
+        csmil_arg = mock_factory.call_args[0][0]
+        self.assertEqual(csmil_arg.dirname, 'mydir')
+        self.assertEqual(csmil_arg.basename, 'test-video')
+        self.assertEqual(csmil_arg.ext, '.mp4')
+        self.assertEqual(csmil_arg.bitrates, [''])
+        self.assertEqual(csmil_arg.rendition_filenames, ['test-video.mp4'])
+
+        # Should NOT have called output_hls since manifest already exists
+        mock_manager.output_hls.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
