@@ -6,10 +6,15 @@ Phase D is done.
 
 ## Phase A: Correctness — IN PROGRESS
 
-Verify locally, then in Docker (see `Readme.md` Testing/Debugging sections):
-`./run.sh` (bare gunicorn) → VLC playback check → `docker-compose build --no-cache` →
-`docker-compose up -d` → VLC playback check again. Drop to `./bin/python -m flask run` only
-when actively debugging a failure, not for routine verification.
+**Dev cycle:** Docker is the default test surface — it's what actually gets deployed, so it's
+what the 1-5 checklist below is scored against. Local bare-metal is a debug tool only, never
+the pass/fail check.
+
+1. `docker-compose build --no-cache` → `docker-compose up -d` → run through checklist items 1-5.
+2. If an item fails: drop to `./bin/python -m flask run` locally (single-threaded dev server,
+   real tracebacks — see `Readme.md` Debugging section) to find and fix the bug.
+3. Rebuild and re-verify the same item in Docker before checking it off. Never check off an
+   item on the strength of a local-only pass.
 
 1. [ ] Single-bitrate baseline — `master.m3u8` on one file, confirm playback.
 2. [ ] `/abr/` Tier 2, warm cache — renditions AND HLS cache (manifest + `.ts`) already exist.
