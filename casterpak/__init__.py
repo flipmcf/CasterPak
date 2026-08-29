@@ -98,6 +98,11 @@ def create_app(test_config=None):
     if __name__ != "__main__":
         setup_gunicorn_logging(app, base_config)
 
+    @app.after_request
+    def add_cors_headers(response):
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
     from . import routes
     app.register_blueprint(routes.bp)
 
