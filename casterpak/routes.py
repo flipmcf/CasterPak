@@ -149,7 +149,7 @@ def abr_manifest(dir_name: str):
 
     basename, ext = os.path.splitext(filename)
     
-    #determine input directory for origonal video file.
+    #determine input directory for original video file.
     localdir = current_app.config['filesystem']['videoParentPath']
     video_file = safe_join(localdir, dir_name)
 
