@@ -49,3 +49,27 @@ def test_rendition_filenames_single_unlabeled_bitrate():
     )
 
     assert desc.rendition_filenames == ["movie.mp4"]
+
+def test_create_csmil_string():
+    """Test that after building a CsmilDescriptor, we can re-create the string"""
+    desc = CsmilDescriptor(
+        dirname="cache",
+        basename="movie",
+        ext=".mp4",
+        bitrates=["720p", "480p"]
+    )
+
+    assert desc.csmil_string == "cache/movie,480p,720p,.mp4"
+
+def test_csmil_round_trip():
+    """
+    a csmil string as input should match it's output - 
+    ASSUMING THE BITRATES ARE IN ORDER
+    """
+      
+    input = "foodirxrar/badfardir/mofdafdasdddcvie,1080,200,720,.mp4.csmil"
+
+    desc = CsmilDescriptor.from_string(input)
+
+    output = desc.csmil_string
+    assert output == input

@@ -149,7 +149,12 @@ def abr_manifest(dir_name: str):
     filename = filenameRE.sub('', filename)
 
     basename, ext = os.path.splitext(filename)
-    
+
+    #hard fail to protect ffmpeg command line.  Don't confuse filenames with arguments.
+    #filenames that start with a '-' are just flat out banned.
+    if filename.startswith('-') or dirname.startswith('-'):
+        return abort(422, description=f"Invalid filename")
+        
     #determine input directory for original video file.
     localdir = current_app.config['filesystem']['videoParentPath']
     video_file = safe_join(localdir, dir_name)
@@ -163,7 +168,7 @@ def abr_manifest(dir_name: str):
             # TIER 2: Encodings are ready. Redirect to stateless CSMIL delivery.
             transcodes_dir = os.path.join(dirname, f"{filename}.transcodes")
             csmil = CsmilDescriptor(transcodes_dir, basename, ext, encoder.bitrates)
-            redirect_url = f"/i/{transcodes_dir}/{csmil.csmil_string}.csmil/master.m3u8"
+            redirect_url = f"/i/{csmil.csmil_string}.csmil/master.m3u8"
 
             return redirect(redirect_url, code=302)
         else:
@@ -204,6 +209,7 @@ def csmil_parent_manifest(csmil_str: str):
     creates a master manifest containing multiple bitrate files.
 
     This is useful when the renditions are already available, and are in an arbitrary naming format.
+    This is the path that /abr/ will redirect to if it finds that it has already 
     """
 
     csmil_data = CsmilDescriptor.from_string(csmil_str)

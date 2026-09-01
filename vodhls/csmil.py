@@ -8,10 +8,11 @@ dirnameRE = re.compile(r'[^.a-zA-Z\d_/-]')
 
 class CsmilDescriptor:
     """ constructs and deconstructs csmil strings"""
-    def __init__(self, dirname: str, basename: str, ext: str, bitrates: list):
+    def __init__(self, dirname: str, basename: str, ext: str, bitrates: list, append_csmil: bool = False):
         self.dirname = dirname
         self.basename = basename
         self.ext = ext
+        self.append_csmil = append_csmil
 
         # The magic rule: bitrates are ALWAYS sorted immediately upon creation
         # This guarantees mathematical determinism everywhere in the app.
@@ -24,9 +25,11 @@ class CsmilDescriptor:
         Parses a raw string like '/foodir/bardir/test-video_,720,480,360,.mp4'
         and returns a fully populated, sorted CsmilDescriptor object.
         """
+        append_csmil = False
         # Strip '.csmil' if the route accidentally passed it in
         if csmil_str.endswith('.csmil'):
             csmil_str = csmil_str[:-6]
+            append_csmil = True
 
         csmil_chunks = csmil_str.split('/')
         dirs = csmil_chunks[:-1]
@@ -42,16 +45,17 @@ class CsmilDescriptor:
         filenames = [basename+'_'+bitrate+common_filename_suffix for bitrate in bitrates]
         files = [os.path.join(dirname, filename) for filename in filenames]
         
-        return cls(dirname, basename, ext, bitrates)   
+        return cls(dirname, basename, ext, bitrates, append_csmil)   
         
     @property
     def csmil_string(self) -> str:
         """
         Builds the mathematically deterministic CSMIL string.
-        e.g., 'test-video_,360,480,720,.mp4'
+        e.g., 'test-video,360,480,720,.mp4'
         """
         labels = ",".join(self.bitrates)
-        return f"{self.basename}_,{labels},{self.ext}"
+        csmil = ".csmil" if self.append_csmil else ""
+        return f"{self.dirname}/{self.basename},{labels},{self.ext}{csmil}"
 
     @property
     def rendition_filenames(self) -> list:

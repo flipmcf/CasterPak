@@ -52,7 +52,7 @@ class TestABRRoute(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         
         # Assert the redirect points to the correct stateless CSMIL URL
-        expected_url = '/i/test_file.mp4.transcodes/test_file_,1080p,720p,.mp4.csmil/master.m3u8'
+        expected_url = '/i/test_file.mp4.transcodes/test_file,1080p,720p,.mp4.csmil/master.m3u8'
         self.assertEqual(response.location, expected_url)
 
     @patch('casterpak.routes.trigger_jit_encoding')
@@ -70,8 +70,7 @@ class TestABRRoute(unittest.TestCase):
         # Simulate the user requesting the ABR manifest
         response = self.client.get('/i/abr/-test_file.mp4/master.m3u8')
 
-        #TODO Write Me!.  Just check encoding commands that were created and make sure they are properly sanitized
-        raise NotImplementedError
+        assert response.status_code == 422
 
 
     @patch('casterpak.routes.trigger_jit_encoding')
