@@ -11,7 +11,7 @@ from flask import current_app
 logger = logging.getLogger('vodhls')
 
 
-def vodhls_master_playlist_factory(files: t.Iterable[t.Union[os.PathLike, str]]):
+def vodhls_master_playlist_factory(csmil_descriptor):
     """
     :param files: an iterable with full paths to all input files relative to the configured input directory
     :param output_dir: output directory for segments relative to configured output directory (typically a common dirname of files)
@@ -20,7 +20,7 @@ def vodhls_master_playlist_factory(files: t.Iterable[t.Union[os.PathLike, str]])
     from vodhls.master_manifest import MultivariantManager
     output_dir = current_app.config['output']['segmentParentPath']
 
-    return MultivariantManager(files, output_dir)
+    return MultivariantManager(csmil_descriptor, output_dir)
 
 
 def vodhls_media_playlist_factory(filename):
