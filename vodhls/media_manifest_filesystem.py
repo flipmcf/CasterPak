@@ -42,6 +42,8 @@ class MediaManager_filesystem(MediaManager_Base):
         finally:
             self.db.addrecord(filename=self.filename, timestamp=None)
 
+    process_input = manage_input_file
+
     def fetch_and_cache(self):
         logger.debug(f"copy {self.source_file}, {self.cached_filename}")
         os.makedirs(os.path.dirname(self.cached_filename), exist_ok=True)
