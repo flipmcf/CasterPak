@@ -23,10 +23,7 @@ class MultivariantManager(object):
         self.baseurl = None
         self.input_files_processed = False
         self.csmil_data = csmil_data
-
-        self.files = csmil_data.rendition_filenames
-
-
+        self.files = [os.path.join(self.csmil_data.dirname, filename) for filename in csmil_data.rendition_filenames ]
 
     def process_input_files(self):
         """ for each segment manager, pull the input file into cache and reset it's ttl

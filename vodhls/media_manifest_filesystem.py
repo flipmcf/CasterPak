@@ -31,16 +31,31 @@ class MediaManager_filesystem(MediaManager_Base):
 
     def manage_input_file(self):
         logger.debug(f"manage_input_file for {self.input_file}")
+
         try:
             os.stat(self.input_file)
         except FileNotFoundError:
             if self.input_cache_enabled:
                 logger.debug(f"Input File cache miss for {self.input_file}")
                 self.fetch_and_cache()
+                self.db.addrecord(filename=self.filename, timestamp=None)
             else:
-                raise
-        finally:
-            self.db.addrecord(filename=self.filename, timestamp=None)
+                #Hack here.  this is why the code is awkward.  Architecture is weird.
+                # 
+                # config may say don't use input cache...
+                #  but auto-encoding ignores that and ALWAYS puts auto-encoded variants into the input cache. 
+                #     The righ way to do it is to have auto-encoding have it's own cache, own database, etc.
+                #
+                #  For now, if you don't find your encoded files on the "real drive" (ie, not the cache)
+                #  Check the cache anyway, because ABR may have written them there.
+                try:
+                    #maybe /abr/ auto-encoding dropped a file in here for us?
+                    os.stat(self.cached_filename)
+                except FileNotFoundError:
+                    #nope - 
+                    raise
+
+        return #documenting end of function only
 
     process_input = manage_input_file
 
