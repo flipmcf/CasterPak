@@ -209,7 +209,7 @@ def csmil_parent_manifest(csmil_str: str):
     creates a master manifest containing multiple bitrate files.
 
     This is useful when the renditions are already available, and are in an arbitrary naming format.
-    This is the path that /abr/ will redirect to if it finds that it has already 
+    This is the path that /abr/ will redirect to if it finds that renditions exist.
     """
 
     csmil_data = CsmilDescriptor.from_string(csmil_str)
