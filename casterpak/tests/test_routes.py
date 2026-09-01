@@ -58,6 +58,25 @@ class TestABRRoute(unittest.TestCase):
     @patch('casterpak.routes.trigger_jit_encoding')
     @patch('casterpak.routes.vodhls_media_playlist_factory')
     @patch('casterpak.routes.EncodingManager')
+    def test_abr_leading_dash(self, mock_encoding_manager_class, mock_playlist_factory, mock_trigger_jit):
+        """Tests weather a filename with a leading dash will trick ffmpeg into seeing an argument rather than a filename
+        """
+        # Mock the manager to say "Yes, encodings are finished"
+        mock_encoder = MagicMock()
+        mock_encoder.renditions_exist.return_value = True
+        mock_encoder.bitrates = ['1080p', '720p']
+        mock_encoding_manager_class.return_value = mock_encoder
+
+        # Simulate the user requesting the ABR manifest
+        response = self.client.get('/i/abr/-test_file.mp4/master.m3u8')
+
+        #TODO Write Me!.  Just check encoding commands that were created and make sure they are properly sanitized
+        raise NotImplementedError
+
+
+    @patch('casterpak.routes.trigger_jit_encoding')
+    @patch('casterpak.routes.vodhls_media_playlist_factory')
+    @patch('casterpak.routes.EncodingManager')
     def test_abr_manifest_tier_3_emergency(self, mock_encoding_manager_class, mock_playlist_factory, mock_trigger_jit):
         # Mock the manager to say "No, encodings are missing"
         mock_encoder = MagicMock()
