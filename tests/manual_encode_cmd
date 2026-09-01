@@ -1,0 +1,17 @@
+# Just a pebble of info for when we start testing warm caches.
+
+ffmpeg -y  \
+  -threads 7 \
+  -i $INPUT_DIR/big_buck_bunny_1080p_surround.avi \
+  -c:a aac -b:a 128k -ac 2 -ar 48000 \
+  -map 0:v:0 -map 0:a:0? -c:v libx264 -preset veryfast -s:v 1280x720 -b:v 2500k -g 60 -keyint_min 60 -sc_threshold 0 -r 30 \
+  -f mp4 -movflags +frag_keyframe+empty_moov+default_base_moof \
+  $OUTPUT_DIR/big_buck_bunny_1080p_surround.avi.transcodes/big_buck_bunny_1080p_surround_720p.avi \
+  -c:a aac -b:a 128k -ac 2 -ar 48000 \
+  -map 0:v:0 -map 0:a:0? -c:v libx264 -preset veryfast -s:v 854x480 -b:v 1000k -g 60 -keyint_min 60 -sc_threshold 0 -r 30 \
+  -f mp4 -movflags +frag_keyframe+empty_moov+default_base_moof \
+  $OUTPUT_DIR/big_buck_bunny_1080p_surround.avi.transcodes/big_buck_bunny_1080p_surround_480p.avi \
+  -c:a aac -b:a 128k -ac 2 -ar 48000 \
+  -map 0:v:0 -map 0:a:0? -c:v libx264 -preset veryfast -s:v 640x360 -b:v 750k -g 60 -keyint_min 60 -sc_threshold 0 -r 30 \
+  -f mp4 -movflags +frag_keyframe+empty_moov+default_base_moof \
+  $OUTPUT_DIR/big_buck_bunny_1080p_surround.avi.transcodes/big_buck_bunny_1080p_surround_360p.avi
