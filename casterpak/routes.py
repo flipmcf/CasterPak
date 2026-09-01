@@ -15,6 +15,7 @@ from vodhls.csmil import CsmilDescriptor
 from vodhls.factory import (vodhls_master_playlist_factory,
                             vodhls_media_playlist_factory)
 
+from vodhls.csmil import CsmilDescriptor
 from encoding import EncodingManager
 
 
@@ -42,7 +43,7 @@ def get_base_url(dir_name: t.Union[os.PathLike, str]) -> str:
 
     return baseurl
 
-def trigger_emergency_encoding(input_filepath, output_dir, manifest_path):
+def trigger_jit_encoding(input_filepath, output_dir, manifest_path):
     """
     Spawns a detached FFmpeg process to generate a live, appendable HLS stream.
     this is because we did not find a ffmpeg encoded video file, so there is nothing for 
@@ -153,23 +154,28 @@ def abr_manifest(dir_name: str):
     localdir = current_app.config['filesystem']['videoParentPath']
     video_file = safe_join(localdir, dir_name)
 
+    current_app.logger.info(f"abr route called for {video_file}")
+
     encoder = EncodingManager(video_file)
     try:
         if encoder.renditions_exist():
+            current_app.logger.info(f"renditions exist - redirect to csmil")
             # TIER 2: Encodings are ready. Redirect to stateless CSMIL delivery.
-            from vodhls.csmil import CsmilDescriptor
             transcodes_dir = os.path.join(dirname, f"{filename}.transcodes")
             csmil = CsmilDescriptor(transcodes_dir, basename, ext, encoder.bitrates)
             redirect_url = f"/i/{transcodes_dir}/{csmil.csmil_string}.csmil/master.m3u8"
 
             return redirect(redirect_url, code=302)
         else:
-            # TIER 3: Emergency. Start the heavy worker...
+            # TIER 3: No encodings exist. Emergency
+            current_app.logger.info("no encoded renditions exist... must build.")
+
+            current_app.logger.info("spawning primary encoding job")
             encoder.start_background_encoding()
             
-            # ...and start the lightweight JIT emergency stream
+            current_app.logger.info("Starting lightweight JIT stream encoding")
             hls_manager = vodhls_media_playlist_factory(dir_name)
-            trigger_emergency_encoding(
+            trigger_jit_encoding(
                 input_filepath=hls_manager.source_file, 
                 output_dir=hls_manager.output_dir,
                 manifest_path=hls_manager.output_manifest_filename

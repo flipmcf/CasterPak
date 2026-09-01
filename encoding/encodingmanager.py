@@ -114,10 +114,18 @@ class EncodingManager:
         """
         Generates the list-style command for subprocess.
         Target this with test frameworks to verify the command structure without running FFmpeg.
-        """
-        # Global inputs and audio settings
-        # Note: We map the audio to all outputs using the '?' to avoid failing on silent videos
 
+        Each rendition is its own self-contained output stanza (audio settings, maps,
+        video codec settings, then that rendition's output file) rather than one shared
+        block of indexed (`-c:v:0`, `-c:v:1`, ...) options followed by all output
+        filenames at once. ffmpeg attaches output options to the *next* output filename
+        it sees, so options and their filename must stay adjacent - stacking every
+        option first and every filename after it silently dumps all of them onto the
+        first output file and leaves the rest with no options at all.
+
+        Audio is mapped per-output with '0:a:0?' (the '?' makes it optional) so a
+        silent source doesn't fail the whole command.
+        """
         max_cpu = os.cpu_count() or 4  ## Fallback to 4 if cpu_count() returns None
         max_threads = max(1, max_cpu - 1)
 
@@ -125,26 +133,27 @@ class EncodingManager:
             "ffmpeg", "-y",
             "-threads", str(max_threads),
             "-i", self.full_path_filename,
-            "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-ar", "48000"
         ]
 
-        # Dynamically build the video rungs
+        files = self.list_rendition_files()
+
+        # Each rendition gets its own complete output stanza, ending in its own file.
         for i, label in enumerate(self.bitrates):
             spec = self.ladder[label]
             cmd.extend([
+                "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-ar", "48000",
                 "-map", "0:v:0",
-                f"-c:v:{i}", "libx264",
-                f"-preset:{i}", "veryfast",
-                f"-s:v:{i}", spec['res'],
-                f"-b:v:{i}", spec['bit'],
-                f"-g:{i}", "60",
-                f"-keyint_min:{i}", "60",
-                f"-sc_threshold:{i}", "0",
-                f"-r:{i}", "30"
+                "-map", "0:a:0?",
+                "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-s:v", spec['res'],
+                "-b:v", spec['bit'],
+                "-g", "60",
+                "-keyint_min", "60",
+                "-sc_threshold", "0",
+                "-r", "30",
+                files[i]
             ])
-
-        # Add the output paths in the same order as the maps
-        cmd.extend(self.list_rendition_files())
 
         return cmd
         
@@ -162,6 +171,8 @@ class EncodingManager:
             os.makedirs(self.transcode_output_dir, exist_ok=True)
 
         cmd = self.get_ffmpeg_command()
+
+        logger.debug(f"Forking off encoding command\n {cmd}")
 
         #hold on tight!.... 
         self.trancode_process = subprocess.Popen(cmd)

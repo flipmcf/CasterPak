@@ -55,7 +55,7 @@ class TestABRRoute(unittest.TestCase):
         expected_url = '/i/test_file.mp4.transcodes/test_file_,1080p,720p,.mp4.csmil/master.m3u8'
         self.assertEqual(response.location, expected_url)
 
-    @patch('casterpak.routes.trigger_emergency_encoding')
+    @patch('casterpak.routes.trigger_jit_encoding')
     @patch('casterpak.routes.vodhls_media_playlist_factory')
     @patch('casterpak.routes.EncodingManager')
     def test_abr_manifest_tier_3_emergency(self, mock_encoding_manager_class, mock_playlist_factory, mock_trigger_jit):

@@ -37,6 +37,7 @@ class TestFFmpegCommands(unittest.TestCase):
         self.patcher.stop()
         
     def test_get_ffmpeg_command_default(self):
+        self.maxDiff=None
         generated_cmd = self.manager.get_ffmpeg_command()
         expected_output_dir = os.path.join(self.output_dir, f"{self.video_name}.transcodes")
 
@@ -45,20 +46,29 @@ class TestFFmpegCommands(unittest.TestCase):
             '-threads', '7',  ## TODO - variable threads in test
             '-i', self.input_dir + '/' + self.video_name,
             '-c:a', 'aac', '-b:a', '128k', '-ac', '2', '-ar', '48000',
-            '-map', '0:v:0', '-c:v:0', 'libx264', '-preset:0', 'veryfast', '-s:v:0',
-            '1920x1080', '-b:v:0', '5000k', '-g:0', '60', '-keyint_min:0', '60', '-sc_threshold:0', '0', '-r:0', '30',
-            '-map', '0:v:0', '-c:v:1', 'libx264', '-preset:1', 'veryfast', '-s:v:1', 
-            '1280x720', '-b:v:1', '2500k', '-g:1', '60', '-keyint_min:1', '60', '-sc_threshold:1', '0', '-r:1', '30',
-            '-map', '0:v:0', '-c:v:2', 'libx264', '-preset:2', 'veryfast', '-s:v:2',
-            '854x480', '-b:v:2', '1000k', '-g:2', '60', '-keyint_min:2', '60', '-sc_threshold:2', '0', '-r:2', '30',
-            '-map', '0:v:0', '-c:v:3', 'libx264', '-preset:3', 'veryfast', '-s:v:3', 
-            '640x360', '-b:v:3', '750k', '-g:3', '60', '-keyint_min:3', '60', '-sc_threshold:3', '0', '-r:3', '30',
-            '-map', '0:v:0', '-c:v:4', 'libx264', '-preset:4', 'veryfast', '-s:v:4', 
-            '426x240', '-b:v:4', '400k', '-g:4', '60', '-keyint_min:4', '60', '-sc_threshold:4', '0', '-r:4', '30',
+            '-map', '0:v:0', '-map', '0:a:0?',
+            '-c:v', 'libx264', '-preset', 'veryfast', '-s:v', '1920x1080',
+            '-b:v', '5000k', '-g', '60', '-keyint_min', '60', '-sc_threshold', '0', '-r', '30',
             os.path.join(expected_output_dir, 'file_1080p.mp4'),
+            '-c:a', 'aac', '-b:a', '128k', '-ac', '2', '-ar', '48000',
+            '-map', '0:v:0', '-map', '0:a:0?',
+            '-c:v', 'libx264', '-preset', 'veryfast', '-s:v', '1280x720',
+            '-b:v', '2500k', '-g', '60', '-keyint_min', '60', '-sc_threshold', '0', '-r', '30',
             os.path.join(expected_output_dir, 'file_720p.mp4'),
+            '-c:a', 'aac', '-b:a', '128k', '-ac', '2', '-ar', '48000',
+            '-map', '0:v:0', '-map', '0:a:0?',
+            '-c:v', 'libx264', '-preset', 'veryfast', '-s:v', '854x480',
+            '-b:v', '1000k', '-g', '60', '-keyint_min', '60', '-sc_threshold', '0', '-r', '30',
             os.path.join(expected_output_dir, 'file_480p.mp4'),
+            '-c:a', 'aac', '-b:a', '128k', '-ac', '2', '-ar', '48000',
+            '-map', '0:v:0', '-map', '0:a:0?',
+            '-c:v', 'libx264', '-preset', 'veryfast', '-s:v', '640x360',
+            '-b:v', '750k', '-g', '60', '-keyint_min', '60', '-sc_threshold', '0', '-r', '30',
             os.path.join(expected_output_dir, 'file_360p.mp4'),
+            '-c:a', 'aac', '-b:a', '128k', '-ac', '2', '-ar', '48000',
+            '-map', '0:v:0', '-map', '0:a:0?',
+            '-c:v', 'libx264', '-preset', 'veryfast', '-s:v', '426x240',
+            '-b:v', '400k', '-g', '60', '-keyint_min', '60', '-sc_threshold', '0', '-r', '30',
             os.path.join(expected_output_dir, 'file_240p.mp4')
         ]
         # I'll assert list equality. This is strict and good.
