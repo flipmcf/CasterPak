@@ -24,9 +24,26 @@ class MediaManager_filesystem(MediaManager_Base):
 
     @property
     def input_file(self) -> t.Union[os.PathLike, str]:
+        #this should be simple - if input_cache_enabled, then look for the file in the input cache. 
+        # Otherwise, look for it at the source.  (see input caching)
+        # 
+        #however, auto-encoding threw a wrench into that.  
+        # If input caching is off, but auto-transcoding is on, the files WILL be in the input cache
+        # When we finally can signal that auto-encoded variants are created and somewhere else, 
+        #   -auto encoding cache - 
+        # this 'stat' hack can go away.
+
         if self.input_cache_enabled:
             return self.cached_filename
         else:
+            #Input cache disabled, file MUST be at the origin library.
+            try: 
+                os.stat(self.source_file)
+            except FileNotFoundError:
+                #At this point, we know the input rendition file is not in the origin library
+                # Maybe it was auto-transcoded with 'input_cache_enabled == False'
+                return self.cached_filename
+            
             return self.source_file
 
     def manage_input_file(self):
@@ -40,20 +57,7 @@ class MediaManager_filesystem(MediaManager_Base):
                 self.fetch_and_cache()
                 self.db.addrecord(filename=self.filename, timestamp=None)
             else:
-                #Hack here.  this is why the code is awkward.  Architecture is weird.
-                # 
-                # config may say don't use input cache...
-                #  but auto-encoding ignores that and ALWAYS puts auto-encoded variants into the input cache. 
-                #     The righ way to do it is to have auto-encoding have it's own cache, own database, etc.
-                #
-                #  For now, if you don't find your encoded files on the "real drive" (ie, not the cache)
-                #  Check the cache anyway, because ABR may have written them there.
-                try:
-                    #maybe /abr/ auto-encoding dropped a file in here for us?
-                    os.stat(self.cached_filename)
-                except FileNotFoundError:
-                    #nope - 
-                    raise
+                raise
 
         return #documenting end of function only
 
