@@ -16,10 +16,10 @@ the pass/fail check.
 3. Rebuild and re-verify the same item in Docker before checking it off. Never check off an
    item on the strength of a local-only pass.
 
-1. [ ] Single-bitrate baseline — `master.m3u8` on one file, confirm playback.
-2. [ ] `/abr/` Tier 2, warm cache — renditions AND HLS cache (manifest + `.ts`) already exist.
+1. [X] Single-bitrate baseline — `master.m3u8` on one file, confirm playback.
+2. [X] `/abr/` Tier 2, warm cache — renditions AND HLS cache (manifest + `.ts`) already exist.
    Confirm the CSMIL redirect and playback work.
-3. [ ] `/abr/` Tier 2, cold HLS cache — renditions exist, but manifest/`.ts` deleted. Confirm
+3. [X] `/abr/` Tier 2, cold HLS cache — renditions exist, but manifest/`.ts` deleted. Confirm
    Bento4 (`mp42hls`) regenerates correctly. Also: throttle the browser and confirm ABR
    actually switches bitrate, and that each rendition serves the correct file.
 4. [ ] Renditions deleted entirely — hit `/abr/`, confirm `EncodingManager`/background
