@@ -258,6 +258,15 @@ then do integration testing with containers:
 1. execute `run.sh` at the root of the repository with your testing setup.  
     Make sure videos are served (use VLC "media->open network stream" and hit a master.m3u8 url)
 
+    **Note:** `.ts` segment delivery has two modes, controlled by `[output] behind_nginx`
+    in `config.ini`. When `True` (set via `CASTERPAK_OUTPUT_BEHIND_NGINX` in
+    `docker-compose.yml`), Flask hands nginx an internal path via `X-Accel-Redirect` and
+    nginx serves the file directly off disk (see `nginx/conf.d/default.conf`, location
+    `/protected_media/`) - efficient, but only works with nginx actually in front. When
+    `False` (the local default, since `run.sh`/`flask run` has no nginx in front), Flask
+    serves the segment file itself - works anywhere, just less efficient. Either way,
+    playback should work; only the delivery mechanism differs.
+
 2. execute `docker-compose build --no-cache` to make sure the containers build.
 3. execute `docker-compose up -d` to run the server
 
