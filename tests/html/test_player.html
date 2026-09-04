@@ -2,99 +2,186 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>OpenForge HLS Test Player</title>
+    <title>OpenForge HLS Test Player — ABR Debug</title>
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     <style>
-        body { background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; }
-        .container { margin: 50px auto; max-width: 960px; }
-        .video-js { margin: 0 auto; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        .controls { margin-top: 20px; }
-        input { width: 80%; padding: 10px; border-radius: 4px; border: none; }
+        body { background:#1a1a1a; color:#eee; font-family:sans-serif; text-align:center; }
+        .container { margin:30px auto; max-width:1100px; }
+        .stage { position:relative; display:inline-block; }
+        .video-js { margin:0 auto; box-shadow:0 0 20px rgba(0,0,0,.5); }
+        #hud {
+            position:absolute; top:8px; right:8px; z-index:10;
+            background:rgba(0,0,0,.80); color:#0f0;
+            font:12px/1.45 ui-monospace, Menlo, Consolas, monospace;
+            text-align:left; padding:10px 12px; border-radius:6px; min-width:236px;
+            pointer-events:none; text-shadow:0 0 2px #000;
+        }
+        #hud h4 { margin:9px 0 2px; color:#6cf; font-size:10px; letter-spacing:.06em; text-transform:uppercase; }
+        #hud h4:first-child { margin-top:0; }
+        #hud .measured { color:#ff0; }
+        #hud .active { color:#0f0; font-weight:bold; }
+        #hud .dim { color:#888; }
+        #hud .warn { color:#f80; }
+        #hud ul { margin:0; padding:0; list-style:none; }
+        .controls { margin-top:20px; }
+        input { width:80%; padding:10px; border-radius:4px; border:none; }
+        .instructions { text-align:left; max-width:820px; margin:24px auto; color:#bbb; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>OpenForge ABR Test Bench</h2>
-    
-    <video id="hls-player" class="video-js vjs-default-skin vjs-big-play-centered" controls preload="auto" width="960" height="540">
-        </video>
+
+    <div class="stage">
+        <video id="hls-player" class="video-js vjs-default-skin vjs-big-play-centered"
+               controls preload="auto" width="960" height="540"></video>
+        <div id="hud">initializing&hellip;</div>
+    </div>
 
     <div class="controls">
         <p>Currently Testing Manifest:</p>
-        <input type="text" id="manifest-url" value="/i/test_video.mp4.transcodes/test_video_,480p,720p,1080p,.mp4.csmil/master.m3u8">
+        <input type="text" id="manifest-url"
+               value="/i/big_buck_bunny_1080p_surround.avi.transcodes/big_buck_bunny_1080p_surround_,360p,480p,720p,.avi.csmil/master.m3u8">
         <br><br>
         <button onclick="loadStream()">Reload Stream</button>
+    </div>
+
+    <div class="instructions">
+        <h3>How to Throttle Your Browser to Test Bitrate Switching</h3>
+        <p><strong>Chrome (recommended — full HUD):</strong> DevTools (F12) &rarr; Network tab &rarr; Throttling
+           dropdown &rarr; pick "Slow 3G". Watch the yellow MEASURED bitrate and the &#9654; marker drop to 360p,
+           then clear throttling and watch them climb back. Give it a few seconds after each change — adaptation
+           reacts at the next segment boundary, not instantly.</p>
+        <p><strong>Firefox:</strong> DevTools &rarr; Network &rarr; Throttling dropdown.</p>
+        <p><strong>Safari:</strong> Develop menu &rarr; Network Throttling. Note: Safari plays HLS natively, so the
+           VHS engine isn't in play and the HUD can only show decoder resolution — use Chrome for the full readout.</p>
+        <p><em>Run this against the Docker stack, not flask dev mode. In dev mode nginx isn't there to serve the
+           segments, they come back zero-byte, nothing ever takes long enough to download to trigger a downshift,
+           and the player will sit on one level forever.</em></p>
     </div>
 </div>
 
 <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
 <script>
     var player = videojs('hls-player');
+    var hud = document.getElementById('hud');
 
-    function loadStream() {
+    function kbps(bps){ return (bps && isFinite(bps)) ? Math.round(bps/1000) + ' kbps' : '\u2014'; }
+    function basename(u){ try { return u.split('?')[0].split('/').pop(); } catch(e){ return u || '?'; } }
+
+    function loadStream(){
         var url = document.getElementById('manifest-url').value;
-        player.src({
-            src: url,
-            type: 'application/x-mpegURL'
-        });
+        player.src({ src:url, type:'application/x-mpegURL' });
         player.play();
     }
 
-        // Initial load
+    function videoEl(){ return player.el().querySelector('video'); }
 
+    // Which segment covers the current playback position (the one PLAYING, not the one downloading).
+    function currentSegment(media, t){
+        if(!media || !media.segments || !media.segments.length) return null;
+        var acc = 0, segs = media.segments;
+        for(var i=0;i<segs.length;i++){
+            var d = segs[i].duration || 0;
+            if(t < acc + d) return { index:i, total:segs.length, seg:segs[i] };
+            acc += d;
+        }
+        var last = segs.length - 1;
+        return { index:last, total:segs.length, seg:segs[last] };
+    }
+
+    // Real bitrate of a segment = bytes the player ALREADY downloaded / its duration.
+    // Read from the Resource Timing API so we add ZERO extra network traffic (see note below).
+    function measuredBps(seg){
+        if(!seg) return null;
+        var uri = seg.resolvedUri || seg.uri, dur = seg.duration || 0;
+        if(!uri || !dur) return null;
+        var name = basename(uri);
+        var entries = performance.getEntriesByType('resource');
+        for(var i=entries.length-1;i>=0;i--){
+            var n = entries[i].name.split('?')[0];
+            if(n.length >= name.length && n.slice(-name.length) === name){
+                var bytes = entries[i].encodedBodySize || entries[i].transferSize || 0;
+                if(bytes) return bytes * 8 / dur;
+            }
+        }
+        return null; // player hasn't recorded this segment's transfer yet, or served from disk cache (size 0)
+    }
+
+    function update(){
+        var lines = [];
+        var v = videoEl();
+        var decW = v ? v.videoWidth : 0, decH = v ? v.videoHeight : 0;
+        var tech = player.tech(true);
+        var vhs = tech && tech.vhs;
+
+        if(!vhs){
+            lines.push('<h4>Measured (decoder)</h4>');
+            lines.push('resolution: <span class="measured">' + (decW ? decW+'x'+decH : '\u2014') + '</span>');
+            lines.push('<h4 class="warn">native HLS (Safari)</h4>');
+            lines.push('<span class="dim">bitrate &amp; variant data need<br>the VHS engine \u2014 open in Chrome.</span>');
+            hud.innerHTML = lines.join('<br>');
+            return;
+        }
+
+        var reps = [];
+        try { reps = vhs.representations() || []; } catch(e){}
+        var media = null;
+        try { media = vhs.playlists && vhs.playlists.media && vhs.playlists.media(); } catch(e){}
+
+        // Active variant: match the decoder's real resolution to a representation (what's actually on screen).
+        // Assumes distinct resolutions per rung, which your 360/480/720 ladder satisfies.
+        var active = null;
+        for(var i=0;i<reps.length;i++){ if(reps[i].width===decW && reps[i].height===decH){ active = reps[i]; break; } }
+
+        var t = player.currentTime();
+        var seg = currentSegment(media, t);
+        var mbps = seg ? measuredBps(seg.seg) : null;
+
+        lines.push('<h4>Segment (playing)</h4>');
+        if(seg){
+            lines.push('#' + seg.index + ' / ' + seg.total);
+            lines.push('<span class="dim">' + basename(seg.seg.resolvedUri || seg.seg.uri) + '</span>');
+            lines.push('extinf: ' + (seg.seg.duration || 0).toFixed(2) + 's');
+        } else {
+            lines.push('<span class="dim">n/a (no media playlist yet)</span>');
+        }
+
+        lines.push('<h4>Measured &mdash; from .ts + decoder</h4>');
+        lines.push('resolution: <span class="measured">' + (decW ? decW+'x'+decH : '\u2014') + '</span>');
+        lines.push('bitrate: <span class="measured">' + kbps(mbps) + '</span> <span class="dim">(bytes/extinf)</span>');
+
+        lines.push('<h4>Switched-to &mdash; declared</h4>');
+        if(active){
+            lines.push('<span class="active">' + active.width + 'x' + active.height + ' @ ' + kbps(active.bandwidth) + '</span>');
+        } else if(media && media.attributes){
+            var R = media.attributes.RESOLUTION;
+            lines.push('<span class="active">' + (R ? R.width+'x'+R.height : '?') + ' @ ' + kbps(media.attributes.BANDWIDTH) + '</span>');
+        } else {
+            lines.push('<span class="dim">resolving\u2026</span>');
+        }
+
+        lines.push('<h4>Available &mdash; master.m3u8</h4>');
+        if(reps.length){
+            var sorted = reps.slice().sort(function(a,b){ return b.bandwidth - a.bandwidth; });
+            lines.push('<ul>' + sorted.map(function(r){
+                var on = active ? (r.id === active.id) : (r.width===decW && r.height===decH);
+                return '<li class="' + (on ? 'active' : 'dim') + '">'
+                     + (on ? '\u25B6 ' : '&nbsp;&nbsp;')
+                     + r.width + 'x' + r.height + '  ' + kbps(r.bandwidth) + '</li>';
+            }).join('') + '</ul>');
+        } else {
+            lines.push('<span class="dim">no variants parsed</span>');
+        }
+
+        hud.innerHTML = lines.join('<br>');
+    }
+
+    player.ready(function(){
         loadStream();
-
-    </script>
-
-    
-
-    <div class="instructions">
-
-        <h3>How to Throttle Your Browser to Test Bitrate Switching</h3>
-
-        <p><strong>Chrome:</strong></p>
-
-        <ol>
-
-            <li>Open Developer Tools (Cmd+Opt+I on Mac, Ctrl+Shift+I or F12 on Windows).</li>
-
-            <li>Go to the "Network" tab.</li>
-
-            <li>Find the "Throttling" dropdown, which is usually set to "No throttling".</li>
-
-            <li>Choose a slower connection speed, like "Slow 3G".</li>
-
-        </ol>
-
-        <p><strong>Firefox:</strong></p>
-
-        <ol>
-
-            <li>Open Developer Tools (Cmd+Opt+I on Mac, Ctrl+Shift+I or F12 on Windows).</li>
-
-            <li>Go to the "Network" tab.</li>
-
-            <li>Find the "Throttling" dropdown on the right side of the toolbar.</li>
-
-            <li>Choose a slower connection speed.</li>
-
-        </ol>
-
-        <p><strong>Safari:</strong></p>
-
-        <ol>
-
-            <li>Enable the "Develop" menu in Safari's preferences (Preferences > Advanced > "Show Develop menu in menu bar").</li>
-
-            <li>In the "Develop" menu, go to "Network Throttling" and select a profile.</li>
-
-        </ol>
-
-    </div>
-
-    </body>
-
-    </html>
-
-    
+        setInterval(update, 500);
+    });
+</script>
+</body>
+</html>
