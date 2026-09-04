@@ -294,16 +294,18 @@ def segment(dir_name: t.Union[os.PathLike, str], filename: str):
     db = cachedb.CacheDB(cache_name=cachedb.SEGMENT_FILE_CACHE)
     db.addrecord(filename=dir_name)
 
-    # Nginx Handoff
-    # We return an empty body, but tell Nginx where the file is located internally
-    response = make_response("")
-    response.headers['Content-Type'] = 'video/MP2T'
-    
-    # This path must match the internal location block in nginx.conf
-    internal_nginx_path = f"/protected_media/{filepath}"
-    response.headers['X-Accel-Redirect'] = internal_nginx_path
-    
-    return response
+    if current_app.config['output'].getboolean('behind_nginx', fallback=False):
+        # Nginx Handoff: return an empty body, and tell nginx where the file is
+        # located internally (see nginx/conf.d/default.conf, location /protected_media/).
+        # This path must match the internal location block in nginx.conf
+        response = make_response("")
+        response.headers['Content-Type'] = 'video/MP2T'
+        response.headers['X-Accel-Redirect'] = f"/protected_media/{filepath}"
+        return response
+    else:
+        # No reverse proxy in front (bare flask/gunicorn) - serve the file ourselves.
+        segment_parent_path = current_app.config['output']['segmentParentPath']
+        return send_from_directory(segment_parent_path, filepath, mimetype='video/MP2T')
 
 @bp.route('/d/<path:dir_name>/figure/this/out/media.m3u8')
 def dash(dir_name: t.Union[os.PathLike, str]):

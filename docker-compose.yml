@@ -17,6 +17,9 @@ services:
       - PYTHONUNBUFFERED=1
       - CASTERPAK_FILESYSTEM_VIDEOPARENTPATH=${CASTERPAK_FILESYSTEM_VIDEOPARENTPATH:-/mnt/data}
       - CASTERPAK_OUTPUT_SERVERNAME=${CASTERPAK_OUTPUT_SERVERNAME:-localhost}
+      # This compose stack puts the nginx service in front of casterpak (see the
+      # 'nginx' service below), so segment (.ts) delivery via X-Accel-Redirect works.
+      - CASTERPAK_OUTPUT_BEHIND_NGINX=True
       - CASTERPAK_DB_PATH=/var/lib/casterpak/data/cacheDB.db
       #and we want to send all logs to stdout/stderr
       - CASTERPAK_LOGGING_ACCESS_LOG=-
