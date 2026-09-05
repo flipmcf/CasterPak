@@ -26,3 +26,11 @@ Now we must encode a few renditions - see 'manual_encode_cmd' document and get f
   validate that renditions appeared
   (compose the csmil url for testing)
   
+
+## Video playing testing (casterpak bench test)
+
+Launch the entire stack with docker compose (see readme)
+visit the site  http://...../testing/test_player.html
+
+type in the correct manifest link  http://localhost/i/abr/big_buck_bunny_1080p_surround.avi/master.m3u8
+
