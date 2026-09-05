@@ -70,8 +70,32 @@
     function kbps(bps){ return (bps && isFinite(bps)) ? Math.round(bps/1000) + ' kbps' : '\u2014'; }
     function basename(u){ try { return u.split('?')[0].split('/').pop(); } catch(e){ return u || '?'; } }
 
+    // Rolling average of the last few measured (completed-download) segment bitrates.
+    // We key on segment URI so a stall - where currentSegment() points at the same
+    // still-downloading segment tick after tick - doesn't add a value here, since
+    // measuredBps() returns null until that segment's network transfer completes.
+    // The average simply holds steady across those ticks instead of blanking to '-'.
+    var MBPS_HISTORY_LEN = 5;
+    var mbpsHistory = [];
+    var lastSampledUri = null;
+
+    function recordMbps(uri, bps){
+        if(!bps || !isFinite(bps) || uri === lastSampledUri) return;
+        lastSampledUri = uri;
+        mbpsHistory.push(bps);
+        if(mbpsHistory.length > MBPS_HISTORY_LEN) mbpsHistory.shift();
+    }
+
+    function avgMbps(){
+        if(!mbpsHistory.length) return null;
+        var sum = mbpsHistory.reduce(function(a,b){ return a + b; }, 0);
+        return sum / mbpsHistory.length;
+    }
+
     function loadStream(){
         var url = document.getElementById('manifest-url').value;
+        mbpsHistory = [];
+        lastSampledUri = null;
         player.src({ src:url, type:'application/x-mpegURL' });
         player.play();
     }
@@ -137,7 +161,9 @@
 
         var t = player.currentTime();
         var seg = currentSegment(media, t);
-        var mbps = seg ? measuredBps(seg.seg) : null;
+        var freshMbps = seg ? measuredBps(seg.seg) : null;
+        if(seg && freshMbps) recordMbps(seg.seg.resolvedUri || seg.seg.uri, freshMbps);
+        var mbps = avgMbps();
 
         lines.push('<h4>Segment (playing)</h4>');
         if(seg){
@@ -150,7 +176,8 @@
 
         lines.push('<h4>Measured &mdash; from .ts + decoder</h4>');
         lines.push('resolution: <span class="measured">' + (decW ? decW+'x'+decH : '\u2014') + '</span>');
-        lines.push('bitrate: <span class="measured">' + kbps(mbps) + '</span> <span class="dim">(bytes/extinf)</span>');
+        lines.push('bitrate: <span class="measured">' + kbps(mbps) + '</span> <span class="dim">(avg of last '
+            + mbpsHistory.length + '/' + MBPS_HISTORY_LEN + ' segments)</span>');
 
         lines.push('<h4>Switched-to &mdash; declared</h4>');
         if(active){
