@@ -22,12 +22,13 @@ the pass/fail check.
 3. [X] `/abr/` Tier 2, cold HLS cache — renditions exist, but manifest/`.ts` deleted. Confirm
    Bento4 (`mp42hls`) regenerates correctly. Also: throttle the browser and confirm ABR
    actually switches bitrate, and that each rendition serves the correct file.
-4. [ ] Renditions deleted entirely — hit `/abr/`, confirm `EncodingManager`/background
+4. [X] Renditions deleted entirely — hit `/abr/`, confirm `EncodingManager`/background
    encoding produces new renditions from scratch.
 5. [ ] Emergency encoding (Tier 3) — hit `/abr/` with no cache and no renditions while
    encoding is still in flight, confirm the JIT low-quality stream serves instead of a
    stall/404. Informally time this as an early gut-check against an SLA (e.g. compare to
    Google Drive-class latency) — no committed number yet.
+
 
 **Exit criteria:** all 5 reliably pass, locally and in Docker.
 
