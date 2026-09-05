@@ -145,8 +145,10 @@ def abr_manifest(dir_name: str):
     
     #determine output dir for segments    
     (dirname, filename) = os.path.split(dir_name)
+
     #sanitize
     filename = filenameRE.sub('', filename)
+    dirname = dirnameRE.sub('', dirname)
 
     basename, ext = os.path.splitext(filename)
 
