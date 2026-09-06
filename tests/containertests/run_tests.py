@@ -7,6 +7,7 @@ import docker
 import requests
 import subprocess
 import hashlib
+import concurrent.futures
 
 client = docker.from_env()
 
@@ -45,6 +46,26 @@ def assert_dir_empty(container, path):
     cmd = f"sh -c 'find {path} -mindepth 1 -print -quit'"
     _, out = container.exec_run(cmd)
     assert out.strip() == b"", f"{path} not empty."
+
+
+def count_matching_processes(container, needle):
+    """
+    Counts running processes inside the container whose full command line
+    contains `needle`. The minimal image has no `ps` binary, so this scans
+    /proc directly instead - same technique used to manually diagnose the
+    ABR/JIT duplicate-encode races.
+    """
+    cmd = "sh -c 'for p in /proc/[0-9]*; do tr \"\\0\" \" \" < \"$p/cmdline\" 2>/dev/null; echo; done'"
+    _, out = container.exec_run(cmd)
+    lines = out.decode(errors="replace").splitlines()
+    return sum(1 for line in lines if needle in line)
+
+
+def fire_concurrent_requests(url, count=8):
+    """Fires `count` GET requests at `url` as concurrently as possible."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=count) as pool:
+        futures = [pool.submit(requests.get, url) for _ in range(count)]
+        return [f.result() for f in futures]
 
 
 
@@ -372,6 +393,46 @@ def test_route_abr_manifest_redirect(with_encodings):
     # Verify the Location header was built correctly
     expected_redirect = "/i/test-video.mp4.transcodes/test-video_,360,480,720,.mp4.csmil/master.m3u8"
     assert response.headers['Location'] == expected_redirect
+
+
+def test_route_abr_manifest_concurrent_requests_dont_race(casterpak_clean):
+    """
+    Regression test for two duplicate-encode races found during manual
+    concurrent-load testing, both now closed by an atomic "did I win the race"
+    check instead of a plain check-then-act:
+
+    - ABR background encode: EncodingManager's lockfile
+      (encoding/encodingmanager.py: in_progress()/_lockfile_exists()).
+    - JIT emergency stream: JitManager's os.makedirs()-as-lock
+      (jit/jit_manager.py: trigger_jit_encoding()).
+
+    Many concurrent requests for the same never-before-encoded video must
+    result in exactly one real ffmpeg process for each of those two encodes,
+    not one per request. Distinguished by preset: ABR renditions use
+    '-preset veryfast', the JIT emergency stream uses '-preset ultrafast'.
+    """
+    url = "http://localhost:80/i/abr/test-video.mp4/master.m3u8"
+    container = client.containers.get("casterpak_server")
+
+    # Baseline before firing our own burst - other tests in this same container
+    # may still have their own background encodes running (casterpak_clean wipes
+    # files, not processes), so we assert on the DELTA our own burst causes,
+    # not an absolute count.
+    baseline_abr = count_matching_processes(container, "-preset veryfast")
+    baseline_jit = count_matching_processes(container, "-preset ultrafast")
+
+    responses = fire_concurrent_requests(url, count=8)
+
+    assert all(r.status_code == 200 for r in responses), \
+        [r.status_code for r in responses]
+
+    abr_ffmpeg_count = count_matching_processes(container, "-preset veryfast") - baseline_abr
+    assert abr_ffmpeg_count == 1, \
+        f"expected exactly 1 new ABR ffmpeg process from 8 concurrent requests, found {abr_ffmpeg_count}"
+
+    jit_ffmpeg_count = count_matching_processes(container, "-preset ultrafast") - baseline_jit
+    assert jit_ffmpeg_count == 1, \
+        f"expected exactly 1 new JIT ffmpeg process from 8 concurrent requests, found {jit_ffmpeg_count}"
 
 
 

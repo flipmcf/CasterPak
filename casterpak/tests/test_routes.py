@@ -4,7 +4,7 @@ from flask import Flask, Response
 from unittest.mock import patch, MagicMock
 
 # Import the Blueprint from your routes file
-from casterpak.routes import bp
+from casterpak.routes import bp, get_base_url
 
 
 def make_test_config():
@@ -42,6 +42,7 @@ class TestABRRoute(unittest.TestCase):
         # Mock the manager to say "Yes, encodings are finished"
         mock_encoder = MagicMock()
         mock_encoder.renditions_exist.return_value = True
+        mock_encoder.in_progress.return_value = False
         mock_encoder.bitrates = ['1080p', '720p']
         mock_encoding_manager_class.return_value = mock_encoder
 
@@ -55,10 +56,10 @@ class TestABRRoute(unittest.TestCase):
         expected_url = '/i/test_file.mp4.transcodes/test_file,1080p,720p,.mp4.csmil/master.m3u8'
         self.assertEqual(response.location, expected_url)
 
-    @patch('casterpak.routes.trigger_jit_encoding')
+    @patch('casterpak.routes.jit_manager_factory')
     @patch('casterpak.routes.vodhls_media_playlist_factory')
     @patch('casterpak.routes.EncodingManager')
-    def test_abr_leading_dash(self, mock_encoding_manager_class, mock_playlist_factory, mock_trigger_jit):
+    def test_abr_leading_dash(self, mock_encoding_manager_class, mock_playlist_factory, mock_jit_manager_factory):
         """Tests weather a filename with a leading dash will trick ffmpeg into seeing an argument rather than a filename
         """
         # Mock the manager to say "Yes, encodings are finished"
@@ -73,13 +74,14 @@ class TestABRRoute(unittest.TestCase):
         assert response.status_code == 422
 
 
-    @patch('casterpak.routes.trigger_jit_encoding')
+    @patch('casterpak.routes.jit_manager_factory')
     @patch('casterpak.routes.vodhls_media_playlist_factory')
     @patch('casterpak.routes.EncodingManager')
-    def test_abr_manifest_tier_3_emergency(self, mock_encoding_manager_class, mock_playlist_factory, mock_trigger_jit):
-        # Mock the manager to say "No, encodings are missing"
+    def test_abr_manifest_tier_3_emergency(self, mock_encoding_manager_class, mock_playlist_factory, mock_jit_manager_factory):
+        # Mock the manager to say "No, encodings are missing, and none are in progress"
         mock_encoder = MagicMock()
         mock_encoder.renditions_exist.return_value = False
+        mock_encoder.in_progress.return_value = False
         mock_encoding_manager_class.return_value = mock_encoder
 
         # Mock the HLS factory so it doesn't try to read real files
@@ -89,26 +91,106 @@ class TestABRRoute(unittest.TestCase):
         mock_hls_manager.output_manifest_filename = '/tmp/mock_output/index_0_av.m3u8'
         mock_playlist_factory.return_value = mock_hls_manager
 
+        # Mock the JIT manager so it doesn't try to spawn real ffmpeg
+        mock_jit_manager = MagicMock()
+        mock_jit_manager.first_segment_exists.return_value = False
+        mock_jit_manager.get_m3u8_index_url.return_value = '/i/test_file.mp4/index_0_av.m3u8'
+        mock_jit_manager_factory.return_value = mock_jit_manager
+
         # Simulate the user requesting the ABR manifest
         response = self.client.get('/i/abr/test_file.mp4/master.m3u8')
 
         # Assert it returns a 200 OK
         self.assertEqual(response.status_code, 200)
-        
+
         # Assert the response body contains a valid HLS manifest pointing to the single stream
         self.assertIn(b'#EXTM3U', response.data)
         self.assertIn(b'index_0_av.m3u8', response.data)
-        
+
         # VERIFY GATEKEEPER LOGIC:
         # 1. Did it start the heavy background worker?
         mock_encoder.start_background_encoding.assert_called_once()
-        
-        # 2. Did it start the lightweight JIT emergency stream?
-        mock_trigger_jit.assert_called_once_with(
+
+        # 2. Did it build a JIT manager for this video, and start the lightweight JIT emergency stream?
+        mock_jit_manager_factory.assert_called_once_with(
+            dir_name='test_file.mp4',
             input_filepath=mock_hls_manager.source_file,
             output_dir=mock_hls_manager.output_dir,
             manifest_path=mock_hls_manager.output_manifest_filename
         )
+        mock_jit_manager.trigger_jit_encoding.assert_called_once()
+
+    @patch('casterpak.routes.cachedb')
+    @patch('casterpak.routes.vodhls_master_playlist_factory')
+    @patch('casterpak.routes.EncodingManager')
+    def test_abr_redirect_and_csmil_preserve_special_characters_in_filename(
+        self, mock_encoding_manager_class, mock_csmil_factory, mock_cachedb
+    ):
+        """
+        Regression test for the filename-sanitization divergence bug: a filename
+        containing a character `filenameRE` strips (here, '+') must produce a
+        CSMIL redirect - and everything parsed from it - that still matches the
+        exact identity EncodingManager was built from, not a silently-mangled
+        copy that points at a directory nothing ever wrote to.
+
+        This exercises TWO independent copies of the same sanitization regex:
+        the one in casterpak/routes.py (abr_manifest) and the one in
+        vodhls/csmil.py (CsmilDescriptor.from_string) - see the '## TODO - this
+        is duplicated' comment at the top of routes.py. Both have to preserve
+        '+' for this to pass; fixing only one isn't enough.
+        """
+        dir_name = 'test+plus+in+filename.mp4'
+
+        mock_encoder = MagicMock()
+        mock_encoder.renditions_exist.return_value = True
+        mock_encoder.in_progress.return_value = False
+        mock_encoder.bitrates = ['720p', '480p']
+        mock_encoding_manager_class.return_value = mock_encoder
+
+        # 1. Hit the ABR route - this is where the divergence happens today.
+        response = self.client.get(f'/i/abr/{dir_name}/master.m3u8')
+        self.assertEqual(response.status_code, 302)
+
+        redirect_location = response.location
+
+        # The redirect must point at the SAME file identity EncodingManager was
+        # constructed with - i.e. it must still contain the '+' characters, not
+        # a stripped copy that doesn't match anything EncodingManager wrote.
+        self.assertIn('test+plus+in+filename', redirect_location)
+        self.assertNotIn('testplusinfilename', redirect_location)
+
+        # 2. Follow the redirect into the CSMIL route, and inspect the REAL
+        #    CsmilDescriptor it parses from that URL (mocking only the manifest
+        #    generation/serving, same pattern as TestCsmilRoute below).
+        mock_manager = MagicMock()
+        mock_manager.manifest_exists.return_value = True
+        mock_manager.output_dir = '/tmp/mock_output'
+        mock_manager.master_playlist_name = 'master.m3u8'
+        mock_csmil_factory.return_value = mock_manager
+
+        with patch('casterpak.routes.send_from_directory', return_value=Response('manifest')):
+            csmil_response = self.client.get(redirect_location)
+
+        self.assertEqual(csmil_response.status_code, 200)
+
+        # The CsmilDescriptor that csmil_parent_manifest actually parsed from
+        # the URL - not a mock - must still carry the '+' in both the
+        # directory and every rendition filename.
+        csmil_data = mock_csmil_factory.call_args[0][0]
+        self.assertIn('+', csmil_data.dirname)
+        self.assertTrue(csmil_data.rendition_filenames, "no rendition filenames parsed")
+        for rendition_filename in csmil_data.rendition_filenames:
+            self.assertIn('+', rendition_filename)
+
+        # 3. The child-manifest URL a client would actually fetch for each
+        #    rendition must resolve back to the same '+'-containing directory
+        #    EncodingManager wrote to - i.e. it would hit something real on
+        #    disk, not 404 like the mismatched version does today.
+        base_url = get_base_url(csmil_data.dirname)
+        for rendition_filename in csmil_data.rendition_filenames:
+            child_manifest_url = f"{base_url}{rendition_filename}/index_0_av.m3u8"
+            self.assertIn('test+plus+in+filename', child_manifest_url)
+
 
 class TestCsmilRoute(unittest.TestCase):
     def setUp(self):

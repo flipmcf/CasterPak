@@ -1,8 +1,6 @@
 import os
 import re
 import typing as t
-import subprocess
-import time
 
 from flask import Blueprint, Response
 from flask import abort, current_app, send_from_directory, send_file, make_response, redirect
@@ -17,6 +15,7 @@ from vodhls.factory import (vodhls_master_playlist_factory,
 
 from vodhls.csmil import CsmilDescriptor
 from encoding import EncodingManager
+from jit import jit_manager_factory
 
 
 ## TODO - this is duplicated in vodhls/csmil.py
@@ -42,58 +41,6 @@ def get_base_url(dir_name: t.Union[os.PathLike, str]) -> str:
         baseurl = ''
 
     return baseurl
-
-def trigger_jit_encoding(input_filepath, output_dir, manifest_path):
-    """
-    Spawns a detached FFmpeg process to generate a live, appendable HLS stream.
-    this is because we did not find a ffmpeg encoded video file, so there is nothing for 
-    bento4 to work with. 
-    Waits for the first segment to appear before returning.
-
-    This is a failsafe.  It's preferred that files be provided pre-transcoded for ABR support.
-    But if casterpak discovers there is only one file, it will attempt to transcode it on the fly.
-
-    If you're reading this, you're probably spending too much money and it's time to optomize your video library
-    """
-    os.makedirs(output_dir, exist_ok=True)
-    
-    # We must match Bento4's exact naming convention from media_manifest_base.py
-    segment_template = os.path.join(output_dir, "segment-%d.ts")
-    first_segment_path = os.path.join(output_dir, "segment-0.ts")
-
-    cmd = [
-        "ffmpeg", "-y", "-i", input_filepath,
-        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-vf", "scale=-2:480",
-        "-c:a", "aac", "-b:a", "128k", "-ac", "2",
-        "-f", "hls",
-        "-hls_time", "2",
-        "-hls_list_size", "0", 
-        "-hls_playlist_type", "event", 
-        "-hls_segment_filename", segment_template,
-        manifest_path
-    ]
-
-    current_app.logger.info(f"Spawning Emergency JIT Transcode for {input_filepath}")
-    
-    # Popen detaches the process. stdout/stderr to DEVNULL keeps Docker logs clean.
-    process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-    # Polling Loop
-    timeout = 5.0 
-    start_time = time.time()
-    
-    while True:
-        if os.path.exists(first_segment_path):
-            current_app.logger.info("First JIT segment detected! Releasing request to Nginx.")
-            return True
-            
-        if time.time() - start_time > timeout:
-            current_app.logger.error("JIT Transcoding timed out.")
-            process.kill() 
-            raise EncodingError("JIT Transcoding failed to start in time.")
-            
-        time.sleep(0.1) 
-
 
 @bp.route('/i/<path:dir_name>')
 def mp4_file(dir_name: t.Union[os.PathLike, str]):
@@ -137,10 +84,14 @@ def single_bitrate_manifest(dir_name: str):
 def abr_manifest(dir_name: str):
     """
     This endpoint acts as the State Manager. 
-    If encodings exist, redirects to CSMIL. 
-    If not:
-       a. start background ABR transcodes (cpu killer)
-       b. starts JIT encode, and returns emergency stream. (sub optimal playback)
+    1. encodings do not exist
+           a. start background ABR transcodes (cpu killer)
+           b. starts JIT encode, and returns emergency stream. (sub optimal playback)
+    2. encodings currently in progress
+           return the emergency stream.
+    3. encodings exist
+           redirect to CSMIL. 
+        
     """
     
     #determine output dir for segments    
@@ -165,32 +116,49 @@ def abr_manifest(dir_name: str):
 
     encoder = EncodingManager(video_file)
     try:
-        if encoder.renditions_exist():
+        #State 3 - encodings already exist.
+        if encoder.renditions_exist() and not encoder.in_progress():
             current_app.logger.info(f"renditions exist - redirect to csmil")
             # TIER 2: Encodings are ready. Redirect to stateless CSMIL delivery.
             transcodes_dir = os.path.join(dirname, f"{filename}.transcodes")
             csmil = CsmilDescriptor(transcodes_dir, basename, ext, encoder.bitrates)
             redirect_url = f"/i/{csmil.csmil_string}.csmil/master.m3u8"
-
             return redirect(redirect_url, code=302)
+
+        # State 1 or 2 - no encodings exist, or they are in process.
         else:
             # TIER 3: No encodings exist. Emergency
-            current_app.logger.info("no encoded renditions exist... must build.")
 
-            current_app.logger.info("spawning primary encoding job")
-            encoder.start_background_encoding()
-            
-            current_app.logger.info("Starting lightweight JIT stream encoding")
+            # TODO - race: check-then-act between in_progress() and start_background_encoding()
+            # lets two near-simultaneous requests both see "not running" and both spawn a
+            # real ABR encode. Fine for now; will need a transactional guard (sqlite table
+            # lock) once this is under real concurrent load.
+            # are we currently encoding?
+            if not encoder.in_progress():
+                current_app.logger.info("spawning primary encoding job")
+                encoder.start_background_encoding()
+
+
+            #Does the JIT stream exist?
             hls_manager = vodhls_media_playlist_factory(dir_name)
-            trigger_jit_encoding(
-                input_filepath=hls_manager.source_file, 
-                output_dir=hls_manager.output_dir,
-                manifest_path=hls_manager.output_manifest_filename
-            )
+            jit_manager = jit_manager_factory(dir_name=dir_name,
+                                              input_filepath=hls_manager.source_file,
+                                              output_dir=hls_manager.output_dir,
+                                              manifest_path=hls_manager.output_manifest_filename)
+
+            # TODO - race: same check-then-act shape as above, applied to the JIT stream -
+            # two near-simultaneous requests can both see "no segment yet" and both call
+            # trigger_jit_encoding(), spawning two ffmpeg processes writing the same output
+            # files. Same eventual fix (sqlite-backed lock) as the ABR race above.
+            if jit_manager.first_segment_exists():
+                current_app.logger.info("JIT stream already exists, returning it")
+            else:
+                current_app.logger.info("Starting lightweight JIT stream encoding")
+                #this will block until the first segment is created, or timeout occurs.
+                jit_manager.trigger_jit_encoding()
             
             # Return a dynamic Master Manifest pointing to the new JIT stream
-            child_url = f"/i/{dir_name}/index_0_av.m3u8"
-            
+            child_url = jit_manager.get_m3u8_index_url() # something like f"/i/{dir_name}/index_0_av.m3u8"
             m3u8_text = (
                 "#EXTM3U\n"
                 "#EXT-X-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=854x480\n"

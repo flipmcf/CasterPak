@@ -1,11 +1,17 @@
 import os
 import subprocess
-import time
+
+import datetime
 
 from config import get_config
 
 import logging
 logger = logging.getLogger('encoder')
+
+# TODO actually create a process handler for trancoding processes to reap them correctly
+# This is a hack to avoid zombie processes.  We should have a proper process handler for transcoding processes.
+import signal 
+signal.signal(signal.SIGCHLD, signal.SIG_IGN)
 
 class EncodingManager:
     def __init__(self, filename):
@@ -66,6 +72,10 @@ class EncodingManager:
         self._ensure_transcode_dir()
         
         # We only start it if it isn't already running or finished
+
+        if self._lockfile_exists():
+            return
+
         if not self.renditions_exist():
             logger.info(f"Starting background ABR encoding for {self.full_path_filename}")
             self._trigger_encoding()
@@ -109,6 +119,45 @@ class EncodingManager:
         # Trigger non-blocking or blocking FFmpeg here
         # (Using the multi-output command discussed previously)
         self._run_ffmpeg()
+
+    @property
+    def _lockfile_name(self):
+        return os.path.join(self.transcode_output_dir, "transcoding.lock")
+
+    def _lockfile_exists(self):
+        try:
+            os.stat(self._lockfile_name)
+        except FileNotFoundError:
+            return False
+        return True
+
+    def in_progress(self):
+        """
+        Checks if the transcoding process is currently running.
+        Returns True if the lockfile exists and the PID in it is still active.
+        """
+        if not self._lockfile_exists():
+            return False
+
+        try:
+            with open(self._lockfile_name, mode='r') as f:
+                pid_str, timestamp_str = f.readline().strip().split(',')
+                pid = int(pid_str)
+                timestamp = float(timestamp_str)
+        except Exception as e:
+            logger.error(f"Error reading lockfile {self._lockfile_name}: {e}")
+            return False
+
+        # Check if the process with this PID is still running
+        try:
+            os.kill(pid, 0)  # Signal 0 does not kill the process, just checks if it exists
+            return True
+        except ProcessLookupError:
+            # Process does not exist
+            return False
+        except PermissionError:
+            # We don't have permission to signal this process, but it exists
+            return True
 
     def get_ffmpeg_command(self) -> list[str]:
         """
@@ -166,6 +215,8 @@ class EncodingManager:
 
         IN THEORY, This should be highly efficient, we rely of ffmpeg's threading.
         reading the input only once, and writing multiple outputs in one pass.
+
+        We also manage the lockfile here so we can tell if encoding is currently in process.
         """
 
         if not os.path.exists(self.transcode_output_dir):
@@ -175,8 +226,21 @@ class EncodingManager:
 
         logger.debug(f"Forking off encoding command\n {cmd}")
 
-        #hold on tight!.... 
+        # Kick off the encoding.
         self.trancode_process = subprocess.Popen(cmd)
+
+        #create the lock file with the PID of the encoding process and a timestamp
+        pid = self.trancode_process.pid
+        with open(self._lockfile_name, mode='w') as f:
+            f.write(f"{pid},{datetime.datetime.now().timestamp()}\n")
+
+        # Now we need to clean up the lockfile when the process is done.
+        # We do this by spawning a detached process that waits for the encoding process to finish,
+        subprocess.Popen(["sh", "-c", 'while kill -0 "$1" 2>/dev/null; do sleep 1; done; rm -f "$2"',
+                         "--", str(pid), self._lockfile_name],
+                        start_new_session=True,                           # detaches it from this process's session
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 
 
 
