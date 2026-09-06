@@ -96,18 +96,21 @@ In the future, we will support directly configuring FTP, SCP, and others so netw
 
 # Simple Docker install:
 
+Use `docker compose` (the CLI plugin, two words) rather than the older standalone
+`docker-compose` binary - it's better maintained and is what these instructions assume.
+
 after cloning this repository:
 
 `./setup`
 
-`docker-compose up -d --build`
+`docker compose up -d --build`
 
 Stop the server with:
 
-`docker-compose down`
+`docker compose down`
 
 And get a clean build with:
-`docker-compose down --rmi all --volumes --remove-orphans`
+`docker compose down --rmi all --volumes --remove-orphans`
 
 Things should work right out of the box.
 
@@ -130,7 +133,7 @@ There is also a 'watcher' script './watch_casterpak.sh' you may run at your own 
 
 # Development Installs 
 
-For dev installs, it's best to get things working without a container, then do a 'docker-compose' to make sure containers still build.
+For dev installs, it's best to get things working without a container, then do a 'docker compose' to make sure containers still build.
 
 as a developer, you are responsible for running the flask app 'casterpak' and the cache cleanup process separately helps debug stuff.
 
@@ -267,8 +270,8 @@ then do integration testing with containers:
     serves the segment file itself - works anywhere, just less efficient. Either way,
     playback should work; only the delivery mechanism differs.
 
-2. execute `docker-compose build --no-cache` to make sure the containers build.
-3. execute `docker-compose up -d` to run the server
+2. execute `docker compose build --no-cache` to make sure the containers build.
+3. execute `docker compose up -d` to run the server
 
 - make sure videos are served.
 
