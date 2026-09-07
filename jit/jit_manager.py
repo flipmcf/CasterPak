@@ -45,6 +45,11 @@ class JitManager:
         parent, name = os.path.split(dir_name)
         self.dir_name = os.path.join(parent, f"JIT_{name}")
 
+        # and manifest path must also be prefixed, so we put it in the same directory
+        parent, name = os.path.split(manifest_path)
+        gparent, dirname = os.path.split(parent)
+        self.manifest_path = os.path.join(gparent, f"JIT_{dirname}", name)
+
         # We must match Bento4's exact naming convention from media_manifest_base.py
         self.segment_template = os.path.join(self.output_dir, "segment-%d.ts")
         self.first_segment_path = os.path.join(self.output_dir, "segment-0.ts")
