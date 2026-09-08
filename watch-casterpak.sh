@@ -4,7 +4,7 @@
 echo "🔧 Ensuring tools are installed in the container..."
 docker exec -u 0 casterpak_server bash -c "apt-get update && apt-get install -y -qq watch tree"
 
-DB_FILE="/var/lib/casterpak/data/cacheDB.db"
+export DB_FILE="/var/lib/casterpak/data/cacheDB.db"
 
 # 2. CONFIG: Define our monitoring commands
 # We use 'bash -c' inside the tabs to keep them open if a command fails
