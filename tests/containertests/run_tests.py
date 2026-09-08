@@ -136,13 +136,25 @@ def with_encodings(casterpak_clean):
     # -preset ultrafast: Skip heavy compression algorithms
     # -r 15: Drop framerate to 15 fps to halve the workload
     # set -g and -keyint_min to 30 to get 30frames/15fps = 2 second keyframes for segmentation.
+
+    NOTE: rendition labels here ('720p'/'480p'/'360p') must match config.ini's
+    [encoding_ladder] labels exactly - this fixture writes files by hand, it
+    doesn't go through EncodingManager, so nothing enforces that agreement
+    for you. The CASTERPAK_ENCODING_LADDER_* env vars set at the top of this
+    file do NOT actually reach the container (docker-compose.yml doesn't
+    forward them - they're not referenced anywhere in its `environment:`
+    section), so the container always runs the real config.ini ladder
+    regardless of what's set here. If you change config.ini's ladder labels,
+    update RENDITION_LABELS below to match.
     """
+
+    RENDITION_LABELS = ['720p', '480p', '360p']
 
     container = client.containers.get("casterpak_server")
     test_dir = test_env["CASTERPAK_FILESYSTEM_VIDEOPARENTPATH"]
     encoding_output_dir = f"{test_dir}/test-video.mp4.transcodes"
 
-    check_cmd = f"test -f {encoding_output_dir}/test-video_360.mp4"
+    check_cmd = f"test -f {encoding_output_dir}/test-video_360p.mp4"
     exit_code, _ = container.exec_run(check_cmd)
 
     if exit_code == 0:
@@ -161,14 +173,59 @@ def with_encodings(casterpak_clean):
         #create a few encodings manually using our test asset:
         ffmpeg_cmd = (
             f"{nice} ffmpeg -y {threads} -t 5 -i {test_file} "
-            f"-vf scale=-2:720 -c:v libx264 -preset ultrafast -b:v 2500k -r 15 -g 30 -keyint_min 30 -sc_threshold 0 {encoding_output_dir}/test-video_720.mp4 "
-            f"-vf scale=-2:480 -c:v libx264 -preset ultrafast -b:v 1200k -r 15 -g 30 -keyint_min 30 -sc_threshold 0 {encoding_output_dir}/test-video_480.mp4 "
-            f"-vf scale=-2:360 -c:v libx264 -preset ultrafast -b:v 600k  -r 15 -g 30 -keyint_min 30 -sc_threshold 0 {encoding_output_dir}/test-video_360.mp4 "
+            f"-vf scale=-2:720 -c:v libx264 -preset ultrafast -b:v 2500k -r 15 -g 30 -keyint_min 30 -sc_threshold 0 {encoding_output_dir}/test-video_720p.mp4 "
+            f"-vf scale=-2:480 -c:v libx264 -preset ultrafast -b:v 1200k -r 15 -g 30 -keyint_min 30 -sc_threshold 0 {encoding_output_dir}/test-video_480p.mp4 "
+            f"-vf scale=-2:360 -c:v libx264 -preset ultrafast -b:v 600k  -r 15 -g 30 -keyint_min 30 -sc_threshold 0 {encoding_output_dir}/test-video_360p.mp4 "
         )
-        
+
         print("🎬 Transcoding test variants...")
         exit_code, output = container.exec_run(f"sh -c '{ffmpeg_cmd}'")
         assert exit_code == 0, f"FFmpeg failed: {output.decode()}"
+
+
+@pytest.fixture(scope="function")
+def with_abr_cache_encodings(casterpak_clean):
+    """
+    Like with_encodings, but for EncodingManager's own cache instead of the
+    source library. These are NOT the same directory:
+
+    - with_encodings writes into videoParentPath (the source library) -
+      that's what the CSMIL route (MultivariantManager -> vodhls_media_
+      playlist_factory -> source_file) reads pre-provided renditions from.
+    - EncodingManager.renditions_exist(), which is what /abr/ actually
+      checks, looks in videoCachePath instead (encoding/encodingmanager.py:
+      transcode_output_dir). Different directory entirely, by design - see
+      CLAUDE.md: CSMIL is for operator-provided renditions already on disk;
+      /abr/ is CasterPak's own auto-encode cache.
+
+    Route tests exercising /abr/'s "renditions already exist" state need
+    THIS fixture, not with_encodings, or renditions_exist() will always be
+    False regardless of what with_encodings wrote elsewhere.
+    """
+    RENDITION_LABELS = ['720p', '480p', '360p']
+
+    container = client.containers.get("casterpak_server")
+    cache_output_dir = "/tmp/video_input/test-video.mp4.transcodes"
+
+    exit_code, _ = container.exec_run(f"mkdir -p {cache_output_dir}")
+
+    test_file = "/mnt/data/test_video.mp4"
+
+    max_cpu = os.cpu_count() or 4
+    max_threads = max(1, int(max_cpu / 2))
+    threads = f"-threads {max_threads}"
+    nice = "nice -n 19"
+
+    ffmpeg_cmd = (
+        f"{nice} ffmpeg -y {threads} -t 5 -i {test_file} "
+        f"-vf scale=-2:720 -c:v libx264 -preset ultrafast -b:v 2500k -r 15 -g 30 -keyint_min 30 -sc_threshold 0 {cache_output_dir}/test-video_720p.mp4 "
+        f"-vf scale=-2:480 -c:v libx264 -preset ultrafast -b:v 1200k -r 15 -g 30 -keyint_min 30 -sc_threshold 0 {cache_output_dir}/test-video_480p.mp4 "
+        f"-vf scale=-2:360 -c:v libx264 -preset ultrafast -b:v 600k  -r 15 -g 30 -keyint_min 30 -sc_threshold 0 {cache_output_dir}/test-video_360p.mp4 "
+    )
+
+    print("🎬 Transcoding ABR-cache test variants...")
+    exit_code, output = container.exec_run(f"sh -c '{ffmpeg_cmd}'")
+    assert exit_code == 0, f"FFmpeg failed: {output.decode()}"
 
 
 #nginx tests
@@ -235,21 +292,21 @@ def test_route_csmil_parent_manifest(with_encodings):
     # The fixture created our encodings.
 
     # 1. Exercise the CSMIL route
-    response = requests.get("http://localhost:80/i/test-video.mp4.transcodes/test-video_,360,480,720,.mp4.csmil/master.m3u8")
-    
+    response = requests.get("http://localhost:80/i/test-video.mp4.transcodes/test-video,360p,480p,720p,.mp4.csmil/master.m3u8")
+
     assert response.status_code == 200
-    
+
     # Assert that all three variants are present in the master manifest
-    assert "test-video_720.mp4" in response.text
-    assert "test-video_480.mp4" in response.text
-    assert "test-video_360.mp4" in response.text
-    
+    assert "test-video_720p.mp4" in response.text
+    assert "test-video_480p.mp4" in response.text
+    assert "test-video_360p.mp4" in response.text
+
     print("✅ CSMIL Master Manifest verified with 3 bitrates.")
 
     # Assert that the url's are well-formed
-    assert "http://localhost/i/test-video.mp4.transcodes/test-video_360.mp4/index_0_av.m3u8" in response.text
+    assert "http://localhost/i/test-video.mp4.transcodes/test-video_360p.mp4/index_0_av.m3u8" in response.text
 
-    response = requests.get("http://localhost/i/test-video.mp4.transcodes/test-video_360.mp4/index_0_av.m3u8")
+    response = requests.get("http://localhost/i/test-video.mp4.transcodes/test-video_360p.mp4/index_0_av.m3u8")
 
     assert response.status_code == 200
     #make sure all the segments are there, and they are 2 seconds long.
@@ -269,9 +326,9 @@ def test_route_csmil_parent_manifest(with_encodings):
     assert lines.count("#EXTINF:2.000000,") >= 2
 
     # 3. Assert the actual segment files are correctly pathed
-    assert "http://localhost/i/test-video.mp4.transcodes/test-video_360.mp4/segment-0.ts" in lines
-    assert "http://localhost/i/test-video.mp4.transcodes/test-video_360.mp4/segment-1.ts" in lines
-    assert "http://localhost/i/test-video.mp4.transcodes/test-video_360.mp4/segment-2.ts" in lines
+    assert "http://localhost/i/test-video.mp4.transcodes/test-video_360p.mp4/segment-0.ts" in lines
+    assert "http://localhost/i/test-video.mp4.transcodes/test-video_360p.mp4/segment-1.ts" in lines
+    assert "http://localhost/i/test-video.mp4.transcodes/test-video_360p.mp4/segment-2.ts" in lines
     
     # 4. Optional: Assert the terminal segment exists and is a float > 0
     # We know segment-2 exists, we just don't care about its exact fractional length.
@@ -279,8 +336,8 @@ def test_route_csmil_parent_manifest(with_encodings):
     # 5. Test that nginx hasn't corrupted the binary (by gzip, bad mime header, or something else)
     # The paths to the exact same file
     container = client.containers.get("casterpak_server")
-    segment_path = "/tmp/segments/test-video.mp4.transcodes/test-video_360.mp4/segment-0.ts"
-    segment_url = "http://localhost/i/test-video.mp4.transcodes/test-video_360.mp4/segment-0.ts"
+    segment_path = "/tmp/segments/test-video.mp4.transcodes/test-video_360p.mp4/segment-0.ts"
+    segment_url = "http://localhost/i/test-video.mp4.transcodes/test-video_360p.mp4/segment-0.ts"
     
     exit_code, output = container.exec_run(f"sha256sum {segment_path}")
     assert exit_code == 0, f"Could not hash file on disk: {output.decode()}"
@@ -305,14 +362,14 @@ def test_nginx_to_flask_x_accel_handoff(casterpak_stack):
     nginx_container = client.containers.get("casterpak_nginx")
     
     # 1. Setup the fake segment file environment
-    video_dir = "/tmp/segments/test-video.mp4.transcodes/test-video_360.mp4"
+    video_dir = "/tmp/segments/test-video.mp4.transcodes/test-video_360p.mp4"
     segment_file = f"{video_dir}/segment-0.ts"
     
     flask_container.exec_run(f"mkdir -p {video_dir}")
     flask_container.exec_run(f"sh -c 'echo \"test binary data\" > {segment_file}'")
 
     # We query the upstream Flask server exactly how Nginx does it via proxy_pass
-    internal_flask_url = "http://casterpak_server:5000/i/test-video.mp4.transcodes/test-video_360.mp4/segment-0.ts"
+    internal_flask_url = "http://casterpak_server:5000/i/test-video.mp4.transcodes/test-video_360p.mp4/segment-0.ts"
     
     # Use curl to fetch only the headers (-I) from the upstream app
     exit_code, output = nginx_container.exec_run(f"curl -s -I {internal_flask_url}")
@@ -328,7 +385,7 @@ def test_nginx_to_flask_x_accel_handoff(casterpak_stack):
     assert "X-Accel-Redirect:" in headers, f"The X-Accel-Redirect header is missing! Headers:\n{headers}"
     
     # 3. Verify the exact internal routing path
-    expected_path = "/protected_media/test-video.mp4.transcodes/test-video_360.mp4/segment-0.ts"
+    expected_path = "/protected_media/test-video.mp4.transcodes/test-video_360p.mp4/segment-0.ts"
     assert expected_path in headers, f"Wrong internal path. Expected to find: {expected_path}"
     
     # 4. Verify the MIME type
@@ -372,12 +429,15 @@ def test_route_abr_manifest_emergency(casterpak_clean):
     # Verify it generated the Emergency Master Manifest
     assert "#EXTM3U" in response.text
     assert "RESOLUTION=854x480" in response.text
-    assert "/i/test-video.mp4/index_0_av.m3u8" in response.text
-    
-    # We could also optionally check the container to ensure the FFmpeg process started, 
+    # JIT writes to its own JIT_-prefixed directory, kept separate from the
+    # plain single-bitrate route's directory (see jit/jit_manager.py) -
+    # the child manifest URL reflects that.
+    assert "/i/JIT_test-video.mp4/index_0_av.m3u8" in response.text
+
+    # We could also optionally check the container to ensure the FFmpeg process started,
     # but receiving the emergency manifest proves the routing logic fired correctly.
 
-def test_route_abr_manifest_redirect(with_encodings):
+def test_route_abr_manifest_redirect(with_abr_cache_encodings):
     """
     Test Tier 2: Encodings exist. 
     Should return a 302 Found redirecting to the .csmil endpoint.
@@ -391,7 +451,7 @@ def test_route_abr_manifest_redirect(with_encodings):
     assert response.status_code == 302
     
     # Verify the Location header was built correctly
-    expected_redirect = "/i/test-video.mp4.transcodes/test-video_,360,480,720,.mp4.csmil/master.m3u8"
+    expected_redirect = "/i/test-video.mp4.transcodes/test-video,360p,480p,720p,.mp4.csmil/master.m3u8"
     assert response.headers['Location'] == expected_redirect
 
 
@@ -433,6 +493,115 @@ def test_route_abr_manifest_concurrent_requests_dont_race(casterpak_clean):
     jit_ffmpeg_count = count_matching_processes(container, "-preset ultrafast") - baseline_jit
     assert jit_ffmpeg_count == 1, \
         f"expected exactly 1 new JIT ffmpeg process from 8 concurrent requests, found {jit_ffmpeg_count}"
+
+
+## ROADMAP.md Phase A item 4:
+## "Renditions deleted entirely - hit /abr/, confirm EncodingManager/background
+## encoding produces new renditions from scratch."
+def test_route_abr_manifest_produces_renditions_from_scratch(casterpak_clean):
+    """
+    End-to-end: hit /abr/ for a video with NO cache and NO renditions at all,
+    wait for the real background EncodingManager encode to finish (polling
+    the same URL, not the fixture-faked with_abr_cache_encodings shortcut),
+    then confirm it redirects to a working CSMIL manifest built from
+    genuinely-encoded renditions.
+    """
+    url = "http://localhost:80/i/abr/test-video.mp4/master.m3u8"
+
+    start_time = time.time()
+    timeout = 120
+
+    location = None
+    while time.time() - start_time < timeout:
+        response = requests.get(url, allow_redirects=False)
+        if response.status_code == 302:
+            location = response.headers['Location']
+            break
+        assert response.status_code == 200, \
+            f"expected 200 (still encoding) or 302 (done), got {response.status_code}"
+        time.sleep(2)
+
+    elapsed = time.time() - start_time
+    print(f"⏱  Background encode -> CSMIL redirect took {elapsed:.1f}s")
+
+    assert location is not None, \
+        f"EncodingManager never finished producing renditions within {timeout}s"
+    assert location == "/i/test-video.mp4.transcodes/test-video,360p,480p,720p,.mp4.csmil/master.m3u8"
+
+    # Confirm the redirect target is real, not just a plausible-looking URL -
+    # fetch it and check all three renditions genuinely exist in the manifest.
+    csmil_response = requests.get(f"http://localhost:80{location}")
+    assert csmil_response.status_code == 200
+    for label in ("360p", "480p", "720p"):
+        assert f"test-video_{label}.mp4" in csmil_response.text
+
+    # And confirm the renditions ffmpeg produced are real, playable files, not
+    # empty placeholders - fetch one child manifest and one segment.
+    child_response = requests.get(
+        "http://localhost:80/i/test-video.mp4.transcodes/test-video_360p.mp4/index_0_av.m3u8"
+    )
+    assert child_response.status_code == 200
+    assert "#EXTM3U" in child_response.text
+    assert "segment-0.ts" in child_response.text
+
+    segment_response = requests.get(
+        "http://localhost:80/i/test-video.mp4.transcodes/test-video_360p.mp4/segment-0.ts"
+    )
+    assert segment_response.status_code == 200
+    assert len(segment_response.content) > 1000
+
+
+## ROADMAP.md Phase A item 5:
+## "Emergency encoding (Tier 3) - hit /abr/ with no cache and no renditions
+## while encoding is still in flight, confirm the JIT low-quality stream
+## serves instead of a stall/404. Informally time this as an early gut-check
+## against an SLA."
+def test_route_abr_manifest_emergency_stream_is_actually_playable(casterpak_clean):
+    """
+    test_route_abr_manifest_emergency (above) only checks that the initial
+    /abr/ response LOOKS like a valid emergency manifest. This test goes
+    further: it follows that manifest's own child_url and fetches a real
+    segment, proving the JIT stream is actually generating playable content -
+    "instead of a stall/404" - not just that the routing logic fired. It also
+    times the whole round trip as the roadmap's informal SLA gut-check (no
+    committed threshold - this only fails on genuine timeout/error, the
+    timing is reported for a human to judge).
+    """
+    start_time = time.time()
+
+    response = requests.get("http://localhost:80/i/abr/test-video.mp4/master.m3u8")
+    assert response.status_code == 200
+    assert "#EXTM3U" in response.text
+
+    # Pull the child manifest URL out of the emergency manifest text - the
+    # last non-empty line, per the m3u8 this route generates. Unlike the
+    # CSMIL/single-bitrate manifests (which use get_base_url() for absolute
+    # URLs), the JIT emergency manifest's child_url is deliberately relative
+    # (see jit_manager.get_m3u8_index_url()) - test_route_abr_manifest_
+    # emergency's own passing assertion checks the same bare '/i/...' form.
+    lines = [line.strip() for line in response.text.splitlines() if line.strip()]
+    child_url = lines[-1]
+    assert child_url.startswith("/i/JIT_test-video.mp4/")
+
+    # Real background ABR encoding is now also running in the background
+    # (started by this same /abr/ request) - fetching the JIT child manifest
+    # right now exercises "while encoding is still in flight" honestly,
+    # rather than waiting and accidentally testing the warm-cache path instead.
+    child_response = requests.get(f"http://localhost:80{child_url}")
+    assert child_response.status_code == 200, \
+        "JIT child manifest did not serve - this is the stall/404 this test exists to catch"
+    assert "#EXTM3U" in child_response.text
+    assert "segment-0.ts" in child_response.text
+
+    segment_url = child_url.rsplit('/', 1)[0] + '/segment-0.ts'
+    segment_response = requests.get(f"http://localhost:80{segment_url}")
+    assert segment_response.status_code == 200, \
+        "JIT first segment did not serve - this is the stall/404 this test exists to catch"
+    assert segment_response.headers['Content-Type'] == 'video/MP2T'
+    assert len(segment_response.content) > 1000, "JIT segment served but looks empty/truncated"
+
+    elapsed = time.time() - start_time
+    print(f"⏱  /abr/ request -> playable JIT segment took {elapsed:.2f}s (informal SLA gut-check, no hard threshold)")
 
 
 
