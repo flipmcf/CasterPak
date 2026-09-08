@@ -152,7 +152,7 @@ http://localhost/testing/test_player.html   ( security people don't like this - 
 
 `docker logs -f casterpak_server`
 
-There is also a 'watcher' script './watch_casterpak.sh' you may run at your own risk.  It will open up a bunch of terminal windows to watch the logs, the cache filesystem, the database, and a cli into the container for your own debugging.
+There is also a 'watcher' script './watch-casterpak.sh' you may run at your own risk.  It will open up a bunch of terminal windows to watch the logs, the cache filesystem, the database, and a cli into the container for your own debugging.
 
 
 # Development Installs 
