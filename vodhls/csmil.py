@@ -53,10 +53,19 @@ class CsmilDescriptor:
         """
         Builds the mathematically deterministic CSMIL string.
         e.g., 'test-video,360,480,720,.mp4'
+
+        A flat (no-subdirectory) file has dirname == '' - the separating '/'
+        must be omitted in that case, not just the dirname itself. A bare
+        leading '/' left in front of basename (e.g. '/test-video,,.mp4')
+        gets treated as an absolute path the next time something does
+        os.path.join(some_real_dir, that_string) - os.path.join silently
+        discards the real directory and resolves to filesystem root instead
+        of raising, which is exactly what broke single_bitrate_manifest.
         """
         labels = ",".join(self.bitrates)
         csmil = ".csmil" if self.append_csmil else ""
-        return f"{self.dirname}/{self.basename},{labels},{self.ext}{csmil}"
+        prefix = f"{self.dirname}/" if self.dirname else ""
+        return f"{prefix}{self.basename},{labels},{self.ext}{csmil}"
 
     @property
     def rendition_filenames(self) -> list:
