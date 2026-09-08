@@ -6,10 +6,12 @@ import os
 import logging
 
 from urllib.parse import urljoin
+from werkzeug.utils import safe_join
 from bento4.mp4utils import Mp42Hls
 
 import cachedb
 from config import get_config
+from pathsafety import InvalidPathError
 
 from . import EncodingError, ConfigurationError
 
@@ -166,7 +168,15 @@ class MediaManager_Base(object):
             logger.error(msg)
             raise ConfigurationError(msg)
 
-        return os.path.join(path, self.filename)
+        # Defense-in-depth: routes.py already validates self.filename before
+        # it ever gets here (see pathsafety.py), so this should never
+        # actually reject anything - but if it ever does, refuse to escape
+        # segmentParentPath rather than silently joining an absolute path or
+        # '..' segment onto it.
+        joined = safe_join(path, self.filename)
+        if joined is None:
+            raise InvalidPathError(f"unsafe path: {self.filename!r} escapes {path!r}")
+        return joined
 
     @property
     def output_manifest_filename(self) -> t.Union[os.PathLike, str]:

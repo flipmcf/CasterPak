@@ -1,10 +1,6 @@
 import os
-import re
 
-# valid characters in a filename
-filenameRE = re.compile(r'[^.a-zA-Z\d_-]')
-# valid characters in a directory path:
-dirnameRE = re.compile(r'[^.a-zA-Z\d_/-]')
+from pathsafety import validate_filename
 
 class CsmilDescriptor:
     """ constructs and deconstructs csmil strings"""
@@ -36,10 +32,15 @@ class CsmilDescriptor:
         files = csmil_chunks[-1]
         file_chunks = files.split(',')
 
-        dirs = [filenameRE.sub('', d) for d in dirs]
-        basename = filenameRE.sub('', file_chunks[0])
-        bitrates = [filenameRE.sub('', f) for f in file_chunks[1:-1]]
-        ext = common_filename_suffix = filenameRE.sub('', file_chunks[-1])
+        dirs = [validate_filename(d) for d in dirs]
+        basename = validate_filename(file_chunks[0])
+        # An empty bitrate entry is the deliberate "unlabeled single
+        # rendition" sentinel (see single_bitrate_manifest's
+        # bitrates=['']), which round-trips through csmil_string as a
+        # double comma ('basename,,ext') - preserve it as '', but there's
+        # nothing to validate since it carries no attacker-controlled content.
+        bitrates = [validate_filename(f) if f else f for f in file_chunks[1:-1]]
+        ext = common_filename_suffix = validate_filename(file_chunks[-1])
 
         dirname = os.path.join(*dirs) if dirs else ''
         filenames = [basename+'_'+bitrate+common_filename_suffix for bitrate in bitrates]

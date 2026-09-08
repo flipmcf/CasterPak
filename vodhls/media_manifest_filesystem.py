@@ -6,8 +6,11 @@ import os
 import shutil
 import logging
 
+from werkzeug.utils import safe_join
+
 from vodhls.media_manifest_base import MediaManager_Base
 from vodhls.media_manifest_base import ConfigurationError
+from pathsafety import InvalidPathError
 
 logger = logging.getLogger('vodhls')
 
@@ -77,7 +80,15 @@ class MediaManager_filesystem(MediaManager_Base):
             logger.error(msg)
             raise ConfigurationError(msg)
 
-        return os.path.join(path, self.filename)
+        # Defense-in-depth: routes.py already validates self.filename before
+        # it ever gets here (see pathsafety.py), so this should never
+        # actually reject anything - but if it ever does, refuse to escape
+        # videoParentPath rather than silently joining an absolute path or
+        # '..' segment onto it.
+        joined = safe_join(path, self.filename)
+        if joined is None:
+            raise InvalidPathError(f"unsafe path: {self.filename!r} escapes {path!r}")
+        return joined
 
     @property
     def input_cache_enabled(self):

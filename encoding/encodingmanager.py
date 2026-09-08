@@ -3,7 +3,10 @@ import subprocess
 
 import datetime
 
+from werkzeug.utils import safe_join
+
 from config import get_config
+from pathsafety import InvalidPathError
 
 import logging
 logger = logging.getLogger('encoder')
@@ -50,9 +53,17 @@ class EncodingManager:
         logger.debug(self.bitrates)
 
         video_output_cache = self.app_config.get('input','videoCachePath')
-        logger.debug(f"Video output cache path from config: {video_output_cache}") 
+        logger.debug(f"Video output cache path from config: {video_output_cache}")
 
-        self.transcode_output_dir = os.path.join(video_output_cache, f"{self.filename}.transcodes")
+        # Defense-in-depth: routes.py already validates the filename this
+        # was built from (see pathsafety.py), so this should never actually
+        # reject anything - but if it ever does, refuse to escape
+        # videoCachePath rather than silently joining an absolute path or
+        # '..' segment onto it.
+        transcode_output_dir = safe_join(video_output_cache, f"{self.filename}.transcodes")
+        if transcode_output_dir is None:
+            raise InvalidPathError(f"unsafe path: {self.filename!r} escapes {video_output_cache!r}")
+        self.transcode_output_dir = transcode_output_dir
         
         # Calculate full paths
         self.rendition_paths = self.list_rendition_files()

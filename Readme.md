@@ -94,6 +94,30 @@ In the future, we will support directly configuring FTP, SCP, and others so netw
 
 ----
 
+## Valid Filenames
+
+Every filename and directory segment that reaches CasterPak from a URL is **validated, never mutated**. A name that doesn't meet the rules below is rejected outright (HTTP 422) - it is never silently rewritten into something else. This matters because a rewritten name stops matching the file it actually points to; see the security section of the project's internal notes for the incident that motivated this.
+
+Allowed characters, in filenames and in each `/`-separated directory segment:
+
+- Letters and digits (`A-Z`, `a-z`, `0-9`)
+- Hyphen `-` (but not as the first character - see below)
+- Underscore `_`
+- Plus `+`
+- Period `.` - freely, for the base filename and the extension. Multiple periods are allowed (`my.video.final.mp4` is fine); a segment that is *exactly* `.` or `..` is not, since those are directory-traversal tokens, not filenames.
+
+Rejected outright, regardless of character set:
+
+- A segment starting with `-` (protects against a filename being read as a command-line flag by ffmpeg or Bento4)
+- A literal comma `,` anywhere in a name (reserved as the CSMIL rendition-list delimiter - see `vodhls/csmil.py`)
+- An empty segment (produced by a leading, trailing, or doubled `/` in the path)
+
+**Spaces are not a valid filename character and are not converted to anything.** If your source library or upload tooling produces filenames with spaces (a common side effect of a space becoming a literal `+` when a browser encodes a form submission), convert spaces to underscores *before* the file reaches CasterPak - don't rely on CasterPak to do it for you.
+
+This is implemented in `pathsafety.py` (`validate_filename`/`validate_dirname`), used by every route in `casterpak/routes.py` and by `vodhls/csmil.py`'s CSMIL string parsing - one shared set of rules, enforced once, not several slightly-different copies that can quietly disagree with each other.
+
+----
+
 # Simple Docker install:
 
 Use `docker compose` (the CLI plugin, two words) rather than the older standalone

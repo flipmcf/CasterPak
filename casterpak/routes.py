@@ -1,5 +1,4 @@
 import os
-import re
 import typing as t
 
 from flask import Blueprint, Response
@@ -16,13 +15,7 @@ from vodhls.factory import (vodhls_master_playlist_factory,
 from vodhls.csmil import CsmilDescriptor
 from encoding import EncodingManager
 from jit import jit_manager_factory
-
-
-## TODO - this is duplicated in vodhls/csmil.py
-# valid characters in a filename
-filenameRE = re.compile(r'[^.a-zA-Z\d_-]')
-# valid characters in a directory path:
-dirnameRE = re.compile(r'[^.a-zA-Z\d_/-]')
+from pathsafety import validate_filename, validate_dirname, InvalidPathError
 
 bp = Blueprint('casterpak', __name__)
 
@@ -55,9 +48,11 @@ def single_bitrate_manifest(dir_name: str):
 
     (dirname, filename) = os.path.split(dir_name)
 
-    #sanitize
-    filename = filenameRE.sub('', filename)
-    dirname = dirnameRE.sub('', dirname)
+    try:
+        validate_dirname(dirname)
+        validate_filename(filename)
+    except InvalidPathError as e:
+        return abort(422, description=str(e))
 
     basename, ext = os.path.splitext(filename)
 
@@ -94,23 +89,26 @@ def abr_manifest(dir_name: str):
         
     """
     
-    #determine output dir for segments    
+    #determine output dir for segments
     (dirname, filename) = os.path.split(dir_name)
 
-    #sanitize
-    filename = filenameRE.sub('', filename)
-    dirname = dirnameRE.sub('', dirname)
+    try:
+        validate_dirname(dirname)
+        validate_filename(filename)
+    except InvalidPathError as e:
+        return abort(422, description=str(e))
 
     basename, ext = os.path.splitext(filename)
 
-    #hard fail to protect ffmpeg command line.  Don't confuse filenames with arguments.
-    #filenames that start with a '-' are just flat out banned.
-    if filename.startswith('-') or dirname.startswith('-'):
-        return abort(422, description=f"Invalid filename")
-        
     #determine input directory for original video file.
     localdir = current_app.config['filesystem']['videoParentPath']
     video_file = safe_join(localdir, dir_name)
+    if video_file is None:
+        # dir_name already passed validate_dirname/validate_filename above,
+        # so this should be unreachable - but safe_join returns None rather
+        # than raising, and a silent None here would crash downstream with
+        # a bare TypeError (os.path.split(None)) instead of a clean 422.
+        return abort(422, description="Invalid filename")
 
     current_app.logger.info(f"abr route called for {video_file}")
 
@@ -182,7 +180,10 @@ def csmil_parent_manifest(csmil_str: str):
     This is the path that /abr/ will redirect to if it finds that renditions exist.
     """
 
-    csmil_data = CsmilDescriptor.from_string(csmil_str)
+    try:
+        csmil_data = CsmilDescriptor.from_string(csmil_str)
+    except InvalidPathError as e:
+        return abort(422, description=str(e))
 
     vodhls_manager = vodhls_master_playlist_factory(csmil_data)
 
@@ -208,7 +209,10 @@ def csmil_parent_manifest(csmil_str: str):
 
 @bp.route('/i/<path:dir_name>/index_0_av.m3u8')
 def child_manifest(dir_name: t.Union[os.PathLike, str]):
-    dir_name = dirnameRE.sub('', dir_name)
+    try:
+        validate_dirname(dir_name)
+    except InvalidPathError as e:
+        return abort(422, description=str(e))
 
     try:
         hls_manager = vodhls_media_playlist_factory(dir_name)
@@ -241,8 +245,11 @@ def segment(dir_name: t.Union[os.PathLike, str], filename: str):
     filename = filename + '.ts'
     filepath = dir_name + '/' + filename
 
-    filename = filenameRE.sub('', filename)
-    filepath = dirnameRE.sub('', filepath)
+    try:
+        validate_dirname(dir_name)
+        validate_filename(filename)
+    except InvalidPathError as e:
+        return abort(422, description=str(e))
 
     try:
         hls_manager = vodhls_media_playlist_factory(dir_name)
