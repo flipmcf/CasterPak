@@ -120,9 +120,6 @@ This is implemented in `pathsafety.py` (`validate_filename`/`validate_dirname`),
 
 # Simple Docker install:
 
-Use `docker compose` (the CLI plugin, two words) rather than the older standalone
-`docker-compose` binary - it's better maintained and is what these instructions assume.
-
 after cloning this repository:
 
 `./setup`
