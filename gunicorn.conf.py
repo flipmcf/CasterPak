@@ -1,6 +1,7 @@
 
 from config import get_config
 from cleanup import start_maintenance_loop
+from encoding.encoding_process_manager import start_encoding_dispatcher
 
 app_config = get_config()
 
@@ -19,17 +20,24 @@ errorlog = app_config.get('logging', 'error_log', fallback='/var/log/casterpak.e
 cachelog = app_config.get('logging', 'cache_log', fallback='/var/log/casterpak.cache.log')
 cleanup_interval = app_config.getint('cache', 'cleanup_interval', fallback=300)
 
+encoding_poll_interval = app_config.getint('encoding', 'poll_interval', fallback=5)
+encoding_pool_size = app_config.getint('encoding', 'max_concurrent_encodes', fallback=2)
+
 
 capture_output = False
 
 # Server hook to initialize the cache cleanup thread.
 def on_starting(server):
     """
-    This hook runs once in the Gunicorn Master process 
+    This hook runs once in the Gunicorn Master process
     before the worker processes are spawned.
     """
     server.log.info("--------------------------------------------------")
     server.log.info("CASTERPAK: Master Process starting up.")
     server.log.info("Cleanup: initializing background maintenance loop.")
     start_maintenance_loop(cleanup_interval,server=server)
+    server.log.info("Encoding: initializing background dispatcher loop.")
+    start_encoding_dispatcher(poll_interval=encoding_poll_interval,
+                               pool_size=encoding_pool_size,
+                               server=server)
     server.log.info("--------------------------------------------------")

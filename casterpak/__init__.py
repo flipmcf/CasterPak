@@ -8,6 +8,7 @@ from flask import Flask
 import applogging
 from config import get_config
 import cachedb
+from encoding import encoding_process_manager
 
 
 def setup_gunicorn_logging(app, base_config):
@@ -94,6 +95,10 @@ def create_app(test_config=None):
     # initialize the cache database
     app.logger.info(f"initializing cache database")
     cachedb.initialize_cache_db()
+
+    # ensure the encoding queue table exists.
+    app.logger.info(f"initializing encoding queue table")
+    encoding_process_manager.initialize_encoding_db()
 
     if __name__ != "__main__":
         setup_gunicorn_logging(app, base_config)

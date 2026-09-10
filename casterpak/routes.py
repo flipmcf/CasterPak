@@ -14,6 +14,7 @@ from vodhls.factory import (vodhls_master_playlist_factory,
 
 from vodhls.csmil import CsmilDescriptor
 from encoding import EncodingManager
+from encoding import EncodingAlreadyInProgressError, EncodingManagerError
 from jit import jit_manager_factory
 from pathsafety import validate_filename, validate_dirname, InvalidPathError
 
@@ -115,7 +116,7 @@ def abr_manifest(dir_name: str):
     encoder = EncodingManager(video_file)
     try:
         #State 3 - encodings already exist.
-        if encoder.renditions_exist() and not encoder.in_progress():
+        if encoder.renditions_exist():
             current_app.logger.info(f"renditions exist - redirect to csmil")
             # TIER 2: Encodings are ready. Redirect to stateless CSMIL delivery.
             transcodes_dir = os.path.join(dirname, f"{filename}.transcodes")
@@ -127,27 +128,21 @@ def abr_manifest(dir_name: str):
         else:
             # TIER 3: No encodings exist. Emergency
 
-            # TODO - race: check-then-act between in_progress() and start_background_encoding()
-            # lets two near-simultaneous requests both see "not running" and both spawn a
-            # real ABR encode. Fine for now; will need a transactional guard (sqlite table
-            # lock) once this is under real concurrent load.
-            # are we currently encoding?
-            if not encoder.in_progress():
-                current_app.logger.info("spawning primary encoding job")
-                encoder.start_background_encoding()
+            # First (why first?) We queue up the quality ABR encoding process.
+            try:
+                encoder.queue_background_encoding()
+            except EncodingAlreadyInProgressError:
+                current_app.logger.info("ABR encoding already queued, not queuing another.")
+            except EncodingManagerError as e:
+                current_app.logger.error(f"Error queuing ABR encoding: {e}")
 
-
-            #Does the JIT stream exist?
+            #We then will provide the JIT stream until the real stream is ready (state 3 above)
             hls_manager = vodhls_media_playlist_factory(dir_name)
             jit_manager = jit_manager_factory(dir_name=dir_name,
                                               input_filepath=hls_manager.source_file,
                                               output_dir=hls_manager.output_dir,
                                               manifest_path=hls_manager.output_manifest_filename)
 
-            # TODO - race: same check-then-act shape as above, applied to the JIT stream -
-            # two near-simultaneous requests can both see "no segment yet" and both call
-            # trigger_jit_encoding(), spawning two ffmpeg processes writing the same output
-            # files. Same eventual fix (sqlite-backed lock) as the ABR race above.
             if jit_manager.first_segment_exists():
                 current_app.logger.info("JIT stream already exists, returning it")
             else:

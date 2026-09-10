@@ -21,6 +21,13 @@ test_env["CASTERPAK_ENCODING_LADDER_720"] = "1280x720, 2500k"
 test_env["CASTERPAK_ENCODING_LADDER_480"] = "854x480, 1000k"
 test_env["CASTERPAK_ENCODING_LADDER_360"] = "640x360, 750k"
 
+# Must match [encoding] poll_interval in config.ini. The ABR encode no longer
+# runs inside the request - EncodingManager just writes a queue row and the
+# encoding_process_manager dispatcher picks it up on its next poll, up to this
+# many seconds later. Tests that look for the ffmpeg process have to allow for
+# that gap.
+ENCODING_POLL_INTERVAL = 5
+
 def wait_for_log_signal(container_name, signal_text, timeout=30):
     """
     Streams logs from a container and returns only when signal_text is found.
@@ -112,13 +119,28 @@ def casterpak_clean():
     #truncate the database tables
     SEGMENT_FILE_CACHE = 'segmentfile'
     INPUT_FILE_CACHE = 'inputfile'
-    
+    # The ABR encode queue. It survives across tests otherwise (casterpak_clean
+    # used to wipe files but not this), and a leftover row makes in_progress()
+    # true for the next test's video - see encoding/encoding_process_manager.py.
+    ENCODING_QUEUE = 'encodingqueue'
+
     container = client.containers.get("casterpak_server")
-    
-    for table in [SEGMENT_FILE_CACHE, INPUT_FILE_CACHE]:
+
+    # Kill any ffmpeg still encoding from the test that just ran. casterpak_clean
+    # wipes state, not processes, and a background ABR encode outlives the request
+    # that started it. The minimal image has no pkill/pidof, so walk /proc (same
+    # technique as count_matching_processes). `kill` is a shell builtin. Match on
+    # 'preset' - both the ABR and JIT ffmpeg commands pass -preset, and this
+    # cleanup script itself does not, so the loop won't kill its own shell.
+    container.exec_run(
+        "sh -c 'for d in /proc/[0-9]*; do "
+        "grep -qa preset \"$d/cmdline\" 2>/dev/null && kill \"${d#/proc/}\"; done'"
+    )
+
+    for table in [SEGMENT_FILE_CACHE, INPUT_FILE_CACHE, ENCODING_QUEUE]:
         _, out = container.exec_run(f'sqlite3 /var/lib/casterpak/data/cacheDB.db "DELETE FROM {table}"')
 
-    
+
     #remove any files generated
     # Instead of: container.exec_run("rm /path/*.txt") explicity call shell to expand the '*'
     container.exec_run("sh -c 'rm -rf /tmp/segments/* /tmp/video_input/*'")
@@ -458,41 +480,59 @@ def test_route_abr_manifest_redirect(with_abr_cache_encodings):
 def test_route_abr_manifest_concurrent_requests_dont_race(casterpak_clean):
     """
     Regression test for two duplicate-encode races found during manual
-    concurrent-load testing, both now closed by an atomic "did I win the race"
+    concurrent-load testing, both closed by an atomic "did I win the race"
     check instead of a plain check-then-act:
 
-    - ABR background encode: EncodingManager's lockfile
-      (encoding/encodingmanager.py: in_progress()/_lockfile_exists()).
+    - ABR background encode: the encodingqueue table's lock_name PRIMARY KEY.
+      8 concurrent enqueue()s -> 1 INSERT wins, 7 raise
+      EncodingAlreadyInProgressError (encoding/encoding_process_manager.py).
     - JIT emergency stream: JitManager's os.makedirs()-as-lock
       (jit/jit_manager.py: trigger_jit_encoding()).
 
-    Many concurrent requests for the same never-before-encoded video must
-    result in exactly one real ffmpeg process for each of those two encodes,
-    not one per request. Distinguished by preset: ABR renditions use
-    '-preset veryfast', the JIT emergency stream uses '-preset ultrafast'.
+    The ABR guarantee now lives in the DB, and the ABR ffmpeg does NOT start
+    inside the request anymore - the dispatcher spawns it up to
+    ENCODING_POLL_INTERVAL seconds later. So: assert the DB claim immediately,
+    then give the dispatcher up to 3x the poll interval to produce exactly one
+    ABR ffmpeg. JIT still spawns synchronously in the request.
     """
     url = "http://localhost:80/i/abr/test-video.mp4/master.m3u8"
     container = client.containers.get("casterpak_server")
-
-    # Baseline before firing our own burst - other tests in this same container
-    # may still have their own background encodes running (casterpak_clean wipes
-    # files, not processes), so we assert on the DELTA our own burst causes,
-    # not an absolute count.
-    baseline_abr = count_matching_processes(container, "-preset veryfast")
-    baseline_jit = count_matching_processes(container, "-preset ultrafast")
 
     responses = fire_concurrent_requests(url, count=8)
 
     assert all(r.status_code == 200 for r in responses), \
         [r.status_code for r in responses]
 
-    abr_ffmpeg_count = count_matching_processes(container, "-preset veryfast") - baseline_abr
-    assert abr_ffmpeg_count == 1, \
-        f"expected exactly 1 new ABR ffmpeg process from 8 concurrent requests, found {abr_ffmpeg_count}"
+    # 1. The dedup guarantee, checked directly on the queue, right now -
+    #    before the dispatcher has even polled. Exactly one row for this video.
+    _, out = container.exec_run(
+        "sqlite3 /var/lib/casterpak/data/cacheDB.db "
+        "\"SELECT COUNT(*) FROM encodingqueue WHERE lock_name LIKE '%/test-video.mp4'\""
+    )
+    queue_rows = out.decode().strip()
+    assert queue_rows == "1", \
+        f"expected exactly 1 encodingqueue row from 8 concurrent requests, found {queue_rows}"
 
-    jit_ffmpeg_count = count_matching_processes(container, "-preset ultrafast") - baseline_jit
+    # 2. JIT spawns synchronously inside the request - it's already there, once.
+    jit_ffmpeg_count = count_matching_processes(container, "-preset ultrafast")
     assert jit_ffmpeg_count == 1, \
-        f"expected exactly 1 new JIT ffmpeg process from 8 concurrent requests, found {jit_ffmpeg_count}"
+        f"expected exactly 1 JIT ffmpeg process from 8 concurrent requests, found {jit_ffmpeg_count}"
+
+    # 3. The ABR encode is dispatched asynchronously. Poll up to 3x the poll
+    #    interval for it to appear, asserting it never exceeds one.
+    dispatch_wait = ENCODING_POLL_INTERVAL * 3
+    deadline = time.time() + dispatch_wait
+    abr_ffmpeg_count = 0
+    while time.time() < deadline:
+        abr_ffmpeg_count = count_matching_processes(container, "-preset veryfast")
+        assert abr_ffmpeg_count <= 1, \
+            f"more than one ABR ffmpeg process spawned: {abr_ffmpeg_count}"
+        if abr_ffmpeg_count == 1:
+            break
+        time.sleep(1)
+
+    assert abr_ffmpeg_count == 1, \
+        f"no ABR ffmpeg process started within {dispatch_wait}s of 8 concurrent requests"
 
 
 ## ROADMAP.md Phase A item 4:

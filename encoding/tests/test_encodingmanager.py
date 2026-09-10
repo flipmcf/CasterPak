@@ -4,6 +4,7 @@ import configparser
 from unittest.mock import patch
 
 from encoding.encodingmanager import EncodingManager
+from encoding import EncodingAlreadyInProgressError
 
 class TestEncodingManagerMethods(unittest.TestCase):
     def setUp(self):
@@ -30,34 +31,52 @@ class TestEncodingManagerMethods(unittest.TestCase):
         self.patcher.stop()
 
     @patch.object(EncodingManager, '_all_exist')
-    def test_renditions_exist(self, mock_all_exist):
+    @patch.object(EncodingManager, 'in_progress')
+    def test_renditions_exist(self, mock_in_progress, mock_all_exist):
+        # in_progress() is EncodingManager's own concern for renditions_exist()'s
+        # wiring here - it's tested against the real encoding_process_manager
+        # separately (see test_encoding_process_manager.py), so it's mocked out
+        # here rather than hitting the real queue db.
+        mock_in_progress.return_value = False
         mock_all_exist.return_value = True
         self.assertTrue(self.manager.renditions_exist())
         mock_all_exist.assert_called_once()
 
-    @patch.object(EncodingManager, '_trigger_encoding')
     @patch.object(EncodingManager, '_ensure_transcode_dir')
-    @patch.object(EncodingManager, 'renditions_exist')
-    def test_start_background_encoding_when_missing(self, mock_renditions_exist, mock_ensure_dir, mock_trigger):
-        # If renditions don't exist, it should trigger the encoding
-        mock_renditions_exist.return_value = False
-        
-        self.manager.start_background_encoding()
-        
-        mock_ensure_dir.assert_called_once()
-        mock_trigger.assert_called_once()
+    @patch.object(EncodingManager, 'queue_encoding_job')
+    @patch('os.path.exists', return_value=True)
+    def test_queue_background_encoding_claims_lock_and_creates_dir(
+            self, mock_exists, mock_queue_encoding_job, mock_ensure_dir):
+        # Happy path: builds the command, claims the lock with it, and
+        # only then ensures the transcode dir exists. It does NOT spawn
+        # anything itself anymore - that's encoding_process_manager's
+        # dispatcher's job.
+        self.manager.queue_background_encoding()
 
-    @patch.object(EncodingManager, '_trigger_encoding')
-    @patch.object(EncodingManager, '_ensure_transcode_dir')
-    @patch.object(EncodingManager, 'renditions_exist')
-    def test_start_background_encoding_when_exists(self, mock_renditions_exist, mock_ensure_dir, mock_trigger):
-        # If renditions DO exist, it should gracefully skip the trigger
-        mock_renditions_exist.return_value = True
-        
-        self.manager.start_background_encoding()
-        
+        mock_queue_encoding_job.assert_called_once()
+        (command,), _ = mock_queue_encoding_job.call_args
+        self.assertEqual(command, self.manager.get_ffmpeg_command())
         mock_ensure_dir.assert_called_once()
-        mock_trigger.assert_not_called()
+
+    @patch.object(EncodingManager, '_ensure_transcode_dir')
+    @patch.object(EncodingManager, 'queue_encoding_job')
+    @patch('os.path.exists', return_value=True)
+    def test_queue_background_encoding_already_in_progress(
+            self, mock_exists, mock_queue_encoding_job, mock_ensure_dir):
+        # If queue_encoding_job says it's already claimed, that error should
+        # propagate to the caller (routes.py catches it), and no
+        # transcode dir should be created for a job we didn't win.
+        mock_queue_encoding_job.side_effect = EncodingAlreadyInProgressError()
+
+        with self.assertRaises(EncodingAlreadyInProgressError):
+            self.manager.queue_background_encoding()
+
+        mock_ensure_dir.assert_not_called()
+
+    @patch('os.path.exists', return_value=False)
+    def test_queue_background_encoding_missing_source_file(self, mock_exists):
+        with self.assertRaises(FileNotFoundError):
+            self.manager.queue_background_encoding()
 
     @patch('encoding.encodingmanager.get_config')
     def test_custom_encoding_ladder_labels(self, mock_get_config):

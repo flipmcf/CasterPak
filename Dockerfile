@@ -70,6 +70,7 @@ RUN mkdir -p /tmp/segments && chown casteruser /tmp/segments
 RUN touch /var/log/casterpak.error.log && chown casteruser /var/log/casterpak.error.log
 RUN touch /var/log/casterpak.access.log && chown casteruser /var/log/casterpak.access.log
 RUN touch /var/log/casterpak.cache.log && chown casteruser /var/log/casterpak.cache.log
+RUN touch /var/log/casterpak.encoding.log && chown casteruser /var/log/casterpak.encoding.log
 
 
 #  Set internal container environment defaults

@@ -25,6 +25,10 @@ logger = logging.getLogger("casterpak cleanup")
 # cache names
 SEGMENT_FILE_CACHE = 'segmentfile'
 INPUT_FILE_CACHE = 'inputfile'
+
+##TODO - the name of the database in the DBMS should move away from referencing 'cache' and more of 'casterpak'
+##  Historically, it kept cache records only.  But it's growing beyond that.
+
 #DB_PATH = "/var/lib/casterpak/data/cacheDB.db"
 DB_PATH = os.environ.get("CASTERPAK_DB_PATH", "cacheDB.db")
 

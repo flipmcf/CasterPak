@@ -1,20 +1,14 @@
 import os
-import subprocess
-
-import datetime
-
 from werkzeug.utils import safe_join
 
 from config import get_config
 from pathsafety import InvalidPathError
 
+from . import EncodingAlreadyInProgressError, EncodingManagerError
+from . import encoding_process_manager
+
 import logging
 logger = logging.getLogger('encoder')
-
-# TODO actually create a process handler for trancoding processes to reap them correctly
-# This is a hack to avoid zombie processes.  We should have a proper process handler for transcoding processes.
-import signal 
-signal.signal(signal.SIGCHLD, signal.SIG_IGN)
 
 class EncodingManager:
     def __init__(self, filename):
@@ -64,32 +58,67 @@ class EncodingManager:
         if transcode_output_dir is None:
             raise InvalidPathError(f"unsafe path: {self.filename!r} escapes {video_output_cache!r}")
         self.transcode_output_dir = transcode_output_dir
-        
-        # Calculate full paths
-        self.rendition_paths = self.list_rendition_files()
 
     def renditions_exist(self) -> bool:
         """
         Checks if the ABR encoding process has completed successfully.
         """
-        return self._all_exist()
+        return not self.in_progress() and self._all_exist()
     
+    @property
+    def _process_name(self):
+        return self.full_path_filename
+    
+    def queue_encoding_job(self, command: list[str]) -> None:
+        """
+        Writes to the database that a lock is in place for this video,
+        along with the ffmpeg command to run for it. Writing the process ID
+        of the process that actually runs that command comes later, once
+        encoding_process_manager's dispatcher picks the job up.
+        """
+        # ###### SECURITY TODO (see banner in encoding/encoding_process_manager.py):
+        # `command` leaves trusted code here - it is persisted to sqlite and later
+        # exec'd verbatim by the dispatcher ######
+        encoding_process_manager.lock_encoding(self._process_name, command)
 
-    def start_background_encoding(self) -> None:
+    def in_progress(self) -> bool:
         """
-        Spawns the heavy FFmpeg ABR encoding process and returns immediately.
-        Non-blocking.
+        Checks if the ABR encoding process is currently running.
         """
+        return encoding_process_manager.in_progress(self._process_name)
+
+    def queue_background_encoding(self) -> None:
+        """
+        Requests a heavy FFmpeg ABR encode for this video and returns
+        immediately. Non-blocking, and doesn't spawn anything itself:
+        EncodingManager's job is building the ffmpeg command; actually
+        running it is encoding_process_manager's dispatcher's job.
+
+        Builds the command first (cheap, pure), then tries to claim the
+        lock with it. If another request already claimed this video,
+        lock_encoding raises EncodingAlreadyInProgressError before any
+        directory gets created - losing the race should be a no-op, not
+        wasted work.
+        """
+        if not os.path.exists(self.full_path_filename):
+            raise FileNotFoundError(f"Source video {self.full_path_filename} not found.")
+
+        # ###### SECURITY TODO (see banner in encoding/encoding_process_manager.py):
+        # get_ffmpeg_command() is the ONLY trusted builder of encode argv. Its
+        # output is about to be persisted and later exec'd from the DB, so this
+        # must stay the only source of that argv until the dispatcher rebuilds it
+        # itself instead of trusting a stored command. ######
+        command = self.get_ffmpeg_command()
+
+        try:
+            self.queue_encoding_job(command)
+        except EncodingAlreadyInProgressError:
+            logger.info(f"ABR encoding already queued for {self.full_path_filename}, not queuing another.")
+            raise
+
         self._ensure_transcode_dir()
-        
-        # We only start it if it isn't already running or finished
+        logger.info(f"Queued background ABR encoding for {self.full_path_filename}")
 
-        if self._lockfile_exists():
-            return
-
-        if not self.renditions_exist():
-            logger.info(f"Starting background ABR encoding for {self.full_path_filename}")
-            self._trigger_encoding()
 
     def list_rendition_files(self) -> list[str]:
 
@@ -116,59 +145,6 @@ class EncodingManager:
         """ compute transcoding directory and ensure it exists, creating if it doesn't"""
         if not os.path.exists(self.transcode_output_dir):
             os.makedirs(self.transcode_output_dir, exist_ok=True)
-
-    def _trigger_encoding(self):
-        """
-        Finds the original source file and kicks off the FFmpeg multi-output.
-        If the original is 'test_video.mp4', it assumes it's one level up
-        from the '.transcodes' folder.
-        """
-       
-        if not os.path.exists(self.full_path_filename):
-            raise FileNotFoundError(f"Source video {self.full_path_filename} not found.")
-
-        # Trigger non-blocking or blocking FFmpeg here
-        # (Using the multi-output command discussed previously)
-        self._run_ffmpeg()
-
-    @property
-    def _lockfile_name(self):
-        return os.path.join(self.transcode_output_dir, "transcoding.lock")
-
-    def _lockfile_exists(self):
-        try:
-            os.stat(self._lockfile_name)
-        except FileNotFoundError:
-            return False
-        return True
-
-    def in_progress(self):
-        """
-        Checks if the transcoding process is currently running.
-        Returns True if the lockfile exists and the PID in it is still active.
-        """
-        if not self._lockfile_exists():
-            return False
-
-        try:
-            with open(self._lockfile_name, mode='r') as f:
-                pid_str, timestamp_str = f.readline().strip().split(',')
-                pid = int(pid_str)
-                timestamp = float(timestamp_str)
-        except Exception as e:
-            logger.error(f"Error reading lockfile {self._lockfile_name}: {e}")
-            return False
-
-        # Check if the process with this PID is still running
-        try:
-            os.kill(pid, 0)  # Signal 0 does not kill the process, just checks if it exists
-            return True
-        except ProcessLookupError:
-            # Process does not exist
-            return False
-        except PermissionError:
-            # We don't have permission to signal this process, but it exists
-            return True
 
     def get_ffmpeg_command(self) -> list[str]:
         """
@@ -217,41 +193,4 @@ class EncodingManager:
             ])
 
         return cmd
-        
-
-    def _run_ffmpeg(self):
-        """
-        Kicks off a single FFmpeg process to generate all rungs.
-        GOP=60 and FPS=30 ensures 2-second segments.
-
-        IN THEORY, This should be highly efficient, we rely of ffmpeg's threading.
-        reading the input only once, and writing multiple outputs in one pass.
-
-        We also manage the lockfile here so we can tell if encoding is currently in process.
-        """
-
-        if not os.path.exists(self.transcode_output_dir):
-            os.makedirs(self.transcode_output_dir, exist_ok=True)
-
-        cmd = self.get_ffmpeg_command()
-
-        logger.debug(f"Forking off encoding command\n {cmd}")
-
-        # Kick off the encoding.
-        self.trancode_process = subprocess.Popen(cmd)
-
-        #create the lock file with the PID of the encoding process and a timestamp
-        pid = self.trancode_process.pid
-        with open(self._lockfile_name, mode='w') as f:
-            f.write(f"{pid},{datetime.datetime.now().timestamp()}\n")
-
-        # Now we need to clean up the lockfile when the process is done.
-        # We do this by spawning a detached process that waits for the encoding process to finish,
-        subprocess.Popen(["sh", "-c", 'while kill -0 "$1" 2>/dev/null; do sleep 1; done; rm -f "$2"',
-                         "--", str(pid), self._lockfile_name],
-                        start_new_session=True,                           # detaches it from this process's session
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-
-
 

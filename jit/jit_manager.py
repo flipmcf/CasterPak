@@ -106,7 +106,7 @@ class JitManager:
             os.makedirs(self.output_dir, exist_ok=False)
         except FileExistsError:
             # The directory already exists, which means a JIT encode is already in progress.
-            logger.info("JIT directory already exists, skipping creation.")
+            logger.info("JIT directory already exists, skipping creation and not spawning a new process.")
         else:
             # The directory was created successfully, which means we need to kick off encoding.
             logger.info(f"Created JIT directory: {self.output_dir}")

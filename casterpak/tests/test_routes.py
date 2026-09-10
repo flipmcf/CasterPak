@@ -108,8 +108,8 @@ class TestABRRoute(unittest.TestCase):
         self.assertIn(b'index_0_av.m3u8', response.data)
 
         # VERIFY GATEKEEPER LOGIC:
-        # 1. Did it start the heavy background worker?
-        mock_encoder.start_background_encoding.assert_called_once()
+        # 1. Did it queue the heavy background worker?
+        mock_encoder.queue_background_encoding.assert_called_once()
 
         # 2. Did it build a JIT manager for this video, and start the lightweight JIT emergency stream?
         mock_jit_manager_factory.assert_called_once_with(
