@@ -58,9 +58,12 @@ class MediaManager_filesystem(MediaManager_Base):
             if self.input_cache_enabled:
                 logger.debug(f"Input File cache miss for {self.input_file}")
                 self.fetch_and_cache()
-                self.db.addrecord(filename=self.filename, timestamp=None)
             else:
                 raise
+
+        #if we get here and input caching is enabled, update the cache.
+        if self.input_cache_enabled:
+            self.db.addrecord(filename=self.filename, timestamp=None)
 
         return #documenting end of function only
 

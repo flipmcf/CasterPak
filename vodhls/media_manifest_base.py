@@ -50,9 +50,6 @@ class MediaManager_Base(object):
         # which will contain the segment files and media manifest
         self.filename = filename
 
-        # make a note to the cache database that the input file has been touched
-        self.db.addrecord(filename=self.filename, timestamp=None)
-
     def fetch_and_cache(self):
         """ This is where the input file is moved to the local filesystem if necessary
         Override in base class as appropriate
@@ -73,7 +70,6 @@ class MediaManager_Base(object):
         except FileNotFoundError:
             logger.debug(f"Input File cache miss for {self.input_file}")
             self.fetch_and_cache()
-        finally:
             self.db.addrecord(filename=self.filename, timestamp=None)
 
     process_input = manage_input_file
