@@ -4,7 +4,7 @@
 Post-MVP feature ideas and risks live in `Todo.md` and are intentionally out of scope until
 Phase D is done.
 
-## Phase A: Correctness — IN PROGRESS
+## Phase A: Correctness — SIGNED OFF (2026-09-08)
 
 **Dev cycle:** Docker is the default test surface — it's what actually gets deployed, so it's
 what the 1-5 checklist below is scored against. Local bare-metal is a debug tool only, never

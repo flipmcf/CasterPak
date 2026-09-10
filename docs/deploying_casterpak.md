@@ -44,3 +44,11 @@ git clone https://github.com/flipmcf/CasterPak.git
 cd CasterPak
 
 Follow instructions in readme for installation.
+
+for setup - use default ~/Videos for videos, we'll use the filesystem for now.
+Be sure to add the hostname to the setup - 'localhost' in manifest files won't work 
+
+To start, manually scp a video or two into ~/Videos on the cloud instance to verify it works.
+
+
+
