@@ -591,6 +591,81 @@ def test_route_abr_manifest_produces_renditions_from_scratch(casterpak_clean):
     assert len(segment_response.content) > 1000
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="EncodingManager.__init__ drops the sub-directory from "
+           "transcode_output_dir (unit test: test_encodingmanager.py::"
+           "TestEncodingManagerMethods::test_transcode_output_dir_preserves_subdirectory). "
+           "/abr/ for a nested video redirects to a CSMIL whose renditions were "
+           "written to the wrong path. Remove this marker when __init__ is fixed.",
+)
+def test_route_abr_manifest_deep_directory_produces_reachable_renditions(casterpak_clean):
+    """
+    Same shape as test_route_abr_manifest_produces_renditions_from_scratch, but
+    the source video lives in a SUB-DIRECTORY of videoParentPath.
+
+    abr_manifest builds the CSMIL redirect with the full sub-path
+    (/i/deep/dir/test-video.mp4.transcodes/...csmil/...). For that redirect to
+    work, EncodingManager must write - and renditions_exist() must check -
+    renditions at the matching sub-path under videoCachePath.
+
+    With the bug: the background encode writes to
+    {cache}/test-video.mp4.transcodes/ (basename only). renditions_exist()
+    checks that same wrong path, so /abr/ still 302s - but the CSMIL it points
+    at, {cache}/deep/dir/test-video.mp4.transcodes/, is empty, so following the
+    redirect 404s. This test fails on that follow-through until __init__ keeps
+    the sub-directory.
+    """
+    container = client.containers.get("casterpak_server")
+
+    # a nested copy of the source video, under videoParentPath
+    container.exec_run("mkdir -p /var/lib/casterpak/samples/deep/dir")
+    rc, out = container.exec_run(
+        "cp /var/lib/casterpak/samples/test-video.mp4 "
+        "/var/lib/casterpak/samples/deep/dir/test-video.mp4"
+    )
+    assert rc == 0, out.decode()
+
+    url = "http://localhost:80/i/abr/deep/dir/test-video.mp4/master.m3u8"
+
+    start_time = time.time()
+    timeout = 120
+    location = None
+    while time.time() - start_time < timeout:
+        response = requests.get(url, allow_redirects=False)
+        if response.status_code == 302:
+            location = response.headers['Location']
+            break
+        assert response.status_code == 200, \
+            f"expected 200 (still encoding) or 302 (done), got {response.status_code}"
+        time.sleep(2)
+
+    assert location is not None, \
+        f"/abr/ for a nested video never redirected within {timeout}s"
+    assert location == (
+        "/i/deep/dir/test-video.mp4.transcodes/"
+        "test-video,360p,480p,720p,.mp4.csmil/master.m3u8"
+    )
+
+    # The redirect target must actually serve - i.e. the renditions were
+    # written where the sub-path'd URL looks for them.
+    csmil_response = requests.get(f"http://localhost:80{location}")
+    assert csmil_response.status_code == 200, (
+        f"CSMIL from the /abr/ redirect is unreachable ({csmil_response.status_code}); "
+        "renditions were written with the sub-directory dropped"
+    )
+    for label in ("360p", "480p", "720p"):
+        assert f"test-video_{label}.mp4" in csmil_response.text
+
+    child_response = requests.get(
+        "http://localhost:80/i/deep/dir/test-video.mp4.transcodes/"
+        "test-video_360p.mp4/index_0_av.m3u8"
+    )
+    assert child_response.status_code == 200
+    assert "#EXTM3U" in child_response.text
+    assert "segment-0.ts" in child_response.text
+
+
 ## ROADMAP.md Phase A item 5:
 ## "Emergency encoding (Tier 3) - hit /abr/ with no cache and no renditions
 ## while encoding is still in flight, confirm the JIT low-quality stream

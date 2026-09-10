@@ -4,6 +4,9 @@
 import os
 import typing as t
 
+#TODO - make a version tag thing
+CASTERPAK_VERSION = '0.8.2-alpha'
+
 from . import ConfigurationError
 
 from config import get_config
@@ -260,6 +263,7 @@ def create_master_playlist(options, media_sources):
     master_playlist = open(os.path.join(options.output_dir, options.master_playlist_name), 'w', newline='\r\n')
     master_playlist.write('#EXTM3U\n')
     master_playlist.write('# Created with Bento4 mp4-hls.py version '+VERSION+'r'+SDK_REVISION+'\n')
+    master_playlist.write('# Managed by CasterPak version '+CASTERPAK_VERSION+'\n')
 
     if options.hls_version >= 4:
         master_playlist.write('\n')
