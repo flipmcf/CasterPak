@@ -70,7 +70,8 @@ class MediaManager_Base(object):
         except FileNotFoundError:
             logger.debug(f"Input File cache miss for {self.input_file}")
             self.fetch_and_cache()
-            self.db.addrecord(filename=self.filename, timestamp=None)
+
+        self.db.addrecord(filename=self.filename, timestamp=None)
 
     process_input = manage_input_file
 
