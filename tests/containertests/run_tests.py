@@ -591,14 +591,6 @@ def test_route_abr_manifest_produces_renditions_from_scratch(casterpak_clean):
     assert len(segment_response.content) > 1000
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="EncodingManager.__init__ drops the sub-directory from "
-           "transcode_output_dir (unit test: test_encodingmanager.py::"
-           "TestEncodingManagerMethods::test_transcode_output_dir_preserves_subdirectory). "
-           "/abr/ for a nested video redirects to a CSMIL whose renditions were "
-           "written to the wrong path. Remove this marker when __init__ is fixed.",
-)
 def test_route_abr_manifest_deep_directory_produces_reachable_renditions(casterpak_clean):
     """
     Same shape as test_route_abr_manifest_produces_renditions_from_scratch, but
@@ -609,12 +601,10 @@ def test_route_abr_manifest_deep_directory_produces_reachable_renditions(casterp
     work, EncodingManager must write - and renditions_exist() must check -
     renditions at the matching sub-path under videoCachePath.
 
-    With the bug: the background encode writes to
-    {cache}/test-video.mp4.transcodes/ (basename only). renditions_exist()
-    checks that same wrong path, so /abr/ still 302s - but the CSMIL it points
-    at, {cache}/deep/dir/test-video.mp4.transcodes/, is empty, so following the
-    redirect 404s. This test fails on that follow-through until __init__ keeps
-    the sub-directory.
+    Regression guard: EncodingManager.__init__ once built transcode_output_dir
+    from the basename only, so a nested video's encode wrote to
+    {cache}/test-video.mp4.transcodes/ while the redirect pointed at
+    {cache}/deep/dir/test-video.mp4.transcodes/ - the 302 landed on a 404.
     """
     container = client.containers.get("casterpak_server")
 

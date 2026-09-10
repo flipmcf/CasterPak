@@ -88,7 +88,9 @@ class TestEncodingManagerMethods(unittest.TestCase):
         custom_config = configparser.ConfigParser()
         custom_config.add_section('input')
         custom_config.set('input', 'videoCachePath', '/tmp/test_output')
-        
+        custom_config.add_section('filesystem')
+        custom_config.set('filesystem', 'videoParentPath', '/tmp/test_input')
+
         # 2. Add the custom ladder!
         custom_config.add_section('encoding_ladder')
         custom_config.set('encoding_ladder', 'high', '1920x1080, 5000k')
@@ -129,31 +131,20 @@ class TestEncodingManagerMethods(unittest.TestCase):
         self.assertEqual(mgr.transcode_output_dir,
                          '/var/cache/movie.mp4.transcodes')
 
-    @unittest.expectedFailure
     @patch('encoding.encodingmanager.get_config')
     def test_transcode_output_dir_preserves_subdirectory(self, mock_get_config):
         """
-        A source video NESTED under videoParentPath must keep its sub-path in
-        the transcode cache:
+        A source video NESTED under videoParentPath keeps its sub-path in the
+        transcode cache:
 
             {videoCachePath}/<subdir>/<name>.mp4.transcodes/
 
         That is exactly what abr_manifest builds for the CSMIL redirect
         (os.path.join(dirname, f"{filename}.transcodes")) and what
-        MediaManager_filesystem resolves on the way back in
-        (cached_filename / source_file). EncodingManager has to agree with it.
-
-        BUG: EncodingManager.__init__ builds transcode_output_dir from
-        os.path.split(full_path_filename)[1] - the basename only - so the
-        sub-directory is silently dropped. /abr/ for a nested video then 302s
-        to a CSMIL whose renditions were written to
-        {videoCachePath}/<name>.mp4.transcodes/, a path nothing on the read
-        side ever looks at.
-
-        Delete the @unittest.expectedFailure decorator once __init__ preserves
-        the sub-path (its updated docstring already describes the intended
-        layout). Note: test_custom_encoding_ladder_labels above will then also
-        need a '[filesystem] videoParentPath' entry in its config.
+        MediaManager_filesystem resolves on the way back in (cached_filename /
+        source_file). Regression guard: os.path.split() (basename only) once
+        dropped the sub-directory here, so /abr/ for a nested video 302'd to a
+        CSMIL whose renditions had been written somewhere nothing looked.
         """
         cfg = configparser.ConfigParser()
         cfg.add_section('input')

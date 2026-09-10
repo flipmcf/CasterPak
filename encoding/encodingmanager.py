@@ -46,17 +46,32 @@ class EncodingManager:
         logger.debug("auto-bitrates from config:")
         logger.debug(self.bitrates)
 
-        video_output_cache = self.app_config.get('input','videoCachePath')
+        video_output_cache = self.app_config.get('input', 'videoCachePath')
+        video_parent_path = self.app_config.get('filesystem', 'videoParentPath')
         logger.debug(f"Video output cache path from config: {video_output_cache}")
 
-        # Defense-in-depth: routes.py already validates the filename this
-        # was built from (see pathsafety.py), so this should never actually
-        # reject anything - but if it ever does, refuse to escape
-        # videoCachePath rather than silently joining an absolute path or
-        # '..' segment onto it.
-        transcode_output_dir = safe_join(video_output_cache, f"{self.filename}.transcodes")
+        # The transcode cache mirrors the source video's path *relative to*
+        # videoParentPath: a source at
+        #     {videoParentPath}/shows/2024/episode.mp4
+        # gets its renditions under
+        #     {videoCachePath}/shows/2024/episode.mp4.transcodes/
+        # This has to agree with what casterpak/routes.py:abr_manifest builds
+        # for the CSMIL redirect and what vodhls/media_manifest_filesystem.py
+        # resolves coming back in. os.path.split() (basename only) would
+        # collapse every sub-directory onto the cache root and silently
+        # mis-place renditions for any nested video.
+        relative_video_path = os.path.relpath(self.full_path_filename, video_parent_path)
+
+        # Defense-in-depth: routes.py already validates the path this was built
+        # from (see pathsafety.py), so this should never actually reject
+        # anything - but if the source somehow isn't under videoParentPath,
+        # relpath yields '../...' and safe_join returns None; refuse rather
+        # than escape videoCachePath.
+        transcode_output_dir = safe_join(video_output_cache, f"{relative_video_path}.transcodes")
         if transcode_output_dir is None:
-            raise InvalidPathError(f"unsafe path: {self.filename!r} escapes {video_output_cache!r}")
+            raise InvalidPathError(
+                f"unsafe path: {relative_video_path!r} escapes {video_output_cache!r}"
+            )
         self.transcode_output_dir = transcode_output_dir
 
     def renditions_exist(self) -> bool:
