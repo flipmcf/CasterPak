@@ -304,9 +304,10 @@ class TestChildManifestSecurity(SecurityTestCase):
             with self.subTest(payload=payload):
                 self.assert_rejected(f'/i/{payload}/index_0_av.m3u8')
 
+    @patch('casterpak.routes.cachedb')
     @patch('casterpak.routes.send_file', return_value=Response('manifest'))
     @patch('casterpak.routes.vodhls_media_playlist_factory')
-    def test_accepts_plus_in_filename(self, mock_factory, mock_send_file):
+    def test_accepts_plus_in_filename(self, mock_factory, mock_send_file, mock_cachedb):
         mock_manager = MagicMock()
         mock_manager.manifest_exists.return_value = True
         mock_manager.output_manifest_filename = '/tmp/mock_output/index_0_av.m3u8'
@@ -334,9 +335,10 @@ class TestSegmentSecurity(SecurityTestCase):
             with self.subTest(payload=payload):
                 self.assert_rejected(f'/i/{payload}/segment-0.ts')
 
+    @patch('casterpak.routes.cachedb')
     @patch('casterpak.routes.send_from_directory', return_value=Response('segment data'))
     @patch('casterpak.routes.vodhls_media_playlist_factory')
-    def test_accepts_plus_in_dirname(self, mock_factory, mock_send):
+    def test_accepts_plus_in_dirname(self, mock_factory, mock_send, mock_cachedb):
         mock_manager = MagicMock()
         mock_manager.segment_exists.return_value = True
         mock_factory.return_value = mock_manager
