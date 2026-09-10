@@ -13,12 +13,12 @@ logger = logging.getLogger('encoder')
 class EncodingManager:
     def __init__(self, filename):
         """
-        :param filename: The full path to the original video file (e.g., '/path/to/my_video')
+        :param filename: The full path to the original video file (e.g., '/path/to/my_video.mp4')
 
         This manages the endoded renditions of 'filename' by 
-          1. epecting to find a directory 'filename.transcodes' in the input file cache.
-          2. renditions in the form of 'filename.transcodes/file_{suffix}.mp4'
-          (e.g., 'filename.transcodes/filename_720p.mp4')
+          1. epecting to find a directory '/path/to/my_video.mp4.transcodes' in the input file cache.
+          2. renditions in the form of my_video.{suffix}.mp4'
+          (e.g., '/path/to/my_video.mp4.transcodes/my_video_720p.mp4')
         """
         self.full_path_filename = filename
         (self.dir_path, self.filename) = os.path.split(self.full_path_filename)
