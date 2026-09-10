@@ -1,3 +1,6 @@
+#Copyright (c) 2026, Michael McFadden
+#GNU GENERAL PUBLIC LICENSE Version 2
+#See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
 ## Run this with ./bin/pytest path-to-this-file/run_tests.py -vv
 
 import os

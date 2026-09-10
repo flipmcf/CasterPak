@@ -1,3 +1,6 @@
+#Copyright (c) 2026, Michael McFadden
+#GNU GENERAL PUBLIC LICENSE Version 2
+#See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
 """
 Defines what CasterPak considers a valid filename or directory-path segment
 coming from a URL, and enforces it by validating - never by mutating. An
