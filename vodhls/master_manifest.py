@@ -4,12 +4,10 @@
 import os
 import typing as t
 
-#TODO - make a version tag thing
-CASTERPAK_VERSION = '0.8.2-alpha'
-
 from . import ConfigurationError
 
 from config import get_config
+from version import CASTERPAK_VERSION
 from vodhls.factory import vodhls_media_playlist_factory
 from vodhls.media_manifest_base import OptionsConfig
 

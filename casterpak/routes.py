@@ -20,9 +20,9 @@ from encoding import EncodingManager
 from encoding import EncodingAlreadyInProgressError, EncodingManagerError
 from jit import jit_manager_factory
 from pathsafety import validate_filename, validate_dirname, InvalidPathError
+from version import CASTERPAK_VERSION
 
 bp = Blueprint('casterpak', __name__)
-
 
 def get_base_url(dir_name: t.Union[os.PathLike, str]) -> str:
     app_config = current_app.config
@@ -157,6 +157,7 @@ def abr_manifest(dir_name: str):
             child_url = jit_manager.get_m3u8_index_url() # something like f"/i/{dir_name}/index_0_av.m3u8"
             m3u8_text = (
                 "#EXTM3U\n"
+                "# Created by CasterPak JIT stream version "+CASTERPAK_VERSION+"\n"
                 "#EXT-X-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=854x480\n"
                 f"{child_url}\n"
             )

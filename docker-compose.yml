@@ -3,8 +3,17 @@
 #See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
 services:
   casterpak:
-    build: .
-    image: flipmcf/casterpak:0.8.2-alpha
+    build:
+      context: .
+      args:
+        # Passed through to the Dockerfile's ARG of the same name, which
+        # bakes it into the image as ENV CASTERPAK_VERSION - that's what the
+        # running app reads (see vodhls/master_manifest.py). Reads from the
+        # VERSION file via CASTERPAK_VERSION in .env - see .env.example.
+        # TEMPORARY: until there's a real CI/CD release pipeline, this is
+        # manually kept in sync with the VERSION file and the image tag below.
+        CASTERPAK_VERSION: ${CASTERPAK_VERSION:-0.8.2-alpha}
+    image: flipmcf/casterpak:${CASTERPAK_VERSION:-0.8.2-alpha}
     container_name: casterpak_server
     
     # Map the host port 5000 to the container port 5000
@@ -49,7 +58,7 @@ services:
     build: 
       context: .
       dockerfile: ./nginx/Dockerfile
-    image: flipmcf/casterpak-proxy:0.8.2-alpha
+    image: flipmcf/casterpak-proxy:${CASTERPAK_VERSION:-0.8.2-alpha}
     container_name: casterpak_nginx
     ports:
       - "80:80"

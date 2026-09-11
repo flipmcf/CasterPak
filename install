@@ -29,8 +29,8 @@ echo "[2/3] Launching configuration wizard..."
 # 4. Final Launch
 echo "[3/3] Starting CasterPak containers..."
 if [ -f .env ]; then
-    docker-compose pull
-    docker-compose up -d
+    docker compose pull
+    docker compose up -d
     echo "-------------------------------------------------------"
     echo "SUCCESS: CasterPak is now running!"
     echo "Access your engine at http://localhost"

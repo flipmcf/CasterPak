@@ -83,6 +83,16 @@ ENV PYTHONUNBUFFERED=1
 ENV BINARY_PATH=/usr/local/bin
 ENV CASTERPAK_BENTO4_BINARYPATH=/usr/local/bin
 
+# Version stamp. Passed in at build time (see docker-compose.yml's build.args,
+# which reads it from the VERSION file via .env - see .env.example). The
+# running app reads this env var (vodhls/master_manifest.py), falling back to
+# the VERSION file itself for a bare `docker build` with no --build-arg, or a
+# non-Docker `flask run`. TEMPORARY: a real CI/CD release pipeline should set
+# this build-arg from the git tag instead - nothing else here needs to change
+# when that lands.
+ARG CASTERPAK_VERSION=dev
+ENV CASTERPAK_VERSION=${CASTERPAK_VERSION}
+
 #  Final setup
 RUN chown -R casteruser:casteruser /app
 
