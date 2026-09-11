@@ -1,0 +1,20 @@
+Hosting instructions for version 0.8.2-alpha
+
+This is extremely generic and avoids specific Operating System or Hosting Platform instructions.
+
+Provision a linux machine with 3 storage volumes:
+1. OS and Application volume - '/' - 8Gb
+2. Cache Volume - 25g
+3. Library Volume - your choice - this is YOUR videos.  100G
+
+start the server and:
+
+mount the Cache volume at /var/cache/casterpak
+mount the Library volume at /mnt/data/videos
+
+install docker engine
+
+run (command to get install script from casterpak.com and just run it)
+
+
+
