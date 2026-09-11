@@ -386,5 +386,9 @@ and it's always nice to do some requests to fill up the cache.
 
     curl http://localhost:5000/i/video.mp4/index_0_av.m3u8
 
+## License
+
+Licensed under GPLv2 — see [LICENSE](LICENSE).
+
 
 
