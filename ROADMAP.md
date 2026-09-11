@@ -32,19 +32,30 @@ the pass/fail check.
 
 **Exit criteria:** all 5 reliably pass, locally and in Docker.
 
+V 0.8.1-alpha.
+
 ## Phase B: Deployability
 
 Get the already-correct system reachable at a public URL on AWS.
 
 ABR race condition - test_route_abr_manifest_concurrent_requests_dont_race - needs solving
+  - CHECKED - this is solved.  V 0.8.2-alpha.
 
 **Decision (made, not yet executed):** container-centric — docker-compose on a single EC2
 host, matching the README's documented "Simple Docker install" path (`docker-compose.yml` +
 nginx sidecar already exist). Rejected: bare VM + gunicorn + systemd, to avoid maintaining
 two equally-supported deploy paths.
 
-Scope: scp files into the CasterPak cache volume, EC2 sizing/security groups, volume design
-for segment cache + source video library, DNS/TLS in front via nginx.
+    Deployed.  casterpak.com   
+
+Scope: 
+  scp files into the CasterPak cache volume - DONE
+  EC2 sizing/security groups - DONE
+  volume design for segment cache + source video library - DO.
+  DNS/TLS in front via nginx - DO
+
+   IN PROGRESS..
+
 Explicitly NOT in scope here: upload API, S3 source backend (Phase C/D).
 
 Then - publish 0.9.0-alpha to dockerhub, and create a deployment that is simple, like hosting the install script on openforgesolutions.com
