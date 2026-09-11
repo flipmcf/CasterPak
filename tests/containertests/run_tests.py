@@ -31,6 +31,14 @@ test_env["CASTERPAK_ENCODING_LADDER_360"] = "640x360, 750k"
 # that gap.
 ENCODING_POLL_INTERVAL = 5
 
+# The one test asset every fixture/test in this file should read from. Baked
+# into the image at build time (Dockerfile: COPY tests/assets/test-video.mp4
+# -> this path), from a file that's actually committed to the repo - so it's
+# identical on every machine and in CI, unlike /mnt/data (the docker-compose
+# HOST_VIDEO_PATH bind mount), which only has whatever happens to be in
+# whoever's running the suite's own local video library.
+TEST_VIDEO_PATH = "/var/lib/casterpak/samples/test-video.mp4"
+
 def wait_for_log_signal(container_name, signal_text, timeout=30):
     """
     Streams logs from a container and returns only when signal_text is found.
@@ -100,11 +108,10 @@ def casterpak_stack():
     print("✅ Stack is fully initialized and signaling health.")
 
     container = client.containers.get("casterpak_server")
-    target_file = "/var/lib/casterpak/samples/test-video.mp4"
-    exit_code, _ = container.exec_run(f"test -f {target_file}")
-    
-    assert exit_code == 0, f"Critical failure: {target_file} not found in container."
-    print(f"✅ Verified test asset: {target_file}")
+    exit_code, _ = container.exec_run(f"test -f {TEST_VIDEO_PATH}")
+
+    assert exit_code == 0, f"Critical failure: {TEST_VIDEO_PATH} not found in container."
+    print(f"✅ Verified test asset: {TEST_VIDEO_PATH}")
     
     yield 
 
@@ -187,7 +194,7 @@ def with_encodings(casterpak_clean):
     else:
         exit_code, _ = container.exec_run(f"mkdir {encoding_output_dir}")
 
-        test_file = "/mnt/data/test_video.mp4"
+        test_file = TEST_VIDEO_PATH
 
         #be nice  use half available cpu's
         max_cpu = os.cpu_count() or 4  ## Fallback to 4 if cpu_count() returns None
@@ -234,7 +241,7 @@ def with_abr_cache_encodings(casterpak_clean):
 
     exit_code, _ = container.exec_run(f"mkdir -p {cache_output_dir}")
 
-    test_file = "/mnt/data/test_video.mp4"
+    test_file = TEST_VIDEO_PATH
 
     max_cpu = os.cpu_count() or 4
     max_threads = max(1, int(max_cpu / 2))
