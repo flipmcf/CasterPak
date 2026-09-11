@@ -4,10 +4,8 @@ lib/
 pyvenv.cfg
 venv/
 .env
-# The dev machine's own local config, gitignored for the same reason - never
-# bake a builder's personal settings (debug=True, a hardcoded local path,
-# ...) into a public image. Dockerfile falls back to config_example.ini's
-# defaults when this is absent, which is the only reproducible behavior.
+# Each machine's own local config - gitignored for the same reason. Absent
+# here, the Dockerfile falls back to config_example.ini's defaults.
 config.ini
 .git
 __pycache__
