@@ -29,10 +29,12 @@ services:
       - PYTHONUNBUFFERED=1
       - CASTERPAK_FILESYSTEM_VIDEOPARENTPATH=${CASTERPAK_FILESYSTEM_VIDEOPARENTPATH:-/mnt/data}
       - CASTERPAK_OUTPUT_SERVERNAME=${CASTERPAK_OUTPUT_SERVERNAME:-localhost}
-      # Must match setup's own defaults - setup writes these three to .env.
       - CASTERPAK_INPUT_INPUT_TYPE=${CASTERPAK_INPUT_INPUT_TYPE:-filesystem}
-      - CASTERPAK_INPUT_VIDEOCACHEPATH=${CASTERPAK_INPUT_VIDEOCACHEPATH:-/var/cache/casterpak/video_input}
       - CASTERPAK_FILESYSTEM_CACHE_INPUT=${CASTERPAK_FILESYSTEM_CACHE_INPUT:-False}
+      # Sub-directories of the one Cache Volume mounted below - see
+      # docs/Hosting-instructions. Fixed, matching config_example.ini.
+      - CASTERPAK_INPUT_VIDEOCACHEPATH=/var/cache/casterpak/video_input
+      - CASTERPAK_OUTPUT_SEGMENTPARENTPATH=/var/cache/casterpak/segments
       # This compose stack puts the nginx service in front of casterpak (see the
       # 'nginx' service below), so segment (.ts) delivery via X-Accel-Redirect works.
       - CASTERPAK_OUTPUT_BEHIND_NGINX=True
@@ -49,9 +51,11 @@ services:
       # best placed in .env - run 'setup.sh'
       # your 'host_video_path' on the host system (where docker engine runs) becomes /mnt/data inside casterpak.
       - ${HOST_VIDEO_PATH:-~/Videos}:/mnt/data
-      
-      # this is where HLS/DASH/CMAF files are stored and cached.
-      - segment_cache:/tmp/segments
+
+      # CasterPak's own cache data (transcodes, input copies, HLS segments) -
+      # the one Cache Volume from docs/Hosting-instructions, mounted whole so
+      # its video_input/ and segments/ sub-directories land on real storage.
+      - ${HOST_CACHE_PATH:-/var/cache/casterpak}:/var/cache/casterpak
       # This is where the database files live that maintain the cache.
       - casterpak_data:/var/lib/casterpak/data
 
@@ -70,13 +74,9 @@ services:
       - casterpak
     volumes:
       # Casterpak will write to this same volume, nginx reads from it to serve segments.
-      - segment_cache:/tmp/segments:ro
-    
+      - ${HOST_CACHE_PATH:-/var/cache/casterpak}:/var/cache/casterpak:ro
+
 volumes:
-  segment_cache:
-    labels:
-      com.openforgesolutions.description: "Video Stream Segment Cache"
-      com.openforgesolutions.label: ""
   casterpak_data:
     labels:
       com.openforgesolutions.description: "Database"

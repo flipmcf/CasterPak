@@ -77,7 +77,7 @@ def create_app(test_config=None):
 
     # initialize segment directory
     if not os.path.isdir(app.config['output']['segmentParentPath']):
-        os.mkdir(app.config['output']['segmentParentPath'])
+        os.makedirs(app.config['output']['segmentParentPath'], exist_ok=True)
         app.logger.debug(f"created new output directory {app.config['output']['segmentParentPath']}")
     app.logger.info(f"output directory set to {app.config['output']['segmentParentPath']}")
 
@@ -87,7 +87,7 @@ def create_app(test_config=None):
         app.logger.debug("input caching disabled")
     else:
         if not os.path.isdir(app.config['input']['videoCachePath']):
-            os.mkdir(app.config['input']['videoCachePath'])
+            os.makedirs(app.config['input']['videoCachePath'], exist_ok=True)
             app.logger.debug(f"created new input cache directory {app.config['input']['videoCachePath']}")
         app.logger.info("input caching enabled")
         app.logger.info(f"input caching to {app.config['input']['videoCachePath']}")

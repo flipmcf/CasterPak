@@ -30,9 +30,12 @@ if [ "$input_type" == "filesystem" ]; then
 
 fi
 
-read -p "Cache location for videos and transcodes (default: /var/cache/casterpak/video_input)" input_cache_directory
+# See docs/Hosting-instructions - this is the one Cache Volume, mounted
+# whole; video_input/ and segments/ are sub-directories CasterPak manages
+# under it, not separate mounts.
+read -p "Host directory for the CasterPak cache volume (default: /var/cache/casterpak): " host_cache_path
 
-input_cache_directory=${input_cache_directory:-/var/cache/casterpak/video_input}
+host_cache_path=${host_cache_path:-/var/cache/casterpak}
 
 
 # 2. Cache Input t/f
@@ -40,11 +43,6 @@ input_cache_directory=${input_cache_directory:-/var/cache/casterpak/video_input}
 read -p "Cache/copy input video files from library? (y/n, default: n): " cache_input
 
 if [[ $cache_input =~ ^[Yy]$ ]]; then cache_input="True"; else cache_input="False"; fi
-
-
-read -p "Cache location for video stream output (default: /var/cache/casterpak/segments)" segment_cache_directory
-
-segment_cache_directory=${segment_cache_directory:-/var/cache/casterpak/segments}
 
 # 3. Server Name
 
@@ -60,15 +58,13 @@ cat <<EOF > .env
 
 CASTERPAK_INPUT_INPUT_TYPE=$input_type
 
-CASTERPAK_INPUT_VIDEOCACHEPATH=$input_cache_directory
-
 CASTERPAK_FILESYSTEM_CACHE_INPUT=$cache_input
-
-CASTERPAK_OUTPUT_SEGMENTPARENTPATH=$segment_cache_directory
 
 CASTERPAK_OUTPUT_SERVERNAME=$servername
 
 HOST_VIDEO_PATH=$video_path
+
+HOST_CACHE_PATH=$host_cache_path
 
 APP_PORT=5000
 
