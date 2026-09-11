@@ -177,7 +177,7 @@ best to look at 'docker-compose' and manually follow the instructions there.
 `apt-get update && apt-get install -y sqlite3`
 
     
-### Installation of casterpak
+### Development Installation of casterpak
 
 Once your dependencies are met...
 
@@ -274,7 +274,9 @@ create a file /var/log/casterpak.cache.log and give the application user rights 
 Hopefully, a lot of this will be automated soon, but here is the basic testing path.
 Before a commit to main:
 
-first, unit tests `./bin/pytest`
+first, do a developent install - see above.
+
+you can run all unit tests by simply typing `./bin/pytest`
 
 then do integration testing with containers:
 ./bin/pytest tests/containertests/run_tests.py -vv  

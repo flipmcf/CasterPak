@@ -52,9 +52,13 @@ Scope:
   scp files into the CasterPak cache volume - DONE
   EC2 sizing/security groups - DONE
   volume design for segment cache + source video library - DO.
-  DNS/TLS in front via nginx - DO
-
+  DNS - DONE  casterpak.com
+     But I want to separate the video from the website, so I will create 'video.casterpak.com to point to nginx
+  TLS in front via nginx - TODO - letsencrypt
+  
    IN PROGRESS..
+
+
 
 Explicitly NOT in scope here: upload API, S3 source backend (Phase C/D).
 
