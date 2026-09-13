@@ -12,9 +12,32 @@ start the server and:
 mount the Cache volume at /var/cache/casterpak
 mount the Library volume at /mnt/data/videos
 
+chown them to 'not root' or just make sure permissions are good.
+
 install docker engine
 
-run (command to get install script from casterpak.com and just run it)
+run:
+`curl -sSL https://raw.githubusercontent.com/flipmcf/casterpak/master/install > casterpak_install`
+
+`/bin/bash casterpak_install`
+
+This launches the Setup Wizard. Answer it using the volumes you just mounted above:
+
+- Input Type: `filesystem`
+- Local path to videos: `/mnt/data/videos` (the Library volume)
+- Host directory for the CasterPak cache volume: press enter (default `/var/cache/casterpak` is already the Cache volume)
+- Cache/copy input video files from library?: `n` (the Library volume is already local and fast - no need to copy it again)
+- Server Name for manifests: your public IP or domain name
+
+The installer then pulls the image and starts both containers.
+
+Verify it's running - put one real .mp4 in the Library volume and request it by filename:
+
+`curl -i http://<your Server Name>/i/<filename.mp4>/index_0_av.m3u8`
+
+You should get back a `#EXTM3U` playlist.
+
+
 
 
 
