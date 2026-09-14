@@ -4,6 +4,7 @@
 ## Run this with ./bin/pytest path-to-this-file/run_tests.py -vv
 
 import os
+import shutil
 import time
 import pytest
 import docker
@@ -17,7 +18,14 @@ client = docker.from_env()
 test_env = os.environ.copy()
 
 # when testing, use video files here as the source.
-test_env["CASTERPAK_FILESYSTEM_VIDEOPARENTPATH"] = "/var/lib/casterpak/samples" 
+test_env["CASTERPAK_FILESYSTEM_VIDEOPARENTPATH"] = "/var/lib/casterpak/samples"
+
+# Bind-mount source for the app's cache volume (segments/, video_input/)
+# during container tests, in place of the real HOST_CACHE_PATH default
+# (/var/cache/casterpak).
+# see the casterpak_stack fixture for create/cleanup.
+CONTAINERTEST_CACHE_DIR = os.path.join(os.getcwd(), "containertests_cache")
+test_env["HOST_CACHE_PATH"] = CONTAINERTEST_CACHE_DIR
 
 # Define a custom encoding ladder. what the test encoder should build so it doesn't expect 1080p or 240p
 test_env["CASTERPAK_ENCODING_LADDER_720"] = "1280x720, 2500k"
@@ -90,6 +98,12 @@ def fire_concurrent_requests(url, count=8):
 @pytest.fixture(scope="module", autouse=True)
 def casterpak_stack():
 
+    # Fresh each run. World-writable because we don't know the container
+    # user's uid from here - only that it isn't ours (see CONTAINERTEST_CACHE_DIR).
+    shutil.rmtree(CONTAINERTEST_CACHE_DIR, ignore_errors=True)
+    os.makedirs(CONTAINERTEST_CACHE_DIR)
+    os.chmod(CONTAINERTEST_CACHE_DIR, 0o777)
+
     print("\n🚀 Building and starting CasterPak...")
     subprocess.run(["docker", "compose", "build", "--no-cache" ], check=True, env=test_env)
     subprocess.run(["docker", "compose", "up", "-d", "--remove-orphans"] , check=True, env=test_env)
@@ -117,6 +131,7 @@ def casterpak_stack():
 
     print("\n🧹 Tearing down...")
     subprocess.run(["docker", "compose", "down", "-v"], check=True)
+    shutil.rmtree(CONTAINERTEST_CACHE_DIR, ignore_errors=True)
 
 
 ## run this to cleanup after each test
