@@ -13,6 +13,7 @@ from config import get_config
 import cachedb
 from encoding import encoding_process_manager
 
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 def setup_gunicorn_logging(app, base_config):
     # get the gunicorn logger
@@ -71,6 +72,8 @@ def create_app(test_config=None):
 
     app.config.update(base_config)
 
+    #ServerName config from casterpak determines
+    # server/hostnames in our manifests and stream replies only.
     if app.config['output'].get('serverName'):
         app.logger.info(f"casterpak server name is {app.config['output'].get('serverName')} ")
         app.logger.info("flask app server name not set")
@@ -106,11 +109,16 @@ def create_app(test_config=None):
     if __name__ != "__main__":
         setup_gunicorn_logging(app, base_config)
 
+
     @app.after_request
     def add_cors_headers(response):
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
 
+    #save the protocol we got from the request ONLY IF we are configured behind a proxy.
+    if app.config['output'].getboolean('behind_nginx', fallback=False):
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=0)
+        
     from . import routes
     app.register_blueprint(routes.bp)
 

@@ -314,5 +314,59 @@ class TestSingleBitrateRoute(unittest.TestCase):
         mock_manager.output_hls.assert_not_called()
 
 
+class TestGetBaseUrl(unittest.TestCase):
+    """Direct unit coverage for get_base_url()'s protocol choice.
+
+    There are three cases: no serverName configured at all (relative paths,
+    scheme is irrelevant), a forced scheme via [output] use_https, and
+    otherwise auto-detect from the request itself (request.is_secure - the
+    thing ProxyFix's X-Forwarded-Proto handling in casterpak/__init__.py
+    ultimately feeds, once behind_nginx is true - see
+    tests/containertests/run_tests.py for that end-to-end path).
+    """
+
+    def _make_app(self, servername='', use_https=None):
+        app = Flask(__name__)
+        output = {'serverName': servername}
+        if use_https is not None:
+            output['use_https'] = str(use_https)
+        config = configparser.ConfigParser()
+        config.read_dict({'output': output})
+        app.config['output'] = config['output']
+        return app
+
+    def test_no_servername_returns_relative_empty_base(self):
+        app = self._make_app(servername='')
+        with app.test_request_context('/'):
+            self.assertEqual(get_base_url('some/dir'), '')
+
+    def test_plain_http_request_autodetects_http(self):
+        app = self._make_app(servername='localhost')
+        with app.test_request_context('/', base_url='http://localhost'):
+            self.assertEqual(get_base_url('vid.mp4'), 'http://localhost/i/vid.mp4/')
+
+    def test_secure_request_autodetects_https(self):
+        app = self._make_app(servername='localhost')
+        with app.test_request_context('/', base_url='https://localhost'):
+            self.assertEqual(get_base_url('vid.mp4'), 'https://localhost/i/vid.mp4/')
+
+    def test_use_https_forces_https_even_over_plain_http_request(self):
+        app = self._make_app(servername='localhost', use_https=True)
+        with app.test_request_context('/', base_url='http://localhost'):
+            self.assertEqual(get_base_url('vid.mp4'), 'https://localhost/i/vid.mp4/')
+
+    def test_use_https_false_still_autodetects_from_request(self):
+        """use_https=False is not a 'force http' flag - it just means
+        'don't force', so a secure request should still come out https."""
+        app = self._make_app(servername='localhost', use_https=False)
+        with app.test_request_context('/', base_url='https://localhost'):
+            self.assertEqual(get_base_url('vid.mp4'), 'https://localhost/i/vid.mp4/')
+
+    def test_empty_dir_name_omits_trailing_segment(self):
+        app = self._make_app(servername='localhost')
+        with app.test_request_context('/', base_url='http://localhost'):
+            self.assertEqual(get_base_url(''), 'http://localhost/i/')
+
+
 if __name__ == "__main__":
     unittest.main()

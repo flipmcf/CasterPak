@@ -4,7 +4,7 @@
 import os
 import typing as t
 
-from flask import Blueprint, Response
+from flask import Blueprint, Response, request
 from flask import abort, current_app, send_from_directory, send_file, make_response, redirect
 
 from werkzeug.utils import safe_join
@@ -27,14 +27,19 @@ bp = Blueprint('casterpak', __name__)
 def get_base_url(dir_name: t.Union[os.PathLike, str]) -> str:
     app_config = current_app.config
     if app_config['output'].get('serverName'):
-        if app_config['output'].get('use_https'):
+        #Force HTTPS/HTTP from config?
+        if app_config['output'].getboolean('use_https', fallback=False):
             protocol = 'https'
+
+        #Auto-Detect:
         else:
-            protocol = 'http'
+            protocol = 'https' if request.is_secure else 'http'
+        
         baseurl = f"{protocol}://{app_config['output'].get('serverName')}/i/"
         if dir_name:
             baseurl += dir_name + '/'
     else:
+        # We are configured to use relative paths if servername is not set.
         baseurl = ''
 
     return baseurl

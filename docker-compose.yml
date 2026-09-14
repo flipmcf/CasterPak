@@ -36,8 +36,16 @@ services:
       - CASTERPAK_INPUT_VIDEOCACHEPATH=/var/cache/casterpak/video_input
       - CASTERPAK_OUTPUT_SEGMENTPARENTPATH=/var/cache/casterpak/segments
       # This compose stack puts the nginx service in front of casterpak (see the
-      # 'nginx' service below), so segment (.ts) delivery via X-Accel-Redirect works.
-      - CASTERPAK_OUTPUT_BEHIND_NGINX=True
+      # 'nginx' service below), so segment (.ts) delivery via X-Accel-Redirect
+      # works, and nginx's X-Forwarded-Proto header is trusted (see ProxyFix in
+      # casterpak/__init__.py). Overridable - tests/containertests/run_tests.py
+      # recreates the container with this set False to prove that trust is
+      # actually gated on it, not just always-on.
+      - CASTERPAK_OUTPUT_BEHIND_NGINX=${CASTERPAK_OUTPUT_BEHIND_NGINX:-True}
+      # Forces manifest URLs to https regardless of the request's own scheme -
+      # off by default (auto-detect via behind_nginx/X-Forwarded-Proto instead).
+      # See casterpak/routes.py:get_base_url.
+      - CASTERPAK_OUTPUT_USE_HTTPS=${CASTERPAK_OUTPUT_USE_HTTPS:-False}
       - CASTERPAK_DB_PATH=/var/lib/casterpak/data/cacheDB.db
       #and we want to send all logs to stdout/stderr
       - CASTERPAK_LOGGING_ACCESS_LOG=-

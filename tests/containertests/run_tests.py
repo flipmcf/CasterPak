@@ -12,6 +12,13 @@ import requests
 import subprocess
 import hashlib
 import concurrent.futures
+import urllib3
+
+# The https_enabled fixture below terminates real TLS with a short-lived,
+# self-signed test cert - there's no CA to verify it against, so requests
+# made to it pass verify=False. Silence the resulting warning; it's expected
+# here, not a sign anything's misconfigured.
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 client = docker.from_env()
 
@@ -93,6 +100,129 @@ def fire_concurrent_requests(url, count=8):
         futures = [pool.submit(requests.get, url) for _ in range(count)]
         return [f.result() for f in futures]
 
+
+def _recreate_casterpak_server(env_overrides=None):
+    """
+    Force-recreate just the casterpak_server container - no image rebuild,
+    this only ever changes environment variables (docker-compose.yml's
+    ${VAR:-default} entries for CASTERPAK_OUTPUT_BEHIND_NGINX and
+    CASTERPAK_OUTPUT_USE_HTTPS). `env_overrides=None` restores the module's
+    baseline (test_env as-is, i.e. whatever docker-compose.yml's own
+    defaults produce). Blocks until the new container is actually serving.
+    """
+    env = test_env.copy()
+    if env_overrides:
+        env.update(env_overrides)
+    subprocess.run(
+        ["docker", "compose", "up", "-d", "--force-recreate", "--no-deps", "casterpak"],
+        check=True, env=env,
+    )
+    assert wait_for_log_signal(
+        "casterpak_server", "[INFO] Listening at: http://0.0.0.0:5000"
+    ), "casterpak crashed after recreate"
+
+
+@pytest.fixture(scope="function")
+def casterpak_not_behind_nginx():
+    """
+    Recreates casterpak_server with behind_nginx=False for one test, then
+    always restores the module's baseline (behind_nginx=True, matching
+    docker-compose.yml's default) afterward - every other test in this file
+    assumes that baseline, so this must not leak even if the test fails.
+    """
+    _recreate_casterpak_server({"CASTERPAK_OUTPUT_BEHIND_NGINX": "False"})
+    try:
+        yield
+    finally:
+        _recreate_casterpak_server(None)
+
+
+@pytest.fixture(scope="function")
+def casterpak_forced_https():
+    """Recreates casterpak_server with use_https=True for one test, then
+    restores the baseline afterward (see casterpak_not_behind_nginx)."""
+    _recreate_casterpak_server({"CASTERPAK_OUTPUT_USE_HTTPS": "True"})
+    try:
+        yield
+    finally:
+        _recreate_casterpak_server(None)
+
+
+# Self-signed cert/key for the https_enabled fixture below - generated fresh
+# under nginx/ssl/ (already the bind-mount source for /etc/nginx/ssl, and
+# already gitignored for exactly this: real certs, never committed) rather
+# than under /etc/letsencrypt, which nothing in a test environment has.
+SSL_TEST_CERT = os.path.join(os.getcwd(), "nginx", "ssl", "containertest_selfsigned.crt")
+SSL_TEST_KEY = os.path.join(os.getcwd(), "nginx", "ssl", "containertest_selfsigned.key")
+SSL_TEST_CONF = os.path.join(os.getcwd(), "nginx", "ssl", "containertest_selfsigned.conf")
+
+
+def _recreate_nginx():
+    """Force-recreate just the casterpak_nginx container - no rebuild, this
+    only ever picks up changed *bind-mounted* content under nginx/ssl/
+    (nginx re-reads its config, including `include /etc/nginx/ssl/*.conf;`,
+    fresh on every container start)."""
+    subprocess.run(
+        ["docker", "compose", "up", "-d", "--force-recreate", "--no-deps", "nginx"],
+        check=True, env=test_env,
+    )
+    assert wait_for_log_signal("casterpak_nginx", "start worker process"), \
+        "Nginx crashed after recreate"
+
+
+@pytest.fixture(scope="function")
+def https_enabled():
+    """
+    Stands up real TLS on casterpak_nginx for one test: generates a
+    short-lived self-signed cert, writes an ssl.conf pointing at it
+    (mirroring ssl.conf.example, minus the /etc/letsencrypt-specific paths),
+    and force-recreates nginx so it picks both up. Always tears the cert/key/
+    conf files back out and recreates nginx again afterward, even on
+    failure - every other test in this file assumes plain http-only nginx.
+    """
+    if shutil.which("openssl") is None:
+        pytest.skip("openssl not on PATH - required to generate a self-signed test cert")
+
+    subprocess.run(
+        [
+            "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+            "-keyout", SSL_TEST_KEY, "-out", SSL_TEST_CERT,
+            "-days", "1", "-subj", "/CN=localhost",
+        ],
+        check=True, capture_output=True,
+    )
+
+    with open(SSL_TEST_CONF, "w") as f:
+        f.write(f"""server {{
+    listen 443 ssl;
+    server_name localhost;
+
+    ssl_certificate     /etc/nginx/ssl/{os.path.basename(SSL_TEST_CERT)};
+    ssl_certificate_key /etc/nginx/ssl/{os.path.basename(SSL_TEST_KEY)};
+
+    location / {{
+        proxy_pass http://casterpak:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        include /etc/nginx/config_overrides/*.conf;
+    }}
+
+    proxy_buffering off;
+    proxy_request_buffering off;
+}}
+""")
+
+    _recreate_nginx()
+    try:
+        yield
+    finally:
+        for f in (SSL_TEST_CERT, SSL_TEST_KEY, SSL_TEST_CONF):
+            try:
+                os.remove(f)
+            except FileNotFoundError:
+                pass
+        _recreate_nginx()
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -310,6 +440,78 @@ def test_nginx_static_testing_route():
     assert response.status_code == 200
     assert "text/html" in response.headers["Content-Type"]
 
+
+## X-Forwarded-Proto trust-boundary tests
+#
+# ProxyFix (casterpak/__init__.py) only gets wired up when [output]
+# behind_nginx is true, and even then only trusts exactly one hop of
+# X-Forwarded-Proto - see the security reasoning there and in
+# get_base_url() (casterpak/routes.py). These curl casterpak_server:5000
+# directly from inside the docker network (from the nginx container,
+# bypassing nginx's own reverse-proxying entirely) with a forged header -
+# exactly the case nginx's own `proxy_set_header X-Forwarded-Proto $scheme;`
+# is meant to be the ONLY legitimate source of.
+
+def curl_with_forged_proto_header(scheme):
+    """curl casterpak_server:5000's single-bitrate manifest directly,
+    claiming X-Forwarded-Proto: `scheme` regardless of what it actually is -
+    real transport here is always plain http."""
+    nginx_container = client.containers.get("casterpak_nginx")
+    url = "http://casterpak_server:5000/i/test-video.mp4/master.m3u8"
+    exit_code, out = nginx_container.exec_run(
+        f'curl -s -H "X-Forwarded-Proto: {scheme}" {url}'
+    )
+    assert exit_code == 0, f"curl itself failed: {out.decode(errors='replace')}"
+    return out.decode()
+
+
+def test_flask_trusts_x_forwarded_proto_when_behind_nginx(casterpak_clean):
+    """Baseline: behind_nginx=True (docker-compose.yml's default). A
+    request claiming X-Forwarded-Proto: https must produce https:// links -
+    this is the normal, expected case (nginx really does set this header;
+    see test_route_single_bitrate_manifest below for the real, un-spoofed
+    http path through nginx itself)."""
+    body = curl_with_forged_proto_header("https")
+    assert "https://localhost/i/test-video.mp4/index_0_av.m3u8" in body
+
+
+def test_flask_ignores_x_forwarded_proto_when_not_behind_nginx(casterpak_clean, casterpak_not_behind_nginx):
+    """Security case: with behind_nginx=False, ProxyFix is never wired up
+    at all (see casterpak/__init__.py), so the exact same forged header
+    must be ignored - the manifest must still say http://, not https://,
+    even though nothing changed here except the config flag.
+
+    Needs casterpak_clean: single_bitrate_manifest only calls get_base_url()
+    when its manifest doesn't already exist on disk (casterpak/routes.py:
+    single_bitrate_manifest) - it's an on-demand-then-cache route, and that
+    cache is a bind-mounted volume that survives container recreates. Without
+    wiping it, this test would just serve whatever an earlier test already
+    cached for the same video, regardless of what's under test here."""
+    body = curl_with_forged_proto_header("https")
+    assert "http://localhost/i/test-video.mp4/index_0_av.m3u8" in body
+    assert "https://" not in body
+
+
+def test_use_https_forces_https_over_plain_http(casterpak_clean, casterpak_forced_https):
+    """[output] use_https=True must win even when the request that reaches
+    Flask is genuinely, unambiguously plain http (real port-80 request
+    through nginx, no header spoofing involved) - see get_base_url()'s
+    forced-protocol branch. Paired with the https-transport version of this
+    test below: together they prove the setting truly forces the scheme
+    rather than just happening to agree with auto-detection."""
+    response = requests.get("http://localhost:80/i/test-video.mp4/master.m3u8")
+    assert response.status_code == 200
+    assert "https://localhost/i/test-video.mp4/index_0_av.m3u8" in response.text
+
+
+def test_use_https_forces_https_over_real_https(casterpak_clean, casterpak_forced_https, https_enabled):
+    """Same as above, but over a real TLS connection (self-signed test
+    cert - see https_enabled) instead of plain http. On its own this
+    wouldn't distinguish 'forced' from 'auto-detected', which is exactly
+    why test_use_https_forces_https_over_plain_http exists too."""
+    response = requests.get("https://localhost:443/i/test-video.mp4/master.m3u8", verify=False)
+    assert response.status_code == 200
+    assert "https://localhost/i/test-video.mp4/index_0_av.m3u8" in response.text
 
 
 ## Casterpak Route tests
