@@ -1,0 +1,12 @@
+To enable SSL for a docker install, copy the example ssl.conf.example to ssl.conf and configure your hostname and keys on your host.  
+
+cp ssl.conf.example ssl.conf
+vi ssl.conf
+
+
+The skeleton directory structure, default config, and docker compose all assume your host has a LetsEncrypt directory structure.
+
+Drop your keys on the host at /etc/letsencrypt as described by the example.
+
+Coming soon - SSL setup during casterpak install setup process
+

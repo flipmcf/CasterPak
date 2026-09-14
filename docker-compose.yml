@@ -70,6 +70,7 @@ services:
     container_name: casterpak_nginx
     ports:
       - "80:80"
+      - "443:443"
     depends_on:
       - casterpak
     volumes:

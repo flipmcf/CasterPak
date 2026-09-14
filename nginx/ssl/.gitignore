@@ -1,2 +1,2 @@
 *.conf
-!*.inactive
+!*.example

@@ -21,3 +21,6 @@ COPY ./tests/html/ /etc/nginx/html/testing/
 COPY ./nginx/config_overrides/ /etc/nginx/config_overrides/
 
 EXPOSE 80
+
+# Container CAN expose 443, once you configure ssl.
+#EXPOSE 443
