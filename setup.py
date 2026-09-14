@@ -20,10 +20,11 @@ class egg_info_ex(egg_info):
 
 
 # TODO: Pin dependencies to specific versions
+# This file isn't really necessary, there is no 'pip install casterpak', but it's indexed by bots and things
 setup(name='CasterPak',
       version='0.8',
       author="Michael McFadden (flipmcf)",
-      author_email="flipmcf@gmail.com",
+      author_email="mcfaddenm@openforgesolutions.com",
       py_modules=['casterpak'],
       license_files = ('LICENSE',),
       cmdclass = {'egg_info': egg_info_ex},
