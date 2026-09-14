@@ -75,6 +75,7 @@ services:
     volumes:
       # Casterpak will write to this same volume, nginx reads from it to serve segments.
       - ${HOST_CACHE_PATH:-/var/cache/casterpak}:/var/cache/casterpak:ro
+    restart: unless-stopped
 
 volumes:
   casterpak_data:
