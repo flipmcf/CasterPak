@@ -279,7 +279,7 @@ first, do a developent install - see above.
 you can run all unit tests by simply typing `./bin/pytest`
 
 then do integration testing with containers:
-./bin/pytest tests/containertests/run_tests.py -vv  
+`./bin/pytest tests/containertests/run_tests.py -vv`
 
 1. execute `run.sh` at the root of the repository with your testing setup.  
     Make sure videos are served (use VLC "media->open network stream" and hit a master.m3u8 url)
