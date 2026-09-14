@@ -16,6 +16,9 @@ chown them to 'not root' or just make sure permissions are good.
 
 install docker engine
 
+Make sure docker will run after reboot.
+sudo systemctl enable docker
+
 run:
 `curl -sSL https://raw.githubusercontent.com/flipmcf/casterpak/master/install > casterpak_install`
 
@@ -36,6 +39,10 @@ Verify it's running - put one real .mp4 in the Library volume and request it by 
 `curl -i http://<your Server Name>/i/<filename.mp4>/index_0_av.m3u8`
 
 You should get back a `#EXTM3U` playlist.
+
+Setup https next.  
+
+This is not well documentend yet. NginX will put some directories on your host to drop an example ssl.conf and a directory for your key files.  This install part is currently in development, thank you for your patience.  See nginx/Dockerfile and docker-compose.yml for more info.
 
 
 
