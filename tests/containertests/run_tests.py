@@ -24,8 +24,8 @@ test_env["CASTERPAK_FILESYSTEM_VIDEOPARENTPATH"] = "/var/lib/casterpak/samples"
 # during container tests, in place of the real HOST_CACHE_PATH default
 # (/var/cache/casterpak).
 # see the casterpak_stack fixture for create/cleanup.
-CONTAINERTEST_CACHE_DIR = os.path.join(os.getcwd(), "containertests_cache")
-test_env["HOST_CACHE_PATH"] = CONTAINERTEST_CACHE_DIR
+LOCAL_CONTAINERTEST_CACHE_DIR = os.path.join(os.getcwd(), "containertests_cache")
+test_env["HOST_CACHE_PATH"] = LOCAL_CONTAINERTEST_CACHE_DIR
 
 # Define a custom encoding ladder. what the test encoder should build so it doesn't expect 1080p or 240p
 test_env["CASTERPAK_ENCODING_LADDER_720"] = "1280x720, 2500k"
@@ -69,7 +69,7 @@ def wait_for_log_signal(container_name, signal_text, timeout=30):
 def assert_dir_empty(container, path):
     # -mindepth 1 ensures we don't count the directory itself
     # -print -quit makes it fast: it stops as soon as it finds one item
-    cmd = f"sh -c 'find {path} -mindepth 1 -print -quit'"
+    cmd = f"sh -c 'test -d {path} && find {path} -mindepth 1 -print -quit'"
     _, out = container.exec_run(cmd)
     assert out.strip() == b"", f"{path} not empty."
 
@@ -99,10 +99,10 @@ def fire_concurrent_requests(url, count=8):
 def casterpak_stack():
 
     # Fresh each run. World-writable because we don't know the container
-    # user's uid from here - only that it isn't ours (see CONTAINERTEST_CACHE_DIR).
-    shutil.rmtree(CONTAINERTEST_CACHE_DIR, ignore_errors=True)
-    os.makedirs(CONTAINERTEST_CACHE_DIR)
-    os.chmod(CONTAINERTEST_CACHE_DIR, 0o777)
+    # user's uid from here - only that it isn't ours (see LOCAL_CONTAINERTEST_CACHE_DIR).
+    shutil.rmtree(LOCAL_CONTAINERTEST_CACHE_DIR, ignore_errors=True)
+    os.makedirs(LOCAL_CONTAINERTEST_CACHE_DIR)
+    os.chmod(LOCAL_CONTAINERTEST_CACHE_DIR, 0o777)
 
     print("\n🚀 Building and starting CasterPak...")
     subprocess.run(["docker", "compose", "build", "--no-cache" ], check=True, env=test_env)
@@ -131,7 +131,7 @@ def casterpak_stack():
 
     print("\n🧹 Tearing down...")
     subprocess.run(["docker", "compose", "down", "-v"], check=True)
-    shutil.rmtree(CONTAINERTEST_CACHE_DIR, ignore_errors=True)
+    shutil.rmtree(LOCAL_CONTAINERTEST_CACHE_DIR, ignore_errors=True)
 
 
 ## run this to cleanup after each test
@@ -165,13 +165,12 @@ def casterpak_clean():
     for table in [SEGMENT_FILE_CACHE, INPUT_FILE_CACHE, ENCODING_QUEUE]:
         _, out = container.exec_run(f'sqlite3 /var/lib/casterpak/data/cacheDB.db "DELETE FROM {table}"')
 
-
     #remove any files generated
     # Instead of: container.exec_run("rm /path/*.txt") explicity call shell to expand the '*'
-    container.exec_run("sh -c 'rm -rf /tmp/segments/* /tmp/video_input/*'")
+    container.exec_run("sh -c 'rm -rf /var/cache/casterpak/segments/* /var/cache/casterpak/video_input/*'")
 
-    assert_dir_empty(container, "/tmp/segments")
-    assert_dir_empty(container, "/tmp/video_input")
+    assert_dir_empty(container, "/var/cache/casterpak/segments")
+    assert_dir_empty(container, "/var/cache/casterpak/video_input")
 
 
 @pytest.fixture(scope="function")
@@ -252,7 +251,7 @@ def with_abr_cache_encodings(casterpak_clean):
     RENDITION_LABELS = ['720p', '480p', '360p']
 
     container = client.containers.get("casterpak_server")
-    cache_output_dir = "/tmp/video_input/test-video.mp4.transcodes"
+    cache_output_dir = "/var/cache/casterpak/video_input/test-video.mp4.transcodes"
 
     exit_code, _ = container.exec_run(f"mkdir -p {cache_output_dir}")
 
@@ -383,7 +382,8 @@ def test_route_csmil_parent_manifest(with_encodings):
     # 5. Test that nginx hasn't corrupted the binary (by gzip, bad mime header, or something else)
     # The paths to the exact same file
     container = client.containers.get("casterpak_server")
-    segment_path = "/tmp/segments/test-video.mp4.transcodes/test-video_360p.mp4/segment-0.ts"
+    
+    segment_path = "/var/cache/casterpak/segments/test-video.mp4.transcodes/test-video_360p.mp4/segment-0.ts"
     segment_url = "http://localhost/i/test-video.mp4.transcodes/test-video_360p.mp4/segment-0.ts"
     
     exit_code, output = container.exec_run(f"sha256sum {segment_path}")
@@ -409,7 +409,7 @@ def test_nginx_to_flask_x_accel_handoff(casterpak_stack):
     nginx_container = client.containers.get("casterpak_nginx")
     
     # 1. Setup the fake segment file environment
-    video_dir = "/tmp/segments/test-video.mp4.transcodes/test-video_360p.mp4"
+    video_dir = "/var/cache/casterpak/segments/test-video.mp4.transcodes/test-video_360p.mp4"
     segment_file = f"{video_dir}/segment-0.ts"
     
     flask_container.exec_run(f"mkdir -p {video_dir}")
@@ -489,6 +489,7 @@ def test_route_abr_manifest_redirect(with_abr_cache_encodings):
     Test Tier 2: Encodings exist. 
     Should return a 302 Found redirecting to the .csmil endpoint.
     """
+
     # allow_redirects=False is critical here so we can inspect the 302 response itself
     response = requests.get(
         "http://localhost:80/i/abr/test-video.mp4/master.m3u8", 
@@ -520,9 +521,9 @@ def test_route_abr_manifest_concurrent_requests_dont_race(casterpak_clean):
     then give the dispatcher up to 3x the poll interval to produce exactly one
     ABR ffmpeg. JIT still spawns synchronously in the request.
     """
+    
     url = "http://localhost:80/i/abr/test-video.mp4/master.m3u8"
     container = client.containers.get("casterpak_server")
-
     responses = fire_concurrent_requests(url, count=8)
 
     assert all(r.status_code == 200 for r in responses), \

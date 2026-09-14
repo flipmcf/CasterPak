@@ -16,6 +16,10 @@ config.ini
 .env
 .claude.env
 
+# HOST_CACHE_PATH override for tests/containertests/run_tests.py - created
+# and removed by the casterpak_stack fixture, but survives a crashed run.
+/containertests_cache/
+
 #VSCode settings
 .vscode/
 .idea/
