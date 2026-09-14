@@ -28,3 +28,6 @@ CPU Spikes	Queue Management: Limit concurrent transcodes to N (where N=CPU Cores
 Storage Bloat	TTL Caching: Delete transcoded segments if they haven't been touched in 24 hours.
 
 DDoS Attacks	Rate Limiting: Use Nginx to limit how many new transcode requests a single IP can trigger per minute.
+
+a separate certbot sidecar container, its own tiny image with certbot installed, sharing the /etc/letsencrypt volume with nginx, and either running --nginx against a shared config mount or certonly --standalone on a brief port-80 handoff between the two containers, "industry-standard shape" says AI - but validate that.
+

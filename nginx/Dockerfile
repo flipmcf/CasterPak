@@ -11,6 +11,9 @@ RUN rm /etc/nginx/conf.d/default.conf
 # Copy your specific config from the local conf.d folder
 COPY ./nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf
 
+# Prepare SSL directory.  We don't install ssl, we just make a skeleton.
+COPY ./nginx/ssl/ /etc/nginx/ssl/
+
 # Testing pages to verify HLS streaming
 COPY ./tests/html/ /etc/nginx/html/testing/
 
