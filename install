@@ -34,7 +34,7 @@ if [ -f .env ]; then
     echo "-------------------------------------------------------"
     echo "SUCCESS: CasterPak is now running!"
     echo "Access your engine at the Server Name you gave setup."
-    echo "additionally, check out http://yourhost.com/testing/test_player.html
+    echo "additionally, check out http://yourhost.com/testing/test_player.html"
     echo "-------------------------------------------------------"
 else
     echo "ERROR: Configuration failed. .env file not found."
