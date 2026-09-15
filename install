@@ -20,23 +20,39 @@ curl -sSL "$REPO_URL/docker-compose.yml" -o docker-compose.yml
 curl -sSL "$REPO_URL/setup" -o setup
 chmod +x setup
 
+# create the ./nginx/ssl config directory now and instructions before the container wakes up for the first time
+mkdir -p ./nginx/ssl
+curl -sSL "$REPO_URL/nginx/ssl/ssl.conf.example" -o ./nginx/ssl/ssl.conf.example
+curl -sSL "$REPO_URL/nginx/ssl/README" -o ./nginx/ssl/README
+
 # 2. Hand off to the Setup Script for user configuration
 
 echo "[2/3] Launching configuration wizard..."
 #  /dev/tty directs input back to the keyboard so 'read' works during a piped install
 ./setup < /dev/tty
 
-# 4. Final Launch
-echo "[3/3] Starting CasterPak containers..."
-if [ -f .env ]; then
-    docker compose pull
-    docker compose up -d
-    echo "-------------------------------------------------------"
-    echo "SUCCESS: CasterPak is now running!"
-    echo "Access your engine at the Server Name you gave setup."
-    echo "additionally, check out http://yourhost.com/testing/test_player.html"
-    echo "-------------------------------------------------------"
-else
+if [ ! -f .env ]; then
     echo "ERROR: Configuration failed. .env file not found."
     exit 1
 fi
+
+# The cache volume is the user's to create and set permissions on (see
+# docs/Hosting-instructions) - confirm what they told 'setup' is actually
+# usable before we start containers, rather than failing deep inside docker.
+HOST_CACHE_PATH=$(grep '^HOST_CACHE_PATH=' .env | cut -d= -f2)
+if [ ! -d "$HOST_CACHE_PATH" ] || [ ! -r "$HOST_CACHE_PATH" ] || [ ! -w "$HOST_CACHE_PATH" ]; then
+    echo "ERROR: Cache directory '$HOST_CACHE_PATH' does not exist, or isn't readable/writable by $(whoami)."
+    echo "Create it and set ownership before running this installer - see docs/Hosting-instructions."
+    exit 1
+fi
+
+# 4. Final Launch
+echo "[3/3] Starting CasterPak containers..."
+docker compose pull
+docker compose up -d
+SERVERNAME=$(grep '^CASTERPAK_OUTPUT_SERVERNAME=' .env | cut -d= -f2)
+echo "-------------------------------------------------------"
+echo "SUCCESS: CasterPak is now running!"
+echo "Access your engine at the Server Name you gave setup."
+echo "additionally, check out http://${SERVERNAME}/testing/test_player.html"
+echo "-------------------------------------------------------"

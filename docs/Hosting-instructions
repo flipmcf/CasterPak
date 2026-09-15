@@ -1,23 +1,55 @@
-Hosting instructions for version 0.8.2-alpha
+# Hosting instructions for version 0.9.0-alpha
 
-This is extremely generic and avoids specific Operating System or Hosting Platform instructions.
+This is extremely generic, gets you just barely working, and avoids specific linux flavor or Hosting Platform instructions.
 
+This doc was created using AWS and Ubuntu | AWS Linux
+
+## get a linux instance
 Provision a linux machine with 3 storage volumes:
 1. OS and Application volume - '/' - 8Gb
 2. Cache Volume - 25g
 3. Library Volume - your choice - this is YOUR videos.  100G
+
+Configure port 80 and 443 to be open to the public (webserver)
+And port 22 to be open to your own IP.  
 
 start the server and:
 
 mount the Cache volume at /var/cache/casterpak
 mount the Library volume at /mnt/data/videos
 
-chown them to 'not root' or just make sure permissions are good.
+  hints:  lsblk -l shows you your disks.
+          sudo mkfs -t ext4 /dev/[disk name]  to format each disk
+          mkdir -p /var/cache/casterpak
+          mkdir -p /mnt/data/videos
 
-install docker engine
+chown these new directories to 'not root'.  ubuntu or ec2-user or whatever user you are is fine for now. (`whoami`)  Just make sure permissions are ok for our docker containers to read videos and read/write to cache.
+
+    `sudo chown ec2-user:ec2-user /mnt/data/videos`
+    `sudo chown ec2-user:ec2-user /var/cache/casterpak/`
+
+
+install:
+   docker engine
+   docker compose
+   
+   https://docs.docker.com/engine/install/
+
 
 Make sure docker will run after reboot.
-sudo systemctl enable docker
+`sudo systemctl enable docker` or `sudo systemctl enable --now docker`
+
+Add yourself to the docker group.
+`sudo usermod -aG docker $USER`
+`newgrp docker`
+
+Confirm docker works:
+`docker run hello-world`
+
+
+## CasterPak Install:
+
+There is some environmental setup, so grab the provided install script.
 
 run:
 `curl -sSL https://raw.githubusercontent.com/flipmcf/casterpak/master/install > casterpak_install`
@@ -28,21 +60,39 @@ This launches the Setup Wizard. Answer it using the volumes you just mounted abo
 
 - Input Type: `filesystem`
 - Local path to videos: `/mnt/data/videos` (the Library volume)
-- Host directory for the CasterPak cache volume: press enter (default `/var/cache/casterpak` is already the Cache volume)
-- Cache/copy input video files from library?: `n` (the Library volume is already local and fast - no need to copy it again)
-- Server Name for manifests: your public IP or domain name
+- Local path for CasterPak cache volume: `/var/cache/casterpak`
+- Cache/copy input video files from library?: `n` (NO. the Library volume is already local and fast - no need to copy it again)
+- Server Name for manifests: your public IP or domain name.  the EC2 public dns works for now:
+    ec2-54-82-257-258.compute-1.amazonaws.com
 
 The installer then pulls the image and starts both containers.
 
-Verify it's running - put one real .mp4 in the Library volume and request it by filename:
+Verify it's running by adding your first video directly to the EC2 filesysem. Put one real .mp4 in the Library volume and request it by filename:
 
-`curl -i http://<your Server Name>/i/<filename.mp4>/index_0_av.m3u8`
+scp your_video.mp4 user@your-casterpak-server:/mnt/data/videos
+
+`curl -i http://<your Server Name>/i/abr/your_video.mp4/master.m3u8`
 
 You should get back a `#EXTM3U` playlist.
 
-Setup https next.  
+You can also see the casterpak bench test at 
+  "http://<your Server Name>/testing/test_player.html "
 
-This is not well documentend yet. NginX will put some directories on your host to drop an example ssl.conf and a directory for your key files.  This install part is currently in development, thank you for your patience.  See nginx/Dockerfile and docker-compose.yml for more info.
+  
+Setup https next.
+
+To enable SSL for a docker install, copy the example ssl.conf.example to ssl.conf and configure your hostname and keys on your host.  
+
+cp ssl.conf.example ssl.conf
+vi ssl.conf
+
+
+The skeleton directory structure, default config, and docker compose all assume your host has a LetsEncrypt directory structure.
+
+Drop your keys on the host at /etc/letsencrypt as described by the example.
+
+Coming soon - SSL setup during casterpak install setup process
+HTTPS is not well documentend yet. see nginx/ssl/README at this time. your host to drop an example ssl.conf and a directory for your key files.  This install part is currently in development, thank you for your patience.  See nginx/Dockerfile and docker-compose.yml for more info.
 
 
 

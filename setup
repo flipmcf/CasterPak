@@ -24,9 +24,9 @@ input_type=${input_type:-filesystem}
 
 if [ "$input_type" == "filesystem" ]; then
 
-    read -p "Local path to videos (default: ~/Videos): " video_path
+    read -p "Local path to videos (default: /mnt/data/videos): " video_path
 
-    video_path=${video_path:-~/Videos}
+    video_path=${video_path:-/mnt/data/videos}
 
 fi
 
@@ -69,7 +69,5 @@ HOST_CACHE_PATH=$host_cache_path
 APP_PORT=5000
 
 EOF
-
-#TODO BUG!  Check the host machine cache directory and make sure permissions are good.
 
 echo "Done! You can now run 'docker compose up -d'"
