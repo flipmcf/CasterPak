@@ -74,7 +74,7 @@ services:
     build: 
       context: .
       dockerfile: ./nginx/Dockerfile
-    image: flipmcf/casterpak-proxy:${CASTERPAK_VERSION:-0.8.2-alpha}
+    image: flipmcf/casterpak-proxy:${CASTERPAK_VERSION:-0.8.3-alpha}
     container_name: casterpak_nginx
     ports:
       - "80:80"
