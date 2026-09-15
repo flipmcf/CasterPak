@@ -2,7 +2,7 @@
 #GNU GENERAL PUBLIC LICENSE Version 2
 #See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
 
-# ## TODO: [CasterPak 0.8.x Refactor] - Database Initialization & Concurrency
+# ## TODO:  Database Initialization & Concurrency
 # 1. Decouple Schema Creation: Move 'CREATE TABLE IF NOT EXISTS' out of the 
 #    request-level connection loop. It causes unnecessary locking in Docker.
 # 2. Permanent WAL Mode: Run 'PRAGMA journal_mode=WAL;' once during a dedicated 
