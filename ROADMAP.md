@@ -51,26 +51,16 @@ two equally-supported deploy paths.
 Scope: 
   scp files into the CasterPak cache volume - DONE
   EC2 sizing/security groups - DONE
-  volume design for segment cache + source video library - DO.
+  volume design for segment cache + source video library - DONE
+     See Hosting-instructions.  3 volumes and disks.  Cache, Library and OS.
+     ./setup updated to help user direct install to host's mount ponits.
   DNS - DONE  casterpak.com
-     But I want to separate the video from the website, so I will create 'video.casterpak.com to point to nginx
-  TLS in front via nginx - TODO - letsencrypt
-  
-   IN PROGRESS..
+   Done - and TLS install process is designed.
+     AND Flask can auto-detect if 'behind-nginx=True'
 
-
-
-Explicitly NOT in scope here: upload API, S3 source backend (Phase C/D).
-
-Then - publish 0.9.0-alpha to dockerhub, and create a deployment that is simple, like hosting the install script on openforgesolutions.com
-
-`install`/`setup` need fixing before that publish is actually usable (found while checking whether they were up to date):
-- Both still use the old `docker-compose` (hyphenated) syntax — `docker compose` works better here, already fixed everywhere else this applies.
-- `install` does `docker-compose pull` — that only works once 0.9.0-alpha images are actually published to Docker Hub, not just tagged in docker-compose.yml.
-- `setup`'s wizard writes `CASTERPAK_INPUT_INPUT_TYPE` and `CASTERPAK_FILESYSTEM_CACHE_INPUT` to `.env`, but docker-compose.yml's `environment:` list never references either — both questions are currently asked, answered, and then silently ignored.
-- `setup` also writes `APP_PORT` to `.env`, but the only line that would use it (the `ports:` mapping) is commented out in docker-compose.yml — dead as well.
-
-Reproduce a bug from /abr/ where first-hit serves a JIT stream, encoding happens, segments are created, and then the docker container is brought down (maybe ./setup is run again) and then brought back up and the cache is preserved.   The senario is to intentionally misconfigure the server with ./setup and place a bad hostname in "Server Name for manifests"  - the CASTERPAK_OUTPUT_SERVERNAME env variable.  This generates bad m3u8 master manifests and index_0 files can't be found because servername is wrong.  bring down container, reconfigure to have correct name, and bring back up container.  hit the same /abr/ url - NOTE THAT JIT STREAM IS RETURNED - cache should have been preserved.  I checked the cache, and the old m3u8 was still there with the bad hostname. 
+   publish 0.9.0-alpha to dockerhub, 
+   and create a deployment that is simple, like hosting the install script on openforgesolutions.com
+   install script will remain on github for now
 
 
 ## Phase C: Upload API
