@@ -22,5 +22,5 @@ COPY ./nginx/config_overrides/ /etc/nginx/config_overrides/
 
 EXPOSE 80
 
-# Container CAN expose 443, once you configure ssl.
-#EXPOSE 443
+# Container can expose 443 once ssl.conf is installed and configured.
+EXPOSE 443
