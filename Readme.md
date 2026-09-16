@@ -5,7 +5,7 @@ curl -sL https://raw.githubusercontent.com/flipmcf/casterpak/master/install | ba
 ```
 
 The best way to approach this software is with a filesystem containing pre-encoded Adaptive Bitrate renditions that can be mounted over slow NFS or SSHFS.
-We host a web server and create a predictable URL based on YOUR library.
+This software creates a web server and predictable URLs based on YOUR library.
 
 Let's say, your video archive has this already:
 ```
