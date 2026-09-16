@@ -114,7 +114,161 @@ In the future, we will support directly configuring HTTP, SFTP, S3, and other re
 ----
 
 ## URL Endpoints for streaming.
+Every streaming URL lives under the hard-coded root path `/i/`.  There are really only two
+endpoints you need to care about as a user: the `.csmil` endpoint, which is the one you should
+be pointing your website at, and the `/i/abr/` endpoint, which is the one that does the work
+for you if you haven't encoded anything yet.  The rest of the endpoints exist because a video
+player asks for them - you generally don't type them by hand.
+ 
+### The CSMIL endpoint - use this one.
+ 
+```
+http://example.com/i/<path>/<prefix>,<bitrate>,<bitrate>,<bitrate>,<suffix>.csmil/master.m3u8
+```
+ 
+This is the flagship.  Point your public website here.
+ 
+This endpoint assumes you have already encoded your Adaptive Bitrate renditions and they are
+sitting in your library.  It does no encoding, ever.  It reads your rendition files, packages
+them into HLS (which is CPU cheap and fast), caches the result, and serves it.  That's the
+whole deal: your CPU does almost nothing, your storage does the work, and your costs stay
+predictable.
+ 
+Given a library that looks like this:
+ 
+```
+my_video.mp4.transcodes
+  my_video_360p.mp4
+  my_video_480p.mp4
+  my_video_720p.mp4
+```
+ 
+the URL is:
+ 
+```
+http://example.com/i/my_video.mp4.transcodes/my_video_,360p,480p,720p,.mp4.csmil/master.m3u8
+```
+ 
+Read that comma-separated list as "everything before the comma group is the filename prefix,
+everything after is the suffix, and each item in between is one rendition."  This is the same
+URL grammar Akamai MSOD used, which is deliberate - if you're migrating off Akamai, your
+existing URLs mostly just work.
+ 
+If the renditions aren't there, you get a 404.  This endpoint will not go encode them for you.
+That's the point.
+ 
+### The ABR endpoint - the one that encodes for you.
+ 
+```
+http://example.com/i/abr/<path>/my_video.mp4/master.m3u8
+```
+ 
+Use this when you have a source video and no renditions yet.  It's a state manager, and it
+does one of three things depending on what it finds on disk:
+ 
+**Renditions already exist** - it issues a `302` redirect straight to the `.csmil` URL above
+and gets out of the way.  Nothing is encoded.  This is the happy path, and it's why the
+`.csmil` endpoint is the one that actually serves your traffic.
+ 
+**No renditions, nothing in progress** - it queues a full background ABR encode of your
+configured bitrate ladder, and then, so your viewer isn't staring at a spinner for ten
+minutes, it fires off a fast, low-quality JIT (Just In Time) encode and hands back a
+single-rendition master manifest pointing at that.  Your viewer starts watching in a few
+seconds.  The good renditions keep building in the background.
+ 
+**Encode already in progress** - it returns that same JIT stream.  It will not queue a second
+encode of the same file.
+ 
+The JIT stream is a stopgap, not a product.  It's one rendition, it is not adaptive, and it is
+advertised at a fixed `BANDWIDTH=1000000, RESOLUTION=854x480` regardless of what your source
+actually is.  It exists so the first viewer of an un-encoded video gets pixels instead of a
+404.  Once the real renditions land, subsequent requests to `/i/abr/` redirect to `.csmil` and
+the JIT stream stops being used.
+ 
+**Where the encodings go, and what you should do about it.**
+ 
+Renditions produced by `/i/abr/` are written to your *cache* (`videoCachePath`), not to your
+library.  The cache is a cache - it has a TTL and a size limit, and the cleanup task will
+eventually delete things out of it.  If you let `/i/abr/` be your production endpoint, you are
+signing up to re-encode the same videos forever, every time the cache evicts them, on your own
+CPU, triggered by anonymous web requests.  Do not do this.
+ 
+The intended workflow is:
+ 
+1. Hit `/i/abr/your_video.mp4/master.m3u8` once.  Let it encode.
+2. Find the renditions in your cache directory.
+3. **Copy them back into your video library**, alongside your source file, in the
+   `your_video.mp4.transcodes/` layout shown above.
+4. Point your public website at the `.csmil` URL from now on.
+`/i/abr/` is a tool for producing renditions and for surviving the case where a video hasn't
+been encoded yet.  `.csmil` is what you ship.
+ 
+### Single-bitrate master manifest
+ 
+```
+http://example.com/i/<path>/my_video.mp4/master.m3u8
+```
+ 
+Takes one video file and gives you a master manifest with exactly one rendition in it - the
+source file itself, no bitrate suffix, no ladder, no adaptation.  Under the hood it's just a
+CSMIL with a single unlabeled rendition.
+ 
+Useful for testing, for a quick look at whether a file packages at all, and for the case where
+you genuinely only have one quality and don't care about adaptive delivery.  It is not
+adaptive bitrate streaming, so don't put it on a page where viewers have varying bandwidth and
+then wonder why it buffers.
+ 
+### Media (child) manifest
+ 
+```
+http://example.com/i/<path>/my_video_720p.mp4/index_0_av.m3u8
+```
+ 
+This is the per-rendition playlist - the list of `.ts` segments for one specific quality.  You
+don't request this yourself; every master manifest above contains URLs pointing here, and the
+player follows them.
+ 
+If the segments don't exist yet, requesting this creates them.  That's the actual packaging
+step, and it's the cheap one.
+ 
+### Segments
+ 
+```
+http://example.com/i/<path>/my_video_720p.mp4/segment1_0_av.ts
+```
+ 
+The video data itself.  Again, the player asks for these, not you.  If a segment is requested
+and the stream hasn't been packaged yet, CasterPak packages it on the spot rather than 404ing.
+ 
+Delivery of these is controlled by `[output] behind_nginx`.  With nginx in front, Flask returns
+an empty body and an `X-Accel-Redirect` header, and nginx serves the file directly off disk -
+much more efficient, and the reason the container ships with an nginx sidecar.  Without nginx,
+Flask serves the bytes itself.  Playback works either way.
+ 
+### Endpoints that deliberately do nothing
+ 
+```
+http://example.com/i/<path>/my_video.mp4
+```
+ 
+A direct request for the video file, with no stream path after it, always returns `404`.
+CasterPak is a stream packager, not a file server.  If you want to hand people the raw MP4,
+use a normal web server.
+ 
+`/d/...` (DASH) and `/c/...` (CMAF) are registered but not implemented.  They're placeholders
+for a future where this does more than HLS.
+ 
+### Response codes you'll actually see
+ 
+- `302` - you hit `/i/abr/` and renditions exist; follow the redirect to the `.csmil` URL.
+- `404` - source video or renditions not found where CasterPak expected them.  Check
+  `videoParentPath` and check your filename.
+- `422` - the filename or directory in your URL didn't pass validation.  See **Valid
+  Filenames** above.  Most often this is a space or a comma in a filename.
+- `500` - packaging failed.  Check the logs; usually Bento4 refusing the source file.
+- `504` - encoding failed or timed out on the `/i/abr/` path.
 
+ 
 
 ## Valid Filenames
 
