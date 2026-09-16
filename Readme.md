@@ -4,6 +4,23 @@
 curl -sL https://raw.githubusercontent.com/flipmcf/casterpak/master/install | bash
 ```
 
+The best way to approach this software is with a filesystem containing pre-encoded Adaptive Bitrate renditions that can be mounted over slow NFS or SSHFS.
+We host a web server and create a predictable URL based on YOUR library.
+
+Let's say, your video archive has this already:
+```
+my_video.mp4.transcodes
+  my_video_360p.mp4
+  my_video_480p.mp4
+  my_video_720p.mp4
+  my_video_hidef.mp4
+```
+mount that into casterpak and hit this url for an HLS stream:
+
+``` http://example.com/i/my_video.mp4.transcodes/my_video_,360p,480p,720p,hidef,mp4.csmil/master.m3u8 ```
+
+No migration needed.  It just works.  Read on for the details if this didn't immediately catch your attention.
+
 
 ## The CAching STrEam [R] PAcKager:
 
@@ -12,19 +29,23 @@ This software provides HLS Stream packaging for Video-On-Demand (VOD) with a bui
 The problem this solves is to balance your CPU and Storage costs for streaming Video-on-demand.
 Creating an HLS (m3u8) stream from a video file (mp4, et. al.) is CPU cheap and fast compared to video encoding.
 
+This is designed to be a migrationless "Just connect to your existing video library" solution for streaming video-on-demand.  Rather than pay someone to store, encode and deliver your videos, you can drop this into your stack yourself.
+
+This was originally designed to only create HLS streams, but has grown to become both a rendition encoder and JIT encoder to make your videos play on any website.  You don't need to provide encoded renditions; encoding can happen on your server and this software will happily peg 16 CPU cores to serve an anonymous web request.  Tune your cache, save your renditions, learn the software. Watch your costs.  You have been warned.
+
+It's a great fit for those who own a large 'archive' video file on inexpensive, slow-access storage like AWS S3 Glacier or Microsoft Azure Archive.  
+CasterPak can retrieve source video files from network addresses, copy them locally, and then deliver.
+
 Casterpak a very good fit for use cases where videos serve the 'popular' model of access.  Videos that are frequently accessed remain cached at this server and videos that are not accessed are deleted from cache.
 
-Also it's a great fit for those who own a large 'archive' video file on inexpensive, slow-access storage like AWS S3 Glacier or Microsoft Azure Archive.  
-CasterPak can retrieve source video files from network addressess, copy them locally, and then deliver.   The first video play may be slow, but subsequent access to the same video is then fast. 
+** New in version 0.9 **  Encoding of video renditions and JUST IN TIME encoding!   There is a new endpoint '/i/abr' that will do transcoding of renditions for you based on a configured Adaptive Bitrate Ladder.  Additionally, if CasterPak finds it has no encoding, it can create a stream in just a few seconds to deliver to your website while it does the encoding in the background.
 
-You don't want to store your HLS stream forever, neither do you want to re-create a stream package for every request.  
-This software provides the utilities to configure how long to store origional video files locally (video input cache ttl), files ready for streaming (streaming cache ttl), and creates stream packages on-demand from your encoded renditions
-if the files don't exist (handle cache miss).
+Bottom line: If you haven't encoded your videos for Adaptive Bitrate streaming yet, this package can do that for you too, on your own CPU and storage.
+
+** Caching **: You don't want to store your HLS streams forever, neither do you want to re-create a stream package for every request.  
+This software provides the utilities to configure how long to store original video files locally (video input cache ttl), files ready for streaming (streaming cache ttl), and creates stream packages on-demand from your encoded renditions if the files don't exist in the cache.
 
 This package is a good drop-in replacement for Akamai Media Services On Demand (MSOD) for video streaming.  It supports the '.csmil' endpoint that Akamai used to support to generate master manifests of renditions, and creates media playlists and segments your renditions.
-
-** New in version 0.9 **
-   Encoding of video renditions.  Work in progress.
 
 
 ## Basic Usage
@@ -40,7 +61,6 @@ http://example.com/i/path/<common_filename_prefix>,< bitrate >,< bitrate >,< bit
 
 For example, if you have a master video with three stream qualities: "high", "medium" and "low" saved as 3 files named 'my_video_highdef.mp4', 'my_video_medium.mp4', and 'my_video_low.mp4' a very basic Master Manifest URL and contents would look like this:
 
-
 http://example.com/i/my_video_,highdef,medium,low,.mp4.csmil/master.m3u8
 
 
@@ -52,7 +72,7 @@ http://example.com/i/my_video_,highdef,medium,low,.mp4.csmil/master.m3u8
     #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=1156684,RESOLUTION=1280x720
     http://example.com/i/my_video_highdef.mp4/index_0_av.m3u8
 
-Each one of those url's above will also be served by this application.  Each URL contains the defintion of the video stream for that video resolution, saved at that file location.  We call these files 'media manifests' or 'segment manifests' This application will serve segment manifests and the actual segment data.
+Each one of those url's above will also be served by this application.  Each URL contains the definition of the video stream for that video resolution, saved at that file location.  We call these files 'media manifests' or 'segment manifests' This application will serve segment manifests and the actual segment data.
 
 The caching server will determine if the m3u8 segment manifest is available on-disk, or needs to be created before being served.
 
@@ -79,24 +99,26 @@ For example, http://this_application/i/my_video_highdef.mp4/index_0_av.m3u8 will
 Each one of those .ts video segments will be available at this application's endpoint until they are removed by the cache cleanup.
 
 
-### CACHING RECIPIES & Tuning
+### CACHING RECIPES & Tuning
 
-The easiest is no cache.  Start here.   Install this (or run the container) on the same system that has your video files.
-(if you're already using a network mount for your video files, you're ahead of the game... but stay with me...)
+The easiest is no cache.  Start here.  Install this (or run the container) _on the same system_ that has your video files.  No network or high latency between your video files and this software.  It's not the best pattern, but it's a good way to understand what's happening.
 
-configure "cache_input = False" in config.ini.
+configure "cache_input = False" in config.ini.  Container installs have a setup script that ask `Cache/copy input video files from library?` answer 'n' in this scenario.
 
-And start streaming.
+And start streaming from the URL that CasterPak will serve.
 
-Next is to turn cache_input on and configure a local spot for your video files - so they are only read over the network once.  This is your 'input cache'.  Currently, casterpak will copy your big video files into the container, but I'm considering other options the 'input cache' configuration.
+The better model is to host this software on it's own server and mount your video library over the network.  Turn cache_input on and use the input_cache. Casterpak will copy your big video files onto it's local filesystem for encoding and stream packaging.
 
-In the future, we will support directly configuring FTP, SCP, and others so network mounts are not necessary inside containers. (see config.ini), but for now, you must mount the filesystem and map it to the container.
+In the future, we will support directly configuring HTTP, SFTP, S3, and other remote file access so network mounts are not necessary inside containers. (see config.ini), but for now, you must mount the filesystem and map it to the container.
 
 ----
 
+## URL Endpoints for streaming.
+
+
 ## Valid Filenames
 
-Every filename and directory segment that reaches CasterPak from a URL is **validated, never mutated**. A name that doesn't meet the rules below is rejected outright (HTTP 422) - it is never silently rewritten into something else. This matters because a rewritten name stops matching the file it actually points to; see the security section of the project's internal notes for the incident that motivated this.
+Every filename and directory segment that reaches CasterPak from a URL is **validated, never mutated**. A name that doesn't meet the rules below is rejected outright (HTTP 422) - it is never silently rewritten into something else.
 
 Allowed characters, in filenames and in each `/`-separated directory segment:
 
@@ -108,13 +130,11 @@ Allowed characters, in filenames and in each `/`-separated directory segment:
 
 Rejected outright, regardless of character set:
 
-- A segment starting with `-` (protects against a filename being read as a command-line flag by ffmpeg or Bento4)
+- A segment starting with `-` 
 - A literal comma `,` anywhere in a name (reserved as the CSMIL rendition-list delimiter - see `vodhls/csmil.py`)
 - An empty segment (produced by a leading, trailing, or doubled `/` in the path)
 
-**Spaces are not a valid filename character and are not converted to anything.** If your source library or upload tooling produces filenames with spaces (a common side effect of a space becoming a literal `+` when a browser encodes a form submission), convert spaces to underscores *before* the file reaches CasterPak - don't rely on CasterPak to do it for you.
-
-This is implemented in `pathsafety.py` (`validate_filename`/`validate_dirname`), used by every route in `casterpak/routes.py` and by `vodhls/csmil.py`'s CSMIL string parsing - one shared set of rules, enforced once, not several slightly-different copies that can quietly disagree with each other.
+**Spaces are not a valid filename character and are not converted to anything.** If your source library or upload tooling produces filenames with spaces, convert spaces to underscores *before* the file reaches CasterPak.
 
 ----
 
@@ -137,7 +157,7 @@ Things should work right out of the box.
 
 open VNC or a browser capable of native HLS streaming, and hit the url where your video is:
 
-http://localhost/i/VIDEOFILENAME.mp4/master.m3u8
+http://localhost/i/abr/VIDEOFILENAME.mp4/master.m3u8
 
 or better yet, the bench test that is part of this build:
 http://localhost/testing/test_player.html   ( security people don't like this - firewall it off from the dmz )
