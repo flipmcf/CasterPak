@@ -22,7 +22,7 @@ class MediaManager_http(MediaManager_Base):
         logger.debug(f"requesting {self.source_url}")
         os.makedirs(os.path.dirname(self.cached_filename), exist_ok=True)
 
-        with requests.get(self.source_url, timeout=self.fetch_timeout, stream=True) as response:
+        with requests.get(self.source_url, (self.connect_timeout, self.transfer_timeout), stream=True) as response:
             if response.status_code != 200:
                 logger.error(f"error {response.status_code} while requesting {self.source_url}")
                 raise FileNotFoundError
@@ -33,11 +33,19 @@ class MediaManager_http(MediaManager_Base):
 
 
     @property
-    def fetch_timeout(self) -> float:
+    def transfer_timeout(self) -> float:
         """
-        :return: number of seconds to wait for a response from remote server when transferring input files
+        :return: number of seconds to wait for the entire transfer of a video file.
         """
-        return 1.0
+        return self.config.get('http', "transfer_timeout")
+
+    @property
+    def connect_timeout(self) -> float:
+        """
+        :return: number of seconds to wait for a connection to the http host - first bytes.
+        """
+        return self.config.get('http', "connect_timeout")
+    
 
     @property
     def source_url(self):
