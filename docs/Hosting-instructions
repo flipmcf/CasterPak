@@ -91,8 +91,6 @@ The skeleton directory structure, default config, and docker compose all assume 
 
 Drop your keys on the host at /etc/letsencrypt as described by the example.
 
-Coming soon - SSL setup during casterpak install setup process
-HTTPS is not well documentend yet. see nginx/ssl/README at this time. your host to drop an example ssl.conf and a directory for your key files.  This install part is currently in development, thank you for your patience.  See nginx/Dockerfile and docker-compose.yml for more info.
 
 
 
