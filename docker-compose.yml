@@ -12,8 +12,8 @@ services:
         # VERSION file via CASTERPAK_VERSION in .env - see .env.example.
         # TEMPORARY: until there's a real CI/CD release pipeline, this is
         # manually kept in sync with the VERSION file and the image tag below.
-        CASTERPAK_VERSION: ${CASTERPAK_VERSION:-0.9.0-alpha}
-    image: flipmcf/casterpak:${CASTERPAK_VERSION:-0.9.0-alpha}
+        CASTERPAK_VERSION: ${CASTERPAK_VERSION:-0.9.1-alpha}
+    image: flipmcf/casterpak:${CASTERPAK_VERSION:-0.9.1-alpha}
     container_name: casterpak_server
     
     # Map the host port 5000 to the container port 5000
@@ -74,7 +74,7 @@ services:
     build: 
       context: .
       dockerfile: ./nginx/Dockerfile
-    image: flipmcf/casterpak-proxy:${CASTERPAK_VERSION:-0.9.0-alpha}
+    image: flipmcf/casterpak-proxy:${CASTERPAK_VERSION:-0.9.1-alpha}
     container_name: casterpak_nginx
     ports:
       - "80:80"
