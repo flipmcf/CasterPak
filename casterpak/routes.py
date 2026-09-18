@@ -128,7 +128,7 @@ def abr_manifest(dir_name: str):
             current_app.logger.info(f"renditions exist - redirect to csmil")
             # TIER 2: Encodings are ready. Redirect to stateless CSMIL delivery.
             transcodes_dir = os.path.join(dirname, f"{filename}.transcodes")
-            csmil = CsmilDescriptor(transcodes_dir, basename, ext, encoder.bitrates)
+            csmil = CsmilDescriptor(transcodes_dir, encoder.rendition_prefix, ext, encoder.bitrates)
             redirect_url = f"/i/{csmil.csmil_string}.csmil/master.m3u8"
             return redirect(redirect_url, code=302)
 

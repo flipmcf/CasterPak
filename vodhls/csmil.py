@@ -21,7 +21,7 @@ class CsmilDescriptor:
     @classmethod
     def from_string(cls, csmil_str: str) -> 'CsmilDescriptor':
         """
-        Parses a raw string like '/foodir/bardir/test-video_,720,480,360,.mp4'
+        Parses a raw string like 'foodir/bardir/test-video_,720,480,360,.mp4'
         and returns a fully populated, sorted CsmilDescriptor object.
         """
         append_csmil = False
@@ -46,9 +46,7 @@ class CsmilDescriptor:
         ext = common_filename_suffix = validate_filename(file_chunks[-1])
 
         dirname = os.path.join(*dirs) if dirs else ''
-        filenames = [basename+'_'+bitrate+common_filename_suffix for bitrate in bitrates]
-        files = [os.path.join(dirname, filename) for filename in filenames]
-        
+
         return cls(dirname, basename, ext, bitrates, append_csmil)   
         
     @property
@@ -73,10 +71,7 @@ class CsmilDescriptor:
     @property
     def rendition_filenames(self) -> list:
         """
-        Generates the exact list of physical .mp4 files this CSMIL represents.
-        This completely removes the file-guessing logic from routes.py!
+        Generates the exact list of physical files this CSMIL represents:
+        prefix + label + suffix,
         """
-        return [
-            f"{self.basename}_{b}{self.ext}" if b else f"{self.basename}{self.ext}"
-            for b in self.bitrates
-        ]
+        return [f"{self.basename}{b}{self.ext}" for b in self.bitrates]

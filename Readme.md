@@ -17,7 +17,7 @@ my_video.mp4.transcodes
 ```
 mount that into casterpak and hit this url for an HLS stream:
 
-``` http://example.com/i/my_video.mp4.transcodes/my_video_,360p,480p,720p,hidef,mp4.csmil/master.m3u8 ```
+``` http://example.com/i/my_video.mp4.transcodes/my_video_,360p,480p,720p,hidef,.mp4.csmil/master.m3u8 ```
 
 No migration needed.  It just works.  Read on for the details if this didn't immediately catch your attention.
 

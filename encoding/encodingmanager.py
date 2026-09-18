@@ -137,6 +137,17 @@ class EncodingManager:
         self._ensure_transcode_dir()
         logger.info(f"Queued background ABR encoding for {self.full_path_filename}")
 
+    """ delimiter for renditions defined here."""
+    rendition_delimiter = "_"
+
+    @property
+    def rendition_prefix(self) -> str:
+        """
+        The filename prefix of every rendition this manager writes: the source
+        basename plus the '_' that separates it from the ladder label.
+        foo.mp4 will now have previxes foo_high.mp4, foo_mid.mp4 and foo_low.mp4 
+        """
+        return f"{self.file_basename}{self.rendition_delimiter}"
 
     def list_rendition_files(self) -> list[str]:
 
@@ -145,7 +156,7 @@ class EncodingManager:
         # They must be specified in the same order, or you will get a 720p encoding in a file named '360p'
         files = []
         for label in self.bitrates:
-            files.append(os.path.join(self.transcode_output_dir, f"{self.file_basename}_{label}{self.file_ext}"))
+            files.append(os.path.join(self.transcode_output_dir, f"{self.rendition_prefix}{label}{self.file_ext}"))
     
         if not len(files) > 0:
             logger.warning("No Renditions configured to auto-transcode check config for [encoding_ladder] section")
