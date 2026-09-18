@@ -540,7 +540,7 @@ def test_route_csmil_parent_manifest(with_encodings):
     # The fixture created our encodings.
 
     # 1. Exercise the CSMIL route
-    response = requests.get("http://localhost:80/i/test-video.mp4.transcodes/test-video,360p,480p,720p,.mp4.csmil/master.m3u8")
+    response = requests.get("http://localhost:80/i/test-video.mp4.transcodes/test-video_,360p,480p,720p,.mp4.csmil/master.m3u8")
 
     assert response.status_code == 200
 
@@ -701,7 +701,7 @@ def test_route_abr_manifest_redirect(with_abr_cache_encodings):
     assert response.status_code == 302
     
     # Verify the Location header was built correctly
-    expected_redirect = "/i/test-video.mp4.transcodes/test-video,360p,480p,720p,.mp4.csmil/master.m3u8"
+    expected_redirect = "/i/test-video.mp4.transcodes/test-video_,360p,480p,720p,.mp4.csmil/master.m3u8"
     assert response.headers['Location'] == expected_redirect
 
 
@@ -794,7 +794,7 @@ def test_route_abr_manifest_produces_renditions_from_scratch(casterpak_clean):
 
     assert location is not None, \
         f"EncodingManager never finished producing renditions within {timeout}s"
-    assert location == "/i/test-video.mp4.transcodes/test-video,360p,480p,720p,.mp4.csmil/master.m3u8"
+    assert location == "/i/test-video.mp4.transcodes/test-video_,360p,480p,720p,.mp4.csmil/master.m3u8"
 
     # Confirm the redirect target is real, not just a plausible-looking URL -
     # fetch it and check all three renditions genuinely exist in the manifest.
@@ -862,7 +862,7 @@ def test_route_abr_manifest_deep_directory_produces_reachable_renditions(casterp
         f"/abr/ for a nested video never redirected within {timeout}s"
     assert location == (
         "/i/deep/dir/test-video.mp4.transcodes/"
-        "test-video,360p,480p,720p,.mp4.csmil/master.m3u8"
+        "test-video_,360p,480p,720p,.mp4.csmil/master.m3u8"
     )
 
     # The redirect target must actually serve - i.e. the renditions were

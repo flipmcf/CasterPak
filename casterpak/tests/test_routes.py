@@ -47,6 +47,7 @@ class TestABRRoute(unittest.TestCase):
         mock_encoder.renditions_exist.return_value = True
         mock_encoder.in_progress.return_value = False
         mock_encoder.bitrates = ['1080p', '720p']
+        mock_encoder.rendition_prefix = 'test_file_'
         mock_encoding_manager_class.return_value = mock_encoder
 
         # Simulate the user requesting the ABR manifest
@@ -56,7 +57,7 @@ class TestABRRoute(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         
         # Assert the redirect points to the correct stateless CSMIL URL
-        expected_url = '/i/test_file.mp4.transcodes/test_file,1080p,720p,.mp4.csmil/master.m3u8'
+        expected_url = '/i/test_file.mp4.transcodes/test_file_,1080p,720p,.mp4.csmil/master.m3u8'
         self.assertEqual(response.location, expected_url)
 
     @patch('casterpak.routes.jit_manager_factory')

@@ -10,8 +10,7 @@ def test_parse_basic_csmil_string():
     desc = CsmilDescriptor.from_string(csmil_str)
 
     assert desc.dirname == ""
-    # The legacy parser lumps the _, into the prefix, so we test against the legacy behavior
-    assert "test-video" in desc.basename 
+    assert desc.basename == "test-video_"
     assert desc.ext == ".mp4"
     assert desc.bitrates == ["480", "720"]  # Sorted automatically
 
@@ -29,7 +28,7 @@ def test_rendition_filenames_generation():
     """Test that it generates the exact list of physical files."""
     desc = CsmilDescriptor(
         dirname="cache",
-        basename="movie",
+        basename="movie_",
         ext=".mp4",
         bitrates=["720", "480"]
     )
@@ -76,3 +75,80 @@ def test_csmil_round_trip():
 
     output = desc.csmil_string
     assert output == input
+
+# --- "Bring your own transcodes" ------------------------------------------
+# Renditions that were NOT produced by /abr/ can use any naming scheme. The
+# CSMIL grammar is plain concatenation - prefix + label + suffix - so whatever
+# separator the files use has to come from the URL itself, never from the
+# parser.
+
+BYO_CASES = [
+    pytest.param(
+        "bbb_,360p,480p,720p,.avi",
+        ["bbb_360p.avi", "bbb_480p.avi", "bbb_720p.avi"],
+        id="underscore-in-prefix",
+    ),
+    pytest.param(
+        "bbb-,360p,480p,720p,.avi",
+        ["bbb-360p.avi", "bbb-480p.avi", "bbb-720p.avi"],
+        id="dash-in-prefix",
+    ),
+    pytest.param(
+        "bbb.,360p,480p,720p,.avi",
+        ["bbb.360p.avi", "bbb.480p.avi", "bbb.720p.avi"],
+        id="dot-in-prefix",
+    ),
+    pytest.param(
+        "bbb,360p,480p,720p,.avi",
+        ["bbb360p.avi", "bbb480p.avi", "bbb720p.avi"],
+        id="no-separator-at-all",
+    ),
+    pytest.param(
+        "example2a_,300000,500000,800000,_event1.mp4",
+        ["example2a_300000_event1.mp4",
+         "example2a_500000_event1.mp4",
+         "example2a_800000_event1.mp4"],
+        id="akamai-doc-example-suffix-carries-content",
+    ),
+]
+
+
+@pytest.mark.parametrize("csmil_str, expected", BYO_CASES)
+def test_byo_rendition_filenames_are_pure_concatenation(csmil_str, expected):
+    """The parser must never add a delimiter between prefix, label and suffix."""
+    desc = CsmilDescriptor.from_string(csmil_str)
+
+    assert desc.rendition_filenames == expected
+
+
+@pytest.mark.parametrize("csmil_str, expected", BYO_CASES)
+def test_byo_from_string_does_not_mutate_prefix(csmil_str, expected):
+    """Everything before the first comma is the prefix, verbatim - trailing
+    separator characters included."""
+    desc = CsmilDescriptor.from_string(csmil_str)
+
+    assert desc.basename == csmil_str.split(",")[0]
+
+
+def test_byo_transcodes_directory_layout():
+    """The layout from the bring-your-own use case:
+
+        bbb.avi.transcodes/
+            bbb_360p.avi  bbb_480p.avi  bbb_720p.avi
+    """
+    desc = CsmilDescriptor.from_string(
+        "bbb.avi.transcodes/bbb_,360p,480p,720p,.avi.csmil"
+    )
+
+    assert desc.dirname == "bbb.avi.transcodes"
+    assert desc.rendition_filenames == [
+        "bbb_360p.avi", "bbb_480p.avi", "bbb_720p.avi"
+    ]
+
+
+def test_byo_url_round_trips_unchanged():
+    """Parsing then rebuilding must hand back the exact URL segment, with the
+    prefix's trailing '_' intact."""
+    url = "bbb.avi.transcodes/bbb_,360p,480p,720p,.avi.csmil"
+
+    assert CsmilDescriptor.from_string(url).csmil_string == url
