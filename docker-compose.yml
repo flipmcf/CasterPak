@@ -51,6 +51,7 @@ services:
       - CASTERPAK_LOGGING_ACCESS_LOG=-
       - CASTERPAK_LOGGING_ERROR_LOG=-
       - CASTERPAK_LOGGING_CACHE_LOG=-
+      - CASTERPAK_LOGGING_ENCODING_LOG=-
 
     # Volume mappings connect your real files to the container
     volumes:

@@ -39,6 +39,7 @@ import logging
 import random
 import sqlite3
 import subprocess
+import sys
 import threading
 import time
 import typing as t
@@ -247,14 +248,22 @@ def in_progress(lock_name: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def _configure_file_logging(log_file: str) -> None:
-    """Attach a dedicated file handler to this module's logger, so
-    encoding job status actually lands in the configured encoding_log
-    file. Deliberately NOT routed through casterpak/__init__.py's
-    setup_gunicorn_logging (which replaces a logger's handlers with
-    gunicorn's own, sending it to error_log instead) - the whole point of
-    a dedicated encoding_log is a file a human can tail for just encoding
-    job status, so this attaches its own FileHandler and keeps it."""
-    fh = logging.FileHandler(log_file)
+    """Attach a dedicated handler to this module's logger, so encoding job
+    status actually lands in the configured encoding_log. Deliberately NOT
+    routed through casterpak/__init__.py's setup_gunicorn_logging (which
+    replaces a logger's handlers with gunicorn's own, sending it to
+    error_log instead) - the whole point of a dedicated encoding_log is
+    somewhere a human can watch just encoding job status, so this attaches
+    its own handler and keeps it.
+
+    A log_file of '-' means stdout, the same convention gunicorn uses for
+    accesslog/errorlog. Inside a container there is nobody to tail a file
+    at /app, so docker-compose sets '-' and encoding status shows up in
+    `docker logs` with everything else."""
+    if log_file == '-':
+        fh = logging.StreamHandler(sys.stdout)
+    else:
+        fh = logging.FileHandler(log_file)
     formatter = logging.Formatter(
         fmt='[%(asctime)s] [%(levelname)s] in casterpak-encoding: %(message)s'
     )

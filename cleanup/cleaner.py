@@ -195,7 +195,11 @@ if __name__ == "__main__":
 
 
     log_file = app_config.get('logging', 'cache_log', fallback='/var/log/casterpak.cache.log')
-    fh = logging.FileHandler(log_file)
+    # '-' means stdout, same convention as gunicorn and the encoding log.
+    if log_file == '-':
+        fh = logging.StreamHandler(sys.stdout)
+    else:
+        fh = logging.FileHandler(log_file)
     formatter = logging.Formatter(fmt='[%(asctime)s] [%(levelname)s] in casterpak-cleanup: %(message)s')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
