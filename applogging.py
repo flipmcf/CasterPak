@@ -16,23 +16,12 @@ CASTERPAK_DEFAULT_LOGGING_CONFIG = {
     'disable_existing_loggers': False,
     'formatters': {
         'default': {'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s', },
-        'cleanup': {'format': '[%(asctime)s] %(levelname)s CasterPak Cleanup: %(message)s', }
     },
     'handlers': {
         'wsgi': {
             'class': 'logging.StreamHandler',
             'stream': 'ext://flask.logging.wsgi_errors_stream',
             'formatter': 'default'
-            },
-        'vodhls': {
-            'class': 'logging.StreamHandler',
-            'stream': 'ext://flask.logging.wsgi_errors_stream',
-            'formatter': 'default',
-            },
-        'CasterPak-cleanup': {
-            'class': 'logging.StreamHandler',
-            'stream': 'ext://flask.logging.wsgi_errors_stream',
-            'formatter': 'cleanup'
             },
     },
     'root': {
@@ -41,3 +30,38 @@ CASTERPAK_DEFAULT_LOGGING_CONFIG = {
     },
 }
 
+
+#: Every CasterPak logger that is not the Flask app logger. These are the
+#: ones that have to be re-pointed at gunicorn, because nothing else
+#: attaches a handler to them.
+CASTERPAK_LOGGERS = ('vodhls', 'CasterPak-cleanup', 'CasterPak-encoding')
+
+
+def use_gunicorn_handlers(*logger_names: str) -> None:
+    """Point the named loggers at gunicorn's handlers.
+
+    This is the single rule for log destinations in CasterPak: a logger
+    never opens its own file. Gunicorn owns where logs go (accesslog /
+    errorlog, where '-' means stdout), and every CasterPak logger borrows
+    its handlers.
+
+    Needs calling in both gunicorn processes, because they are different
+    processes and handlers do not survive the fork in any useful sense:
+
+    * the WORKER, from create_app() - app.logger and the request-path
+      loggers.
+    * the MASTER, from gunicorn.conf.py's on_starting hook - the cleanup
+      and encoding background threads start there, before workers exist.
+
+    Outside gunicorn (the cron entry point in crontab.tpl, tests, a bare
+    `flask run`) 'gunicorn.error' has no handlers, so this is a no-op and
+    the caller's own basic config stands.
+    """
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    if not gunicorn_logger.handlers:
+        return
+
+    for name in logger_names:
+        logger = logging.getLogger(name)
+        logger.handlers = gunicorn_logger.handlers
+        logger.setLevel(gunicorn_logger.level)
