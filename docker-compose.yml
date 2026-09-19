@@ -47,10 +47,11 @@ services:
       # See casterpak/routes.py:get_base_url.
       - CASTERPAK_OUTPUT_USE_HTTPS=${CASTERPAK_OUTPUT_USE_HTTPS:-False}
       - CASTERPAK_DB_PATH=/var/lib/casterpak/data/cacheDB.db
-      #and we want to send all logs to stdout/stderr
+      # Gunicorn owns every log destination and '-' means stdout, so this
+      # is all of them - cleanup and encoding borrow these handlers rather
+      # than opening files of their own.
       - CASTERPAK_LOGGING_ACCESS_LOG=-
       - CASTERPAK_LOGGING_ERROR_LOG=-
-      - CASTERPAK_LOGGING_CACHE_LOG=-
 
     # Volume mappings connect your real files to the container
     volumes:

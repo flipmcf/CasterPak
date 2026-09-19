@@ -16,20 +16,15 @@ from encoding import encoding_process_manager
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 def setup_gunicorn_logging(app, base_config):
-    # get the gunicorn logger
+    """Worker-side half of the logging setup - see
+    applogging.use_gunicorn_handlers for the rule. The master-side half
+    lives in gunicorn.conf.py's on_starting hook."""
     gunicorn_logger = logging.getLogger('gunicorn.error')
 
-    # configure the app, and vodhls loggers to use the same handlers as gunicorn
     app.logger.handlers = gunicorn_logger.handlers
     app.logger.setLevel(gunicorn_logger.level)
-    
-    vodhls_logger = logging.getLogger('vodhls')
-    vodhls_logger.handlers = gunicorn_logger.handlers
-    vodhls_logger.setLevel(gunicorn_logger.level)
-    
-    cleanup_logger = logging.getLogger('CasterPak-cleanup')
-    cleanup_logger.handlers = gunicorn_logger.handlers
-    cleanup_logger.setLevel(gunicorn_logger.level)
+
+    applogging.use_gunicorn_handlers(*applogging.CASTERPAK_LOGGERS)
 
 
 def printable_config(config):

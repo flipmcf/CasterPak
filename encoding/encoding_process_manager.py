@@ -17,7 +17,7 @@ Two jobs, deliberately kept in one small module:
    start_maintenance_loop), that polls the queue table, spawns pending
    jobs up to max_concurrent_encodes at a time, and waits on each child
    itself. Because this module is the true parent of every encoding
-   process, wait() here gets the real exit code (logged to encoding_log)
+   process, wait() here gets the real exit code (logged to errorlog)
    - this replaces the old `signal.signal(SIGCHLD, SIG_IGN)` hack that
    used to live in encodingmanager.py, which auto-reaped children at the
    kernel level and so made exit codes unrecoverable by anyone.
@@ -39,12 +39,12 @@ import logging
 import random
 import sqlite3
 import subprocess
+import sys
 import threading
 import time
 import typing as t
 
 from cachedb import SQLite, DB_PATH
-from config import get_config
 
 from . import EncodingAlreadyInProgressError
 
@@ -246,23 +246,6 @@ def in_progress(lock_name: str) -> bool:
 # master-hook thread.
 # ---------------------------------------------------------------------------
 
-def _configure_file_logging(log_file: str) -> None:
-    """Attach a dedicated file handler to this module's logger, so
-    encoding job status actually lands in the configured encoding_log
-    file. Deliberately NOT routed through casterpak/__init__.py's
-    setup_gunicorn_logging (which replaces a logger's handlers with
-    gunicorn's own, sending it to error_log instead) - the whole point of
-    a dedicated encoding_log is a file a human can tail for just encoding
-    job status, so this attaches its own FileHandler and keeps it."""
-    fh = logging.FileHandler(log_file)
-    formatter = logging.Formatter(
-        fmt='[%(asctime)s] [%(levelname)s] in casterpak-encoding: %(message)s'
-    )
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
-    logger.setLevel(logging.INFO)
-
-
 def _supervise(queue: SqliteEncodingQueue, executor: LocalSubprocessExecutor,
                active: t.Dict[str, threading.Thread], active_lock: threading.Lock,
                lock_name: str, process) -> None:
@@ -335,22 +318,20 @@ def _dispatch_once(queue: SqliteEncodingQueue, executor: LocalSubprocessExecutor
 
 
 def start_encoding_dispatcher(poll_interval: int = 5, pool_size: int = 2,
-                               dbname: str = DB_PATH, server=None) -> None:
+                               dbname: str = DB_PATH) -> None:
     """
     Starts the background dispatcher thread. Meant to be called from
     gunicorn's on_starting hook (see gunicorn.conf.py), the same as
     cleanup.start_maintenance_loop() - runs once in the gunicorn MASTER
-    process, before workers fork.
+    process, before workers fork. on_starting has already pointed this
+    module's logger at gunicorn's handlers by then, so `logger` here goes
+    to errorlog like everything else.
 
     The dispatcher polls the queue table for unclaimed jobs (pid IS NULL),
     spawns up to `pool_size` of them at once via LocalSubprocessExecutor,
     and supervises each one on its own thread so it can wait() on the
     child, log a real exit code, and delete the finished row.
     """
-    app_config = get_config()
-    log_file = app_config.get('logging', 'encoding_log', fallback='/var/log/casterpak.encoding.log')
-    _configure_file_logging(log_file)
-
     initialize_encoding_db(dbname)
 
     queue = SqliteEncodingQueue(dbname)
@@ -359,12 +340,9 @@ def start_encoding_dispatcher(poll_interval: int = 5, pool_size: int = 2,
     active_lock = threading.Lock()
 
     def loop():
-        if server:
-            server.log.info(
-                f"Encoding: dispatcher thread started - polling every {poll_interval}s, "
-                f"up to {pool_size} concurrent encodes."
-            )
-        logger.info(f"dispatcher started - poll_interval={poll_interval}s pool_size={pool_size}")
+        logger.info(
+            f"dispatcher started - poll_interval={poll_interval}s pool_size={pool_size}"
+        )
         while True:
             try:
                 _dispatch_once(queue, executor, active, active_lock, pool_size)
@@ -372,8 +350,6 @@ def start_encoding_dispatcher(poll_interval: int = 5, pool_size: int = 2,
                 time.sleep(poll_interval + jitter)
             except Exception as e:
                 logger.error(f"dispatcher loop encountered an error: {e}")
-                if server:
-                    server.log.error(f"Encoding: dispatcher loop encountered an error: {e}")
                 time.sleep(30)
 
     thread = threading.Thread(target=loop, daemon=True)

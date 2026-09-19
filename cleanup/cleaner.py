@@ -194,8 +194,11 @@ if __name__ == "__main__":
     # When run as a standalone script, configure a file handler for logging.
 
 
-    log_file = app_config.get('logging', 'cache_log', fallback='/var/log/casterpak.cache.log')
-    fh = logging.FileHandler(log_file)
+    # Standalone (cron) entry point - see crontab.tpl, which already sends
+    # stdout where the operator wants it with a shell redirect. Under
+    # gunicorn this block never runs and the logger uses gunicorn's
+    # handlers instead (applogging.use_gunicorn_handlers).
+    fh = logging.StreamHandler(sys.stdout)
     formatter = logging.Formatter(fmt='[%(asctime)s] [%(levelname)s] in casterpak-cleanup: %(message)s')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
