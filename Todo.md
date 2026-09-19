@@ -31,3 +31,10 @@ DDoS Attacks	Rate Limiting: Use Nginx to limit how many new transcode requests a
 
 a separate certbot sidecar container, its own tiny image with certbot installed, sharing the /etc/letsencrypt volume with nginx, and either running --nginx against a shared config mount or certonly --standalone on a brief port-80 handoff between the two containers, "industry-standard shape" says AI - but validate that.
 
+
+Encoding ladder database - store per-video ladders in a database, with the SMIL file written from it,
+so a ladder can carry data beyond what SMIL 3.0 expresses. Deferred: the SMIL file is the only copy
+of a ladder for now.
+
+Keep cache SMILs - when a ladder is edited for a video in a read-only library, the edit is written
+to a SMIL in the cache, which can be deleted. Work on keeping those edits durable.

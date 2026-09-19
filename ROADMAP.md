@@ -65,7 +65,7 @@ Scope:
 
 ## Phase C: Upload API
 
-`POST /api/upload` (per `CLAUDE.md` Priority 3) — accept a video, return a playable URL.
+`POST /api/upload` (see `api/upload.md`) — accept a video, return a playable URL.
 Build and test against the Phase B deployment target, not locally-only, so upload semantics
 and deployment aren't being solved at the same time.
 
