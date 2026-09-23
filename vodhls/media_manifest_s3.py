@@ -2,7 +2,6 @@
 #GNU GENERAL PUBLIC LICENSE Version 2
 #See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
 import fcntl
-import functools
 import hashlib
 import logging
 import os
@@ -11,6 +10,7 @@ import uuid
 
 from vodhls import ConfigurationError, InputFetchError
 from vodhls.media_manifest_base import MediaManager_Base
+import s3client
 from pathsafety import validate_filename
 
 logger = logging.getLogger('vodhls')
@@ -18,41 +18,6 @@ logger = logging.getLogger('vodhls')
 # S3 answers a missing key with one of these, depending on the call and on
 # whether the caller may ListBucket (see fetch_and_cache).
 _MISSING_CODES = {'404', 'NoSuchKey', 'NotFound'}
-
-
-@functools.lru_cache(maxsize=4)
-def _client_for(endpoint_url, region, access_key_id, secret_access_key,
-                addressing_style, connect_timeout, read_timeout, max_attempts):
-    """One boto3 client per distinct configuration. boto3 clients are
-    thread-safe, and creating one is expensive (it loads the service model),
-    so it is shared by every request in the worker. Arguments are all
-    hashable strings/numbers so this can be an lru_cache."""
-    import boto3
-    from botocore.config import Config
-
-    kwargs = {}
-    if endpoint_url:
-        kwargs['endpoint_url'] = endpoint_url
-    if region:
-        kwargs['region_name'] = region
-    # Blank keys mean "use boto3's default credential chain" - env vars,
-    # shared credentials, or (on EC2/ECS) the instance/task role. Preferred
-    # in production: no secret ever lands in config.ini.
-    if access_key_id and secret_access_key:
-        kwargs['aws_access_key_id'] = access_key_id
-        kwargs['aws_secret_access_key'] = secret_access_key
-
-    return boto3.client(
-        's3',
-        config=Config(
-            signature_version='s3v4',
-            s3={'addressing_style': addressing_style},
-            connect_timeout=connect_timeout,
-            read_timeout=read_timeout,
-            retries={'max_attempts': max_attempts, 'mode': 'standard'},
-        ),
-        **kwargs,
-    )
 
 
 class MediaManager_s3(MediaManager_Base):
@@ -94,23 +59,15 @@ class MediaManager_s3(MediaManager_Base):
     # -- configuration ----------------------------------------------------
 
     def _opt(self, option, fallback=''):
-        if not self.config.has_section('s3'):
-            raise ConfigurationError("input_type is s3 but config.ini has no [s3] section")
-        return self.config.get('s3', option, fallback=fallback).strip()
+        return s3client.s3_option(self.config, option, fallback)
 
     @property
     def bucket(self) -> str:
-        bucket = self._opt('bucket')
-        if not bucket:
-            raise ConfigurationError("[s3] bucket is not configured")
-        return bucket
+        return s3client.bucket_and_prefix(self.config)[0]
 
     @property
     def prefix(self) -> str:
-        """The configured key prefix, normalised: no leading '/', and exactly
-        one trailing '/' unless it is empty (bucket root)."""
-        prefix = self._opt('prefix').strip('/')
-        return prefix + '/' if prefix else ''
+        return s3client.bucket_and_prefix(self.config)[1]
 
     @property
     def source_key(self) -> str:
@@ -122,16 +79,7 @@ class MediaManager_s3(MediaManager_Base):
 
     @property
     def client(self):
-        return _client_for(
-            self._opt('endpoint_url') or None,
-            self._opt('region') or None,
-            self._opt('access_key_id'),
-            self._opt('secret_access_key'),
-            self._opt('addressing_style', 'auto') or 'auto',
-            float(self._opt('connect_timeout', '5') or 5),
-            float(self._opt('read_timeout', '60') or 60),
-            int(self._opt('max_attempts', '3') or 3),
-        )
+        return s3client.client_from_config(self.config)
 
     # -- fetching ---------------------------------------------------------
 
