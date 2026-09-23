@@ -25,4 +25,23 @@ config.ini
 .idea/
 
 #AI
-CLAUDE.md
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/sessions/
+
+# --- Cursor ---
+# Ignore personal project rules and local prompt contexts
+.cursor/
+!.cursor/rules/    # UNCOMMENT this line if your team tracks shared prompts in git
+
+# --- Aider ---
+# Ignore local chat histories and auto-generated code snapshots
+.aider*
+*.aider.md
+*.aider.chat.history.md
+
+# --- Continue.dev & GitHub Copilot ---
+# Ignore indexing caches, local server stats, and user config overrides
+.continue/
+.copilot/
+.copilotignore     # UNCOMMENT if you have local-only Copilot rules
