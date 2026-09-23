@@ -4,6 +4,13 @@ Status: **draft / planned.** Nothing described in this folder is implemented yet
 This folder records what we want the API to do. It is the place to argue about the design before
 writing code.
 
+> **Update:** CasterPak itself is staying a bring-your-own-library streamer and is **not** growing an
+> API. Accounts, upload and per-user listing are now built, as a separate service:
+> [`library/DESIGN.md`](../library/DESIGN.md). The endpoints below that concern the *library*
+> (`library`, `video`, `upload`, `backends`, `auth`) describe that service's territory - read them
+> against the design there. Cache and transcode management remain open questions for CasterPak
+> proper.
+
 The streaming endpoints (`/i/...`) are documented in the top-level `Readme.md`. This folder covers
 the management API under `/api`.
 

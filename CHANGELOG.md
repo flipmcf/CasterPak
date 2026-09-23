@@ -4,6 +4,27 @@ All notable changes to CasterPak are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are the
 values in the `VERSION` file.
 
+## [Unreleased]
+
+### Added
+- **S3 input.** `input_type = s3` reads source videos from an S3 bucket (or MinIO/R2/any S3-compatible
+  store). A URL path maps to an object key by prefix concatenation. Each object is downloaded once into
+  the input cache (atomic, and locked so concurrent workers don't each download it). Single-bitrate and
+  CSMIL work; `/i/abr/` still needs a filesystem library. See `docs/s3-input.md`.
+- **Library service** (`library/`, separate process, same image; opt-in with
+  `docker compose --profile library`): user accounts, JWT login, upload into a per-user directory,
+  listing, and the URLs/embed code to play a video. Writes wherever CasterPak reads (filesystem or S3).
+  See `library/DESIGN.md`. CasterPak itself gains no API and no new responsibilities.
+- nginx routes `/api/` to the library service, with an upload-sized body limit and a rate limit on
+  login/registration. nginx still starts, and streaming still works, when the library isn't running.
+- `api/postman/` (collection + environments, verified with Newman), `examples/` (`player.html`,
+  `library.html`), `library/smoke_test.py`.
+- `requirements-dev.txt`.
+
+### Security
+- The startup log line that prints the whole config now masks options named like
+  `secret|password|token|access_key|_code`. Needed once `[s3]` and `[library]` could hold credentials.
+
 ## [0.9.1-alpha] - 2026-09-18
 
 ### Changed
