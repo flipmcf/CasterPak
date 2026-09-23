@@ -47,6 +47,11 @@ services:
       # See casterpak/routes.py:get_base_url.
       - CASTERPAK_OUTPUT_USE_HTTPS=${CASTERPAK_OUTPUT_USE_HTTPS:-False}
       - CASTERPAK_DB_PATH=/var/lib/casterpak/data/cacheDB.db
+      # Only used when CASTERPAK_INPUT_INPUT_TYPE=s3 - see docs/s3-input.md
+      - CASTERPAK_S3_BUCKET=${CASTERPAK_S3_BUCKET:-}
+      - CASTERPAK_S3_PREFIX=${CASTERPAK_S3_PREFIX:-}
+      - CASTERPAK_S3_REGION=${CASTERPAK_S3_REGION:-us-east-1}
+      - CASTERPAK_S3_ENDPOINT_URL=${CASTERPAK_S3_ENDPOINT_URL:-}
       # Gunicorn owns every log destination and '-' means stdout, so this
       # is all of them - cleanup and encoding borrow these handlers rather
       # than opening files of their own.
@@ -71,6 +76,41 @@ services:
     # Ensures the container restarts automatically if it crashes or if the server restarts
     restart: unless-stopped
 
+  # The library service: user accounts, upload, listing, embed URLs (library/DESIGN.md).
+  # Opt-in - `docker compose up` does not start it; `--profile library` does.
+  # Same image as casterpak, different command. It is the ONLY service that writes to the
+  # video library, so it gets the library volume read-write; casterpak keeps reading it.
+  library:
+    profiles: ["library"]
+    build:
+      context: .
+      args:
+        CASTERPAK_VERSION: ${CASTERPAK_VERSION:-0.9.1-alpha}
+    image: flipmcf/casterpak:${CASTERPAK_VERSION:-0.9.1-alpha}
+    container_name: casterpak_library
+    command: ["gunicorn", "-c", "gunicorn.library.conf.py", "library:create_app()"]
+    expose:
+      - "5001"
+    environment:
+      - PYTHONUNBUFFERED=1
+      # Required, 32+ chars. Empty on purpose here: the app refuses to start without it.
+      - CASTERPAK_LIBRARY_JWT_SECRET=${CASTERPAK_LIBRARY_JWT_SECRET:-}
+      - CASTERPAK_LIBRARY_REGISTRATION=${CASTERPAK_LIBRARY_REGISTRATION:-closed}
+      - CASTERPAK_LIBRARY_CASTERPAK_URL=${CASTERPAK_LIBRARY_CASTERPAK_URL:-http://localhost}
+      - CASTERPAK_LIBRARY_DATABASE_URL=sqlite:////var/lib/casterpak/library/library.db
+      # Write where casterpak reads: same input type and locations as the casterpak service.
+      - CASTERPAK_INPUT_INPUT_TYPE=${CASTERPAK_INPUT_INPUT_TYPE:-filesystem}
+      - CASTERPAK_FILESYSTEM_VIDEOPARENTPATH=${CASTERPAK_FILESYSTEM_VIDEOPARENTPATH:-/mnt/data}
+      - CASTERPAK_S3_BUCKET=${CASTERPAK_S3_BUCKET:-}
+      - CASTERPAK_S3_PREFIX=${CASTERPAK_S3_PREFIX:-}
+      - CASTERPAK_S3_REGION=${CASTERPAK_S3_REGION:-us-east-1}
+      - CASTERPAK_S3_ENDPOINT_URL=${CASTERPAK_S3_ENDPOINT_URL:-}
+    volumes:
+      # Same host directory casterpak reads as /mnt/data - here writable, so uploads land in it.
+      - ${HOST_VIDEO_PATH:-~/Videos}:/mnt/data
+      - library_data:/var/lib/casterpak/library
+    restart: unless-stopped
+
   nginx:
     build: 
       context: .
@@ -91,6 +131,9 @@ services:
     restart: unless-stopped
 
 volumes:
+  library_data:
+    labels:
+      com.openforgesolutions.description: "Library service database (users, upload records)"
   casterpak_data:
     labels:
       com.openforgesolutions.description: "Database"

@@ -102,9 +102,14 @@ RUN chown -R casteruser:casteruser /var/lib/casterpak/samples
 # database directory
 RUN mkdir -p /var/lib/casterpak/data && chown -R casteruser:casteruser /var/lib/casterpak/data
 
+# library service database directory (only used by the 'library' compose service)
+RUN mkdir -p /var/lib/casterpak/library && chown -R casteruser:casteruser /var/lib/casterpak/library
+
 USER casteruser
 
 EXPOSE 5000
+# the library service (docker compose --profile library) listens on 5001
+EXPOSE 5001
 
 # Using Gunicorn for production-grade serving
 CMD ["/bin/bash", "run.sh"]
