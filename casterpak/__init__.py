@@ -23,6 +23,7 @@ def setup_gunicorn_logging(app, base_config):
 
     app.logger.handlers = gunicorn_logger.handlers
     app.logger.setLevel(gunicorn_logger.level)
+    app.logger.propagate = False
 
     applogging.use_gunicorn_handlers(*applogging.CASTERPAK_LOGGERS)
 

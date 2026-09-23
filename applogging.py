@@ -36,12 +36,7 @@ CASTERPAK_DEFAULT_LOGGING_CONFIG = {
 #: attaches a handler to them.
 CASTERPAK_LOGGERS = ('vodhls', 'CasterPak-cleanup', 'CasterPak-encoding')
 
-#: Short, grep-able tag for each of the above - see TagFilter. Deliberately
-#: not a per-logger Formatter: use_gunicorn_handlers points these loggers at
-#: gunicorn's own Handler objects, and a Handler's formatter is a single
-#: shared property, so every logger sharing that handler would be stuck with
-#: the same one. A Filter lives on the Logger instead, so it survives having
-#: .handlers replaced out from under it, in either order.
+#: Short, grep-able tag for each of the above - see TagFilter.
 CASTERPAK_LOGGER_TAGS = {
     'vodhls': 'vodhls',
     'CasterPak-cleanup': 'cleanup',
@@ -54,7 +49,7 @@ class TagFilter(logging.Filter):
     project distinguishes its own subsystems in gunicorn's shared, unified
     output. Cheap and grep-friendly by design (see CASTERPAK_LOGGER_TAGS'
     docstring) - downstream tools like grep or syslog are expected to do the
-    rest, not this project."""
+    rest."""
 
     def __init__(self, tag: str):
         super().__init__()
@@ -108,3 +103,4 @@ def use_gunicorn_handlers(*logger_names: str) -> None:
         logger = logging.getLogger(name)
         logger.handlers = gunicorn_logger.handlers
         logger.setLevel(gunicorn_logger.level)
+        logger.propagate = False
