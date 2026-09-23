@@ -2,6 +2,7 @@
 #GNU GENERAL PUBLIC LICENSE Version 2
 #See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
 import os
+import re
 import logging
 from logging.config import dictConfig
 import pprint
@@ -28,12 +29,18 @@ def setup_gunicorn_logging(app, base_config):
     applogging.use_gunicorn_handlers(*applogging.CASTERPAK_LOGGERS)
 
 
+# Option names whose values must never reach the log. The whole config is
+# printed at startup (see create_app), and logs end up in stdout / CloudWatch.
+_SECRET_OPTION_RE = re.compile(r'secret|password|token|access_key|_code', re.IGNORECASE)
+
+
 def printable_config(config):
-    """ for debugging purposes"""
+    """ for debugging purposes. Values of secret-looking options are masked."""
     
     def to_dict(obj):
         if hasattr(obj, "items"):
-            return {k: to_dict(v) for k, v in obj.items()}
+            return {k: ('********' if _SECRET_OPTION_RE.search(str(k)) and v else to_dict(v))
+                    for k, v in obj.items()}
         # If it's a list/tuple, process elements recursively
         elif isinstance(obj, (list, tuple)):
             return [to_dict(v) for v in obj]

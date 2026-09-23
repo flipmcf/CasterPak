@@ -9,3 +9,12 @@ class EncodingError(Exception):
 
 class ConfigurationError(Exception):
     pass
+
+
+class InputFetchError(Exception):
+    """ an input backend (S3, http, ...) could not deliver a file that is
+    not simply missing - bad credentials, network failure, etc. Distinct
+    from FileNotFoundError on purpose: a missing video is a 404, a broken
+    backend is not.
+    """
+    pass
