@@ -10,6 +10,14 @@ import typing as t
 import subprocess
 import shutil
 
+if __name__ == "__main__" and __package__ in (None, ""):
+    # Run directly as a script (`python cleanup/cleaner.py`), e.g. for manual
+    # maintenance or debugging - not imported as part of the `cleanup` package,
+    # and not run with `-m`. In that case this file's own directory is on
+    # sys.path but the repo root isn't, so the top-level `config`/`cachedb`
+    # imports below would fail. Gunicorn's normal run doesn't need this: it
+    # puts the repo root (its working directory) on sys.path itself.
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import config
 import cachedb
