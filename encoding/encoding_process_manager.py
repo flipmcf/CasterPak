@@ -321,8 +321,8 @@ def start_encoding_dispatcher(poll_interval: int = 5, pool_size: int = 2,
                                dbname: str = DB_PATH) -> None:
     """
     Starts the background dispatcher thread. Meant to be called from
-    gunicorn's on_starting hook (see gunicorn.conf.py), the same as
-    cleanup.start_maintenance_loop() - runs once in the gunicorn MASTER
+    gunicorn's on_starting hook (see gunicorn.conf.py).
+    Runs once in the gunicorn MASTER
     process, before workers fork. on_starting has already pointed this
     module's logger at gunicorn's handlers by then, so `logger` here goes
     to errorlog like everything else.

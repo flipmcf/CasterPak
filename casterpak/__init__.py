@@ -101,9 +101,7 @@ def create_app(test_config=None):
     app.logger.info(f"initializing encoding queue table")
     encoding_process_manager.initialize_encoding_db()
 
-    if __name__ != "__main__":
-        setup_gunicorn_logging(app, base_config)
-
+    setup_gunicorn_logging(app, base_config)
 
     @app.after_request
     def add_cors_headers(response):
