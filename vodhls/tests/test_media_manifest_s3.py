@@ -21,7 +21,7 @@ from moto import mock_aws
 
 from pathsafety import InvalidPathError
 from vodhls import ConfigurationError, InputFetchError
-from vodhls import media_manifest_s3
+import s3client
 from vodhls.media_manifest_s3 import MediaManager_s3
 
 BUCKET = 'test-library'
@@ -47,12 +47,12 @@ def aws(monkeypatch):
     monkeypatch.setenv('AWS_SECRET_ACCESS_KEY', 'testing')
     monkeypatch.setenv('AWS_DEFAULT_REGION', 'us-east-1')
     monkeypatch.setenv('AWS_EC2_METADATA_DISABLED', 'true')
-    media_manifest_s3._client_for.cache_clear()
+    s3client._client_for.cache_clear()
     with mock_aws():
         s3 = boto3.client('s3', region_name='us-east-1')
         s3.create_bucket(Bucket=BUCKET)
         yield s3
-    media_manifest_s3._client_for.cache_clear()
+    s3client._client_for.cache_clear()
 
 
 @pytest.fixture
@@ -215,7 +215,7 @@ def test_concurrent_requests_download_the_object_once(manager_cls, cache_dir):
 def test_blank_credentials_fall_back_to_the_boto3_default_chain(aws, manager_cls):
     """No keys in config -> none passed to boto3, so it walks its own chain
     (env vars, shared credentials, EC2/ECS role)."""
-    media_manifest_s3._client_for.cache_clear()
+    s3client._client_for.cache_clear()
     with mock.patch('boto3.client') as boto_client:
         manager_cls('clip.mp4').client
     kwargs = boto_client.call_args.kwargs
