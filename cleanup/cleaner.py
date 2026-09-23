@@ -190,12 +190,11 @@ class CacheCleaner(object):
 
 if __name__ == "__main__":
 
-
-    # When run as a standalone script, configure a file handler for logging.
-
-
-    log_file = app_config.get('logging', 'cache_log', fallback='/var/log/casterpak.cache.log')
-    fh = logging.FileHandler(log_file)
+    # Standalone entry point, for a developer running this directly to debug
+    # cleanup - logging always to stdout: the only audience for a manual run
+    # is whoever is watching the terminal.
+    # TODO - true until a casterpak control api can kick one off manually 
+    fh = logging.StreamHandler(sys.stdout)
     formatter = logging.Formatter(fmt='[%(asctime)s] [%(levelname)s] in casterpak-cleanup: %(message)s')
     fh.setFormatter(formatter)
     logger.addHandler(fh)

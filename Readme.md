@@ -419,16 +419,6 @@ See documentation here https://flask.palletsprojects.com/en/2.1.x/deploying/uwsg
 
 
 
-## Virtualized System Setup (not docker)
-
-Included is a systemd unit config 'casterpak.service'.  No setup script is provided, so you must edit and install this yourself
-
-Open it, edit it to best suit your paths where you installed casterpak and your wsgi server.
-
-then `sudo ln -s /path/to/casterpak.service /etc/systemd/service/casterpak.service`
-
-then `sudo systemctl start casterpak.service`
-
 ### Setting up the cache cleanup task
 
 Currently, casterpak will cleanup imported video files from remote sources and generated segment files and media playlists.
@@ -437,10 +427,10 @@ Deleting master playlists is not a problem, as casterpak will re-create them if 
 
 What caching server is complete without deleting old stuff?
 
-For Virtualized or bare-metal setups, look at 'crontab.tpl' - it's your basic crontab entry.  add it via 'crontab -e' as the user that will be running the flask application
-it's configured to run cleanup every 5 minutes, but you can tune it as you wish.
-
-create a file /var/log/casterpak.cache.log and give the application user rights to write to it for logging.
+Cleanup runs automatically - there's nothing to set up. Gunicorn's master process starts it as a
+background thread on a schedule (see `[cache] cleanup_interval` in config.ini, 5 minutes by
+default) as soon as the container starts. Its logs go to stdout, the same stream as everything
+else - see "Check the logs" above.
 
 
 ## Testing
