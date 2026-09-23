@@ -1,0 +1,77 @@
+<!doctype html>
+<!--
+  Play a CasterPak stream. No account, no server-side code - this is all a website needs.
+
+  Open it with your own stream:   player.html?src=https://video.example.com/i/abr/alice/holiday.mp4/master.m3u8
+  Or paste a URL into the box. Works straight from disk (file://) as well as from a web server.
+
+  The whole trick is the few lines in play(): most browsers need hls.js (loaded from a CDN below)
+  to feed the stream to the <video> element; iPhones and iPads play HLS natively.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CasterPak player</title>
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; color: #1b1f24; }
+  video { width: 100%; background: #000; border-radius: 6px; }
+  form { display: flex; gap: .5rem; margin: 1rem 0; }
+  input { flex: 1; padding: .5rem; font: inherit; min-width: 0; }
+  button { padding: .5rem 1rem; font: inherit; cursor: pointer; }
+  #status { color: #57606a; font-size: .9rem; min-height: 1.4em; }
+  #status.error { color: #b42318; }
+  code { background: #f2f4f7; padding: .1em .3em; border-radius: 3px; }
+</style>
+</head>
+<body>
+<h1>CasterPak player</h1>
+<form id="load">
+  <input id="src" type="url" placeholder="https://your-casterpak/i/abr/user/video.mp4/master.m3u8" required>
+  <button>Play</button>
+</form>
+<video id="video" controls playsinline></video>
+<p id="status"></p>
+<p>Streams look like <code>/i/&lt;user&gt;/&lt;video&gt;/master.m3u8</code> (one quality) or
+<code>/i/abr/&lt;user&gt;/&lt;video&gt;/master.m3u8</code> (adaptive). The upload API hands you the exact URL.</p>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+<script>
+  const video = document.getElementById('video');
+  const status = document.getElementById('status');
+  let hls = null;
+
+  function say(text, isError) { status.textContent = text; status.className = isError ? 'error' : ''; }
+
+  function play(url) {
+    if (hls) { hls.destroy(); hls = null; }
+    say('Loading...');
+    if (window.Hls && Hls.isSupported()) {                               // Chrome, Firefox, Edge, desktop Safari
+      hls = new Hls();
+      hls.on(Hls.Events.MANIFEST_PARSED, (e, data) => {
+        say('Ready - ' + data.levels.length + ' quality level(s)');
+        video.play().catch(() => {});                                    // autoplay may need a click
+      });
+      hls.on(Hls.Events.ERROR, (e, data) => { if (data.fatal) say('Playback error: ' + data.details, true); });
+      hls.loadSource(url);
+      hls.attachMedia(video);
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {     // iPhone/iPad: native HLS, no MSE
+      video.onloadedmetadata = () => say('Ready (native HLS)');
+      video.onerror = () => say('Playback error', true);
+      video.src = url;
+      video.play().catch(() => {});
+    } else {
+      say('This browser cannot play HLS.', true);
+    }
+  }
+
+  document.getElementById('load').addEventListener('submit', (e) => {
+    e.preventDefault();
+    play(document.getElementById('src').value.trim());
+  });
+
+  const initial = new URLSearchParams(location.search).get('src');
+  if (initial) { document.getElementById('src').value = initial; play(initial); }
+</script>
+</body>
+</html>

@@ -1,0 +1,757 @@
+{
+  "info": {
+    "_postman_id": "6f0f2b8e-3c1d-4a53-9a3e-5c1f4b7d9e01",
+    "name": "CasterPak Library",
+    "description": "The user library in front of CasterPak: accounts, upload, listing, embed URLs.\n\n**Run order**: pick the *CasterPak Library - local* environment, then run the folders top to bottom (Collection Runner, or `newman run casterpak-library.postman_collection.json -e casterpak-local.postman_environment.json --working-dir ../..`).\n\nTwo services are involved: the **library** (`{{library_url}}`, needs a token) and **CasterPak** (`{{casterpak_url}}`, plays videos, needs nothing). Upload results feed the playback requests.\n\nDo not point this at a production server; it creates real users and uploads real files.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1. Account",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Is the library service up, and where does it store files?",
+            "url": {
+              "raw": "{{library_url}}/api/health",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 ok\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"reports storage + registration mode\", () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b.status).to.eql(\"ok\");",
+                  "  pm.expect(b.storage).to.be.oneOf([\"filesystem\", \"s3\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Create an account. Works when the server has `[library] registration` = `open`, or `invite` (set `invite_code`). With `closed` (the default) an admin runs `flask --app library create-user` instead and you skip this request.\n\nUsername: 3-32 chars, lowercase letters/digits/_/-. It becomes your directory in the library. Password: 10+ characters. 201 on success, 409 if it already exists (so re-running is safe).",
+            "url": {
+              "raw": "{{library_url}}/api/users",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"email\": \"{{email}}\",\n  \"invite_code\": \"{{invite_code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"201 created (or 409 if it already exists)\", () => pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
+                  "if (pm.response.code === 201) {",
+                  "  pm.test(\"no password echoed back\", () => pm.expect(pm.response.text()).to.not.include(pm.environment.get(\"password\")));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Exchange username + password for a short-lived **access token** (15 min) and a long-lived **refresh token** (30 days). The test script saves both into the environment; every other request sends the access token as `Authorization: Bearer ...`.",
+            "url": {
+              "raw": "{{library_url}}/api/auth/login",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 ok\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"bearer tokens returned\", () => {",
+                  "  pm.expect(b.token_type).to.eql(\"Bearer\");",
+                  "  pm.expect(b.access_token).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(b.refresh_token).to.be.a(\"string\").and.not.empty;",
+                  "});",
+                  "pm.environment.set(\"access_token\", b.access_token);",
+                  "pm.environment.set(\"refresh_token\", b.refresh_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me (account + usage)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Who am I, how much have I uploaded, and what are the limits?",
+            "url": {
+              "raw": "{{library_url}}/api/me",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 ok\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"is me\", () => pm.expect(pm.response.json().user.username).to.eql(pm.environment.get(\"username\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh access token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Trade the refresh token for a new access token. Note this request sends the REFRESH token as its bearer, not the access token.",
+            "url": {
+              "raw": "{{library_url}}/api/auth/refresh",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{refresh_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 ok\", () => pm.response.to.have.status(200));",
+                  "pm.environment.set(\"access_token\", pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Videos",
+      "item": [
+        {
+          "name": "Upload",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Upload a video into **your** directory. multipart/form-data:\n\n- `file` (required) the video (.mp4 .m4v .mov .mkv .webm)\n- `path` (optional) a sub-directory inside your directory, e.g. `trips/2026`\n- `filename` (optional) name to store it as\n\n**Names are validated, never rewritten**: letters, digits, `_ - + .` only - no spaces or commas. The response has the CasterPak URLs to play/embed it and a ready-made `embed_html` snippet.\n\nThe test script saves the video's path and URLs into the environment for the requests below.",
+            "url": {
+              "raw": "{{library_url}}/api/upload",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "upload"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "tests/assets/test-video.mp4",
+                  "description": "Pick any small .mp4. (tests/assets/test-video.mp4 in the repo works; with Newman run from the repo root.)"
+                },
+                {
+                  "key": "path",
+                  "value": "{{directory}}",
+                  "type": "text",
+                  "description": "Target directory inside YOUR directory. Optional."
+                },
+                {
+                  "key": "filename",
+                  "value": "{{upload_filename}}",
+                  "type": "text",
+                  "description": "Optional. Overrides the uploaded file's name. Letters, digits, _ - + . only."
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// a fresh name each run, so re-running never hits 409",
+                  "pm.environment.set(\"upload_filename\", \"postman-\" + Date.now() + \".mp4\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"201 created\", () => pm.response.to.have.status(201));",
+                  "const v = pm.response.json();",
+                  "pm.test(\"response has what you need to embed\", () => {",
+                  "  pm.expect(v.path).to.match(new RegExp(\"^\" + pm.environment.get(\"username\") + \"/\"));",
+                  "  pm.expect(v.urls.single).to.include(\"/i/\" + v.path + \"/master.m3u8\");",
+                  "  pm.expect(v.urls.hls).to.be.a(\"string\");",
+                  "  pm.expect(v.embed_html).to.include(\"<video\");",
+                  "});",
+                  "pm.test(\"Location header\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(\"/api/videos/\" + v.path));",
+                  "pm.environment.set(\"video_path\", v.path);",
+                  "pm.environment.set(\"single_url\", v.urls.single);",
+                  "pm.environment.set(\"hls_url\", v.urls.hls);",
+                  "pm.environment.set(\"abr_url\", v.urls.abr || v.urls.single);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload - same name again (expect 409)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Uploads never overwrite. Sending the same path+name again is a conflict.",
+            "url": {
+              "raw": "{{library_url}}/api/upload",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "upload"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "tests/assets/test-video.mp4",
+                  "description": "Pick any small .mp4. (tests/assets/test-video.mp4 in the repo works; with Newman run from the repo root.)"
+                },
+                {
+                  "key": "path",
+                  "value": "{{directory}}",
+                  "type": "text",
+                  "description": "Target directory inside YOUR directory. Optional."
+                },
+                {
+                  "key": "filename",
+                  "value": "{{upload_filename}}",
+                  "type": "text",
+                  "description": "Optional. Overrides the uploaded file's name. Letters, digits, _ - + . only."
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"409 conflict\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"stable error code\", () => pm.expect(pm.response.json().error.code).to.eql(\"already_exists\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload - bad filename (expect 422)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "A filename with a space is rejected with an explanation - it is not silently renamed.",
+            "url": {
+              "raw": "{{library_url}}/api/upload",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "upload"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "tests/assets/test-video.mp4",
+                  "description": "Pick any small .mp4. (tests/assets/test-video.mp4 in the repo works; with Newman run from the repo root.)"
+                },
+                {
+                  "key": "path",
+                  "value": "{{directory}}",
+                  "type": "text",
+                  "description": "Target directory inside YOUR directory. Optional."
+                },
+                {
+                  "key": "filename",
+                  "value": "my holiday video.mp4",
+                  "type": "text",
+                  "description": "Optional. Overrides the uploaded file's name. Letters, digits, _ - + . only."
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"422 unprocessable\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"says why\", () => pm.expect(pm.response.json().error.message).to.include(\"no spaces\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload - no token (expect 401)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Uploading needs an account.",
+            "url": {
+              "raw": "{{library_url}}/api/upload",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "upload"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "tests/assets/test-video.mp4",
+                  "description": "Pick any small .mp4. (tests/assets/test-video.mp4 in the repo works; with Newman run from the repo root.)"
+                },
+                {
+                  "key": "path",
+                  "value": "{{directory}}",
+                  "type": "text",
+                  "description": "Target directory inside YOUR directory. Optional."
+                },
+                {
+                  "key": "filename",
+                  "value": "{{upload_filename}}",
+                  "type": "text",
+                  "description": "Optional. Overrides the uploaded file's name. Letters, digits, _ - + . only."
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"401 unauthorized\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List my videos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Your uploads, newest first. Only ever your own. `limit` (max 200) and `offset` page through them.",
+            "url": {
+              "raw": "{{library_url}}/api/videos?limit=50&offset=0",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "videos"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 ok\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"the video I just uploaded is listed\", () => pm.expect(b.videos.map(v => v.path)).to.include(pm.environment.get(\"video_path\")));",
+                  "pm.test(\"paging fields\", () => pm.expect(b).to.include.keys(\"total\", \"limit\", \"offset\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List my videos in a directory",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Only videos under one of your sub-directories (and its children).",
+            "url": {
+              "raw": "{{library_url}}/api/videos?directory={{directory}}",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "videos"
+              ],
+              "query": [
+                {
+                  "key": "directory",
+                  "value": "{{directory}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 ok\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"only that directory\", () => pm.response.json().videos.forEach(v => pm.expect(v.directory + \"/\").to.match(/^postman-tests\\//)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get one video",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Details and embed URLs for one of your videos. Someone else's video gives the same 404 as a missing one.",
+            "url": {
+              "raw": "{{library_url}}/api/videos/{{video_path}}",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "videos",
+                "{{video_path}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 ok\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"same video\", () => pm.expect(pm.response.json().path).to.eql(pm.environment.get(\"video_path\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get someone else's / missing video (expect 404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Not yours -> 404, indistinguishable from not existing.",
+            "url": {
+              "raw": "{{library_url}}/api/videos/somebody-else/secret.mp4",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "videos",
+                "somebody-else",
+                "secret.mp4"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"404 not found\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Playback (CasterPak - no account needed)",
+      "item": [
+        {
+          "name": "Master playlist - single bitrate",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "**CasterPak, not the library. No account, no token** - anyone with the URL can play it. This is the URL from `urls.single`. Response is an HLS master playlist.",
+            "url": "{{single_url}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 ok\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"is an HLS playlist\", () => pm.expect(pm.response.text()).to.match(/^#EXTM3U/));",
+                  "pm.test(\"CORS allows any page to play it\", () => pm.expect(pm.response.headers.get(\"Access-Control-Allow-Origin\")).to.eql(\"*\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Master playlist - adaptive (abr)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "`urls.abr`, when the server offers it: CasterPak encodes 720p/480p/360p renditions the first time it is requested and meanwhile serves a quick low-quality stream. **This starts a CPU-heavy encode** - run it against a staging server, not production.",
+            "url": "{{abr_url}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 ok (or 302 to the finished renditions)\", () => pm.expect(pm.response.code).to.be.oneOf([200, 302]));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. End of session",
+      "item": [
+        {
+          "name": "Logout (revoke refresh token)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Revokes the refresh token this is called with. (The short-lived access token keeps working until it expires.)",
+            "url": {
+              "raw": "{{library_url}}/api/auth/logout",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{refresh_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 ok\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh after logout (expect 401)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "The revoked refresh token no longer works.",
+            "url": {
+              "raw": "{{library_url}}/api/auth/refresh",
+              "host": [
+                "{{library_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{refresh_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"401 unauthorized\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"says revoked\", () => pm.expect(pm.response.json().error.code).to.eql(\"token_revoked\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": []
+}

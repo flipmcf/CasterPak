@@ -1,0 +1,5 @@
+# Everything needed to run the tests:  pip install -r requirements-dev.txt
+-r requirements.txt
+pytest==9.1.1
+# moto answers S3 in-process (mock_aws) or as a local server (moto_server) - no AWS account, no cost.
+moto[server]==5.2.3
