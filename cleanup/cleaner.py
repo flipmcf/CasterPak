@@ -190,14 +190,11 @@ class CacheCleaner(object):
 
 if __name__ == "__main__":
 
-
-    # When run as a standalone script, configure a file handler for logging.
-
-
-    # Standalone (cron) entry point - see crontab.tpl, which already sends
-    # stdout where the operator wants it with a shell redirect. Under
-    # gunicorn this block never runs and the logger uses gunicorn's
-    # handlers instead (applogging.use_gunicorn_handlers).
+    # Standalone entry point, for a developer running this directly to debug
+    # cleanup - the only supported way to run CasterPak is the container,
+    # where gunicorn's master process schedules this itself and this block
+    # never runs (see applogging.use_gunicorn_handlers). Always stdout: the
+    # only audience for a manual run is whoever is watching the terminal.
     fh = logging.StreamHandler(sys.stdout)
     formatter = logging.Formatter(fmt='[%(asctime)s] [%(levelname)s] in casterpak-cleanup: %(message)s')
     fh.setFormatter(formatter)

@@ -53,9 +53,11 @@ def use_gunicorn_handlers(*logger_names: str) -> None:
     * the MASTER, from gunicorn.conf.py's on_starting hook - the cleanup
       and encoding background threads start there, before workers exist.
 
-    Outside gunicorn (the cron entry point in crontab.tpl, tests, a bare
-    `flask run`) 'gunicorn.error' has no handlers, so this is a no-op and
-    the caller's own basic config stands.
+    Outside gunicorn (tests, a bare `flask run`, or a component run directly
+    for debugging) 'gunicorn.error' has no handlers, so this is a no-op and
+    the caller's own basic config stands. There is no other supported way to
+    run this in production - CasterPak is container-only, and gunicorn's
+    master process is what schedules cleanup and encoding, not cron.
     """
     gunicorn_logger = logging.getLogger('gunicorn.error')
     if not gunicorn_logger.handlers:
