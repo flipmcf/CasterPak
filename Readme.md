@@ -432,6 +432,30 @@ background thread on a schedule (see `[cache] cleanup_interval` in config.ini, 5
 default) as soon as the container starts. Its logs go to stdout, the same stream as everything
 else - see "Check the logs" above.
 
+### Running cleanup manually
+
+For a one-off pass, or to debug it if it's misbehaving, you can also run it by hand. It has to be
+run **from the repo root**, as a module, not as a script - `cleanup/cleaner.py` imports top-level
+modules like `config` and `cachedb` the same flat way every other file in this project does, and
+that only resolves when the repo root itself is on `sys.path`. `-m` puts your current directory
+there; running the file directly by its path does not.
+
+Locally, from the repo root:
+
+```
+./bin/python -m cleanup.cleaner
+```
+
+In a running Docker container (its working directory is already the repo root):
+
+```
+docker exec -it casterpak_server python -m cleanup.cleaner
+```
+
+Either way this runs one cleanup pass and exits - it does not start the background loop. Log
+output always goes to stdout - `docker exec` prints it straight to your terminal, and a local run
+just prints it directly.
+
 
 ## Testing
 
