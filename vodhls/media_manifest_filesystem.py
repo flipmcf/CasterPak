@@ -24,7 +24,7 @@ class MediaManager_filesystem(MediaManager_Base):
         super(MediaManager_filesystem, self).__init__(filename)
         logger.info(f"vodhls filesystem manager for {self.filename}")
 
-
+    #TODO - no longer a property - this got expensive.  'find_input_file'
     @property
     def input_file(self) -> t.Union[os.PathLike, str]:
         #this should be simple - if input_cache_enabled, then look for the file in the input cache. 

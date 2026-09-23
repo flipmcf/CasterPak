@@ -8,9 +8,9 @@ been doing, and it turned out to be Bento4 and a URL.
 Radio Free Asia ran Plone.  We needed video.
 
 We went with Kaltura.  I wrote the Plone-Kaltura plugin, and then wrote
-kaltura2 when we moved to Python 3.
+the plone-kaltura2 plugin when we moved to Python 3.
 
-Kaltura had a NetStorage backend, and served `.csmil` endpoints using Akamai
+Kaltura had a NetStorage backend for RFA, and served `.csmil` endpoints using Akamai
 MSOD - Media Services On Demand.  That is where the URL format in this
 project comes from.  I didn't design it.  I inherited it.  The MSOD Stream
 Packaging user guide is still sitting in this directory if you want to read
@@ -39,14 +39,14 @@ So I wrote it.  Two weeks.  Nobody asked me to.
 
 ## "That's our answer"
 
-Then John Pennovich, RFA's CTO, asked the question out loud.  What should we
+We were procrastinating the decision.  Akamai kept pushing us to migrate.  Finally John Pennovich, RFA's CTO, asked the question out loud.  What should we
 do?  We need to deliver videos.
 
 I said I have this thing I've been working on.  CasterPak.
 
 John said "that's our answer."
 
-CasterPak ran RFA's video content for three or four years.
+CasterPak ran RFA's video content for four years.
 
 ## Then it stopped
 
