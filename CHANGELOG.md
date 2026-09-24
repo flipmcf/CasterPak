@@ -5,6 +5,9 @@ All notable changes to CasterPak are documented here. The format follows
 values in the `VERSION` file.
 
 ## [0.9.1-alpha] - 2026-09-18
+logging directives in docker-compose so disk space doesn't fill up.
+
+
 
 ### Changed
 - **BREAKING: CSMIL rendition filenames are built by plain concatenation.**
