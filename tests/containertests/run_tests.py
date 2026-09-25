@@ -937,4 +937,104 @@ def test_route_abr_manifest_emergency_stream_is_actually_playable(casterpak_clea
     print(f"⏱  /abr/ request -> playable JIT segment took {elapsed:.2f}s (informal SLA gut-check, no hard threshold)")
 
 
+def test_config_read_only_once_at_startup(casterpak_clean):
+    """
+    TDD test for issue #35: Config should be read exactly once at startup,
+    not on every request. This test hits multiple endpoints and asserts the
+    debug log line 'config was (re)read.' appears exactly once.
+    
+    This test should FAIL before the fix and PASS after.
+    """
+    container = client.containers.get("casterpak_server")
+    
+    # Get logs since container started - looking for the startup config read
+    logs = container.logs().decode('utf-8', errors='replace')
+    initial_count = logs.count("config was (re)read.")
+    
+    # Hit multiple different endpoints to exercise different code paths
+    urls = [
+        "http://localhost:80/i/test-video.mp4/master.m3u8",
+        "http://localhost:80/i/test-video.mp4/index_0_av.m3u8",
+        "http://localhost:80/i/test-video.mp4/segment-0.ts",
+    ]
+    
+    for url in urls:
+        response = requests.get(url)
+        assert response.status_code == 200, f"Failed to fetch {url}"
+    
+    # Get logs again and count config reads
+    logs_after = container.logs().decode('utf-8', errors='replace')
+    final_count = logs_after.count("config was (re)read.")
+    
+    # The count should NOT have increased - config should only be read at startup
+    assert final_count == initial_count, (
+        f"Config was re-read during request handling! "
+        f"Expected {initial_count} reads, found {final_count}. "
+        f"Each request should use in-memory config, not re-read from disk."
+    )
+
+
+def test_config_reload_on_sighup(casterpak_clean):
+    """
+    TDD test for issue #35: Sending SIGHUP to the gunicorn master should
+    trigger exactly one config reload, and the new config should be visible
+    to subsequent requests.
+    
+    This test should FAIL before the SIGHUP implementation and PASS after.
+    """
+    container = client.containers.get("casterpak_server")
+    
+    # Get initial log count
+    logs = container.logs().decode('utf-8', errors='replace')
+    initial_count = logs.count("config was (re)read.")
+    
+    # Find the gunicorn master PID
+    # The master is the gunicorn process that spawned the workers
+    # It's typically 'gunicorn: master [app:app]' or similar
+    exit_code, out = container.exec_run("sh -c 'ps aux | grep gunicorn'")
+    assert exit_code == 0, "Failed to list processes"
+    
+    ps_output = out.decode('utf-8', errors='replace')
+    master_pid = None
+    for line in ps_output.splitlines():
+        if 'gunicorn' in line and 'master' in line:
+            # Extract PID (second column in ps aux output)
+            parts = line.split()
+            if len(parts) > 1:
+                master_pid = parts[1]
+                break
+    
+    assert master_pid is not None, "Could not find gunicorn master process"
+    
+    # Edit config.ini to change a value we can detect
+    # Change the debug setting as a test
+    exit_code, _ = container.exec_run(
+        "sh -c 'sed -i \"s/debug = .*/debug = false/\" /home/casterpak/CasterPak/config.ini'"
+    )
+    assert exit_code == 0, "Failed to edit config.ini"
+    
+    # Send SIGHUP to the master process
+    exit_code, _ = container.exec_run(f"kill -HUP {master_pid}")
+    assert exit_code == 0, f"Failed to send SIGHUP to PID {master_pid}"
+    
+    # Give gunicorn time to reload
+    time.sleep(3)
+    
+    # Check that config was re-read exactly once more
+    logs_after = container.logs().decode('utf-8', errors='replace')
+    final_count = logs_after.count("config was (re)read.")
+    
+    expected_count = initial_count + 1
+    assert final_count == expected_count, (
+        f"Expected exactly one config reload after SIGHUP. "
+        f"Initial count: {initial_count}, final count: {final_count}, "
+        f"expected: {expected_count}"
+    )
+    
+    # Verify the container is still healthy (workers restarted gracefully)
+    # Try to make a request
+    response = requests.get("http://localhost:80/i/test-video.mp4/master.m3u8")
+    assert response.status_code == 200, "Container not responding after SIGHUP"
+
+
 
