@@ -166,8 +166,12 @@ def abr_manifest(dir_name: str):
                 "#EXT-X-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=854x480\n"
                 f"{child_url}\n"
             )
-            
-            return Response(m3u8_text, mimetype='application/vnd.apple.mpegurl')
+            #JIT streams should not be cached 
+            response = Response(m3u8_text, mimetype='application/vnd.apple.mpegurl')
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            return response
 
     except FileNotFoundError:
         return abort(404, description="Original source video at videoParentPath/{dir_name} not found.")
