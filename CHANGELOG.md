@@ -4,10 +4,48 @@ All notable changes to CasterPak are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are the
 values in the `VERSION` file.
 
+## [0.9.2-alpha] - Unreleased
+
+Not tagged and no Docker image published yet.
+
+### Changed
+- **BREAKING: CasterPak is container-only.** Bare-metal/systemd deployment
+  (`casterpak.service`) and crontab-driven cleanup (`crontab.tpl`) are removed.
+  Cleanup and encoding are scheduled only by gunicorn's master process
+  (`on_starting` in `gunicorn.conf.py`).
+- **BREAKING: logging has one model, gunicorn owns every destination.**
+  The `cache_log` and `encoding_log` settings (and
+  `CASTERPAK_LOGGING_CACHE_LOG`) no longer exist. Cleanup and encoding borrow
+  gunicorn's handlers, so `access_log` and `error_log` are the only log
+  destinations; `-` means stdout. Remove the two keys from your `config.ini`.
+- Log lines are tagged by subsystem (`[vodhls]`, `[cleanup]`, `[encoding]`) with
+  a logger `Filter`, so the tag survives handler swaps.
+- `cleanup/cleaner.py` logs to stdout when run standalone, and runs as
+  `./bin/python -m cleanup.cleaner` from the repo root.
+- `docker-compose.yml`: `json-file` log rotation (10 MB, 3 files) on both
+  services, so container logs don't fill the disk.
+
+### Fixed
+- JIT (emergency) streams are no longer cacheable. The JIT master manifest from
+  `/i/abr/` is sent with `Cache-Control: no-cache, no-store, must-revalidate`
+  (plus `Pragma` and `Expires`), so a cache can't keep serving the emergency
+  stream after renditions are ready and never see the redirect to CSMIL.
+- JIT media playlists (`JIT_` directories) send `Cache-Control: no-cache`
+  explicitly. They are growing EVENT playlists, and previously stayed
+  uncacheable only through `send_file`'s default.
+
+### Added
+- Management API design docs in `api/` (library, video, upload, backends,
+  transcode, cache, auth). Design only, nothing is implemented.
+- Docker Hub release process in `docs/pushing_to_docker_hub.md`.
+- Unit tests for the cache headers on JIT manifests, and a container-test
+  assertion on the JIT master manifest headers.
+
+### Known issues
+- `segment()` tries to Bento4-create a missing segment for `JIT_` directories,
+  which fails with a 500 instead of a 404 (#51).
+
 ## [0.9.1-alpha] - 2026-09-18
-logging directives in docker-compose so disk space doesn't fill up.
-
-
 
 ### Changed
 - **BREAKING: CSMIL rendition filenames are built by plain concatenation.**
