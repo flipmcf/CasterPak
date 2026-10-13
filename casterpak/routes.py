@@ -166,8 +166,12 @@ def abr_manifest(dir_name: str):
                 "#EXT-X-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=854x480\n"
                 f"{child_url}\n"
             )
-            
-            return Response(m3u8_text, mimetype='application/vnd.apple.mpegurl')
+            #JIT streams should not be cached 
+            response = Response(m3u8_text, mimetype='application/vnd.apple.mpegurl')
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            return response
 
     except FileNotFoundError:
         return abort(404, description="Original source video at videoParentPath/{dir_name} not found.")
@@ -240,8 +244,16 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
     db = cachedb.CacheDB(cache_name=cachedb.SEGMENT_FILE_CACHE)
     db.addrecord(filename=dir_name)
 
-    return send_file(hls_manager.output_manifest_filename,
-                     mimetype="application/vnd.apple.mpegurl")
+    response = send_file(hls_manager.output_manifest_filename,
+                         mimetype="application/vnd.apple.mpegurl")
+
+    # A JIT playlist is an ffmpeg EVENT playlist: it grows until #EXT-X-ENDLIST,
+    # so a cached copy freezes the player at the old end of the stream. Don't
+    # rely on send_file's default (it changes if SEND_FILE_MAX_AGE_DEFAULT is set).
+    if os.path.basename(dir_name).startswith('JIT_'):
+        response.headers['Cache-Control'] = 'no-cache'
+
+    return response
 
 
 @bp.route('/i/<path:dir_name>/<string:filename>.ts')

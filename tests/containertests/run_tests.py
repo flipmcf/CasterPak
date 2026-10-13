@@ -683,6 +683,15 @@ def test_route_abr_manifest_emergency(casterpak_clean):
     # the child manifest URL reflects that.
     assert "/i/JIT_test-video.mp4/index_0_av.m3u8" in response.text
 
+    # The emergency master must never be cached: once renditions are ready the
+    # same URL has to answer with the CSMIL redirect, not a stale JIT manifest.
+    cache_control = response.headers.get("Cache-Control", "")
+    assert "no-store" in cache_control
+    assert "no-cache" in cache_control
+    assert "must-revalidate" in cache_control
+    assert response.headers.get("Pragma") == "no-cache"
+    assert response.headers.get("Expires") == "0"
+
     # We could also optionally check the container to ensure the FFmpeg process started,
     # but receiving the emergency manifest proves the routing logic fired correctly.
 

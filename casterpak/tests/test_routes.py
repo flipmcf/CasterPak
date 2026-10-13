@@ -2,6 +2,8 @@
 #GNU GENERAL PUBLIC LICENSE Version 2
 #See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
 import configparser
+import os
+import tempfile
 import unittest
 from flask import Flask, Response
 from unittest.mock import patch, MagicMock
@@ -111,6 +113,15 @@ class TestABRRoute(unittest.TestCase):
         self.assertIn(b'#EXTM3U', response.data)
         self.assertIn(b'index_0_av.m3u8', response.data)
 
+        # The emergency master must never be cached, or clients keep the JIT
+        # stream after the renditions are ready and never see the CSMIL redirect.
+        cache_control = response.headers.get('Cache-Control', '')
+        self.assertIn('no-store', cache_control)
+        self.assertIn('no-cache', cache_control)
+        self.assertIn('must-revalidate', cache_control)
+        self.assertEqual(response.headers.get('Pragma'), 'no-cache')
+        self.assertEqual(response.headers.get('Expires'), '0')
+
         # VERIFY GATEKEEPER LOGIC:
         # 1. Did it queue the heavy background worker?
         mock_encoder.queue_background_encoding.assert_called_once()
@@ -123,6 +134,52 @@ class TestABRRoute(unittest.TestCase):
             manifest_path=mock_hls_manager.output_manifest_filename
         )
         mock_jit_manager.trigger_jit_encoding.assert_called_once()
+
+class TestChildManifestCaching(unittest.TestCase):
+    """JIT media playlists are growing EVENT playlists and must never be served cacheable."""
+
+    def setUp(self):
+        self.app = Flask(__name__)
+        self.app.register_blueprint(bp)
+        config = make_test_config()
+        self.app.config['filesystem'] = config['filesystem']
+        self.app.config['output'] = config['output']
+        # Simulate a deployment that turned on send_file caching - the explicit
+        # header on JIT playlists must still win.
+        self.app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600
+        self.client = self.app.test_client()
+
+        self.tmp = tempfile.TemporaryDirectory()
+        self.manifest = os.path.join(self.tmp.name, 'index_0_av.m3u8')
+        with open(self.manifest, 'w') as f:
+            f.write('#EXTM3U\n')
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _get(self, url):
+        mock_hls_manager = MagicMock()
+        mock_hls_manager.manifest_exists.return_value = True
+        mock_hls_manager.output_manifest_filename = self.manifest
+        with patch('casterpak.routes.vodhls_media_playlist_factory', return_value=mock_hls_manager), \
+             patch('casterpak.routes.cachedb.CacheDB'):
+            return self.client.get(url)
+
+    def test_jit_playlist_is_no_cache(self):
+        response = self._get('/i/JIT_test_file.mp4/index_0_av.m3u8')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers['Cache-Control'], 'no-cache')
+
+    def test_jit_playlist_in_subdirectory_is_no_cache(self):
+        response = self._get('/i/projects/2024/JIT_final_cut.mp4/index_0_av.m3u8')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers['Cache-Control'], 'no-cache')
+
+    def test_regular_playlist_is_untouched(self):
+        response = self._get('/i/test_file.mp4/index_0_av.m3u8')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotEqual(response.headers.get('Cache-Control'), 'no-cache')
+
 
 class TestCsmilRoute(unittest.TestCase):
     def setUp(self):
