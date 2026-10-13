@@ -113,6 +113,15 @@ class TestABRRoute(unittest.TestCase):
         self.assertIn(b'#EXTM3U', response.data)
         self.assertIn(b'index_0_av.m3u8', response.data)
 
+        # The emergency master must never be cached, or clients keep the JIT
+        # stream after the renditions are ready and never see the CSMIL redirect.
+        cache_control = response.headers.get('Cache-Control', '')
+        self.assertIn('no-store', cache_control)
+        self.assertIn('no-cache', cache_control)
+        self.assertIn('must-revalidate', cache_control)
+        self.assertEqual(response.headers.get('Pragma'), 'no-cache')
+        self.assertEqual(response.headers.get('Expires'), '0')
+
         # VERIFY GATEKEEPER LOGIC:
         # 1. Did it queue the heavy background worker?
         mock_encoder.queue_background_encoding.assert_called_once()
