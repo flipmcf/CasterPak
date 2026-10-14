@@ -29,30 +29,26 @@ services:
       - "5000"  # Expose port 5000 to other containers (like nginx)
 
     # Environment variables (overrides for your config logic)
+    # See config_example.ini for descriptions of guration options.
     environment:
       - CASTERPAK_APPLICATION_DEBUG=False
       - FLASK_ENV=production
       - PYTHONUNBUFFERED=1
       - CASTERPAK_FILESYSTEM_VIDEOPARENTPATH=${CASTERPAK_FILESYSTEM_VIDEOPARENTPATH:-/mnt/data}
-      - CASTERPAK_OUTPUT_SERVERNAME=${CASTERPAK_OUTPUT_SERVERNAME:-localhost}
-      - CASTERPAK_INPUT_INPUT_TYPE=${CASTERPAK_INPUT_INPUT_TYPE:-filesystem}
       - CASTERPAK_FILESYSTEM_CACHE_INPUT=${CASTERPAK_FILESYSTEM_CACHE_INPUT:-False}
-      # Sub-directories of the one Cache Volume mounted below - see
-      # docs/Hosting-instructions. Fixed, matching config_example.ini.
+            
+      - CASTERPAK_INPUT_INPUT_TYPE=${CASTERPAK_INPUT_INPUT_TYPE:-filesystem}
       - CASTERPAK_INPUT_VIDEOCACHEPATH=/var/cache/casterpak/video_input
+      
+      - CASTERPAK_OUTPUT_SERVERNAME=${CASTERPAK_OUTPUT_SERVERNAME:-localhost}
       - CASTERPAK_OUTPUT_SEGMENTPARENTPATH=/var/cache/casterpak/segments
-      # This compose stack puts the nginx service in front of casterpak (see the
-      # 'nginx' service below), so segment (.ts) delivery via X-Accel-Redirect
-      # works, and nginx's X-Forwarded-Proto header is trusted (see ProxyFix in
-      # casterpak/__init__.py). Overridable - tests/containertests/run_tests.py
-      # recreates the container with this set False to prove that trust is
-      # actually gated on it, not just always-on.
+      
       - CASTERPAK_OUTPUT_BEHIND_NGINX=${CASTERPAK_OUTPUT_BEHIND_NGINX:-True}
-      # Forces manifest URLs to https regardless of the request's own scheme -
-      # off by default (auto-detect via behind_nginx/X-Forwarded-Proto instead).
-      # See casterpak/routes.py:get_base_url.
       - CASTERPAK_OUTPUT_USE_HTTPS=${CASTERPAK_OUTPUT_USE_HTTPS:-False}
+      - CASTERPAK_OUTPUT_OUTPUT_CACHE_MAX_AGE=${CASTERPAK_OUTPUT_OUTPUT_CACHE_MAX_AGE:-3600}
+      
       - CASTERPAK_DB_PATH=/var/lib/casterpak/data/cacheDB.db
+
       # Gunicorn owns every log destination and '-' means stdout, so this
       # is all of them - cleanup and encoding borrow these handlers rather
       # than opening files of their own.

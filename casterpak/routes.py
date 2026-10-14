@@ -3,6 +3,7 @@
 #See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
 import os
 import typing as t
+from urllib import response
 
 from flask import Blueprint, Response, request
 from flask import abort, current_app, send_from_directory, send_file, make_response, redirect
@@ -247,12 +248,10 @@ def child_manifest(dir_name: t.Union[os.PathLike, str]):
     response = send_file(hls_manager.output_manifest_filename,
                          mimetype="application/vnd.apple.mpegurl")
 
-    # A JIT playlist is an ffmpeg EVENT playlist: it grows until #EXT-X-ENDLIST,
-    # so a cached copy freezes the player at the old end of the stream. Don't
-    # rely on send_file's default (it changes if SEND_FILE_MAX_AGE_DEFAULT is set).
+    # Don't cache a JIT playlist, so the next request gets the properly encoded stream.
     if os.path.basename(dir_name).startswith('JIT_'):
         response.headers['Cache-Control'] = 'no-cache'
-
+    
     return response
 
 

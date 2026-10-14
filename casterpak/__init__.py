@@ -68,6 +68,9 @@ def create_app(test_config=None):
 
     app.config.update(base_config)
 
+    # set cache headers for static files.
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = base_config.getint('output', 'output_cache_max_age')
+
     #ServerName config from casterpak determines
     # server/hostnames in our manifests and stream replies only.
     if app.config['output'].get('serverName'):

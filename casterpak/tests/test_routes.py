@@ -142,11 +142,13 @@ class TestChildManifestCaching(unittest.TestCase):
         self.app = Flask(__name__)
         self.app.register_blueprint(bp)
         config = make_test_config()
+        self.cache_age = 555
         self.app.config['filesystem'] = config['filesystem']
         self.app.config['output'] = config['output']
-        # Simulate a deployment that turned on send_file caching - the explicit
-        # header on JIT playlists must still win.
-        self.app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600
+
+        #make sure that a default is set out-of-the-box
+        self.assertIsInstance(self.app.config['SEND_FILE_MAX_AGE_DEFAULT'], int)
+        self.cache_age = self.app.config['SEND_FILE_MAX_AGE_DEFAULT']
         self.client = self.app.test_client()
 
         self.tmp = tempfile.TemporaryDirectory()
@@ -175,10 +177,20 @@ class TestChildManifestCaching(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers['Cache-Control'], 'no-cache')
 
+    def test_jit_segment_is_no_cache(self):
+        response = self._get('/i/JIT_test_file.mp4/segment_0.ts')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers['Cache-Control'], 'no-cache')
+
     def test_regular_playlist_is_untouched(self):
         response = self._get('/i/test_file.mp4/index_0_av.m3u8')
         self.assertEqual(response.status_code, 200)
-        self.assertNotEqual(response.headers.get('Cache-Control'), 'no-cache')
+        self.assertNotEqual(response.headers.get('Cache-Control'), f'public, max-age={self.cache_age}')
+    
+    def test_master_playlist_is_untouched(self):
+        response = self._get('/i/master.m3u8')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotEqual(response.headers.get('Cache-Control'), f'public, max-age={self.cache_age}')
 
 
 class TestCsmilRoute(unittest.TestCase):
