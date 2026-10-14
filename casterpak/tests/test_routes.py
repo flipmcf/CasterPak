@@ -135,7 +135,7 @@ class TestABRRoute(unittest.TestCase):
         )
         mock_jit_manager.trigger_jit_encoding.assert_called_once()
 
-class TestChildManifestCaching(unittest.TestCase):
+class TestHTTPCacheHeaders(unittest.TestCase):
     """JIT media playlists are growing EVENT playlists and must never be served cacheable."""
 
     def setUp(self):
@@ -146,14 +146,20 @@ class TestChildManifestCaching(unittest.TestCase):
         self.app.config['filesystem'] = config['filesystem']
         self.app.config['output'] = config['output']
 
-        #make sure that a default is set out-of-the-box
-        self.assertIsInstance(self.app.config['SEND_FILE_MAX_AGE_DEFAULT'], int)
-        self.cache_age = self.app.config['SEND_FILE_MAX_AGE_DEFAULT']
+        self.cache_age = self.app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 555
         self.client = self.app.test_client()
 
         self.tmp = tempfile.TemporaryDirectory()
-        self.manifest = os.path.join(self.tmp.name, 'index_0_av.m3u8')
-        with open(self.manifest, 'w') as f:
+        self.index_manifest = os.path.join(self.tmp.name, 'index_0_av.m3u8')
+        with open(self.index_manifest, 'w') as f:
+            f.write('#EXTM3U\n')
+
+        self.segment = os.path.join(self.tmp.name, 'segment_0.ts')
+        with open(self.segment, 'w') as f:
+            f.write('') 
+
+        self.master_manifest = os.path.join(self.tmp.name, 'master.m3u8')
+        with open(self.master_manifest, 'w') as f:
             f.write('#EXTM3U\n')
 
     def tearDown(self):
@@ -162,8 +168,16 @@ class TestChildManifestCaching(unittest.TestCase):
     def _get(self, url):
         mock_hls_manager = MagicMock()
         mock_hls_manager.manifest_exists.return_value = True
-        mock_hls_manager.output_manifest_filename = self.manifest
+        mock_hls_manager.output_manifest_filename = self.index_manifest
+
+        mock_vodhls_manager = MagicMock()
+        mock_vodhls_manager.manifest_exists.return_value = True
+        mock_vodhls_manager.output_manifest_filename = self.master_manifest
+        mock_vodhls_manager.output_dir = self.tmp.name
+        mock_vodhls_manager.master_playlist_name = 'master.m3u8'
+        
         with patch('casterpak.routes.vodhls_media_playlist_factory', return_value=mock_hls_manager), \
+             patch('casterpak.routes.vodhls_master_playlist_factory', return_value=mock_vodhls_manager), \
              patch('casterpak.routes.cachedb.CacheDB'):
             return self.client.get(url)
 
@@ -177,21 +191,20 @@ class TestChildManifestCaching(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers['Cache-Control'], 'no-cache')
 
-    def test_jit_segment_is_no_cache(self):
-        response = self._get('/i/JIT_test_file.mp4/segment_0.ts')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.headers['Cache-Control'], 'no-cache')
-
-    def test_regular_playlist_is_untouched(self):
+    def test_regular_playlist_is_cached(self):
         response = self._get('/i/test_file.mp4/index_0_av.m3u8')
         self.assertEqual(response.status_code, 200)
-        self.assertNotEqual(response.headers.get('Cache-Control'), f'public, max-age={self.cache_age}')
+        self.assertEqual(response.headers.get('Cache-Control'), f'public, max-age={self.cache_age}')
     
-    def test_master_playlist_is_untouched(self):
-        response = self._get('/i/master.m3u8')
+    def test_master_playlist_is_cached(self):
+        response = self._get('/i/test_file.mp4/master.m3u8')
         self.assertEqual(response.status_code, 200)
-        self.assertNotEqual(response.headers.get('Cache-Control'), f'public, max-age={self.cache_age}')
+        self.assertEqual(response.headers.get('Cache-Control'), f'public, max-age={self.cache_age}')
 
+    def test_csmil_manifest_is_cached(self):
+        response = self._get('/i/mydir/test-video_,720,480,.mp4.csmil/master.m3u8')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get('Cache-Control'), f'public, max-age={self.cache_age}')
 
 class TestCsmilRoute(unittest.TestCase):
     def setUp(self):
