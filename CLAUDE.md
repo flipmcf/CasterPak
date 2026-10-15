@@ -65,6 +65,17 @@ committed" by its own first line. Delete it once you're done referring back to i
   because the repo root happens to be on `sys.path` - true for every real entry point, but not for a
   script launched by its own nested path. Making this a real installed package would remove that
   whole class of bug permanently; judged out of scope for now, not forgotten.
+- **The segment root comes from config, and everything else comes from the CSMIL descriptor.**
+  `MultivariantManager` (and `vodhls_master_playlist_factory`) is built from a `CsmilDescriptor`
+  alone - never hand it an `output_dir`, a dirname, or a master-playlist name. Its `output_dir` is
+  `<segmentParentPath>/<csmil.dirname>`, the master playlist name is `csmil.csmil_filename` (no
+  dirname), and each rendition lives at `<output_dir>/<rendition basename>`, the same path
+  `MediaManager.output_dir` and the master's URLs use. `csmil_string` (with its `dirname/` prefix) is
+  for URLs; `csmil_filename` is for files on disk - mixing them doubles the dirname.
+  *Why:* `1c31f2d` (the CSMIL refactor) replaced a caller-supplied `output_dir` with the bare
+  segment root, so Bento4 wrote every rendition to `<segments>/<basename>`, unserved, and they were
+  segmented again on the first child request (#54). Eager segmenting itself (all renditions at the
+  master request, `ProcessSource`) is the intended design, not the bug.
 
 ## Project Overview
 
