@@ -63,10 +63,19 @@ class CsmilDescriptor:
         discards the real directory and resolves to filesystem root instead
         of raising, which is exactly what broke single_bitrate_manifest.
         """
+        prefix = f"{self.dirname}/" if self.dirname else ""
+        return f"{prefix}{self.csmil_filename}"
+
+    @property
+    def csmil_filename(self) -> str:
+        """
+        The CSMIL string without its directory: 'test-video_,360,480,720,.mp4'.
+        This is the name of the master playlist file; the directory it lives in
+        comes from `dirname`, never from this string.
+        """
         labels = ",".join(self.bitrates)
         csmil = ".csmil" if self.append_csmil else ""
-        prefix = f"{self.dirname}/" if self.dirname else ""
-        return f"{prefix}{self.basename},{labels},{self.ext}{csmil}"
+        return f"{self.basename},{labels},{self.ext}{csmil}"
 
     @property
     def rendition_filenames(self) -> list:

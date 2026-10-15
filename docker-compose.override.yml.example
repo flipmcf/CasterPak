@@ -1,0 +1,17 @@
+
+# For helping debug the casterpak service
+
+# 1. add a pdb breakpoint for debugging in to python code
+# 2. rename this file to docker-compose.override.yml
+# 3. `docker compose up -d`
+# 4. `docker attach <container_id_or_name>` (probably casterpak_server)
+# 5. make a request for an endpoint. (http://localhost/testing/test_player.html may help)
+# 6. Enjoy the pdb breakpoint!
+
+services:
+  casterpak:
+    stdin_open: true
+    tty: true
+    environment:
+      - DEBUG=True
+      

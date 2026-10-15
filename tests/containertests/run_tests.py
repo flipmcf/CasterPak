@@ -13,6 +13,7 @@ import subprocess
 import hashlib
 import concurrent.futures
 import urllib3
+from pathlib import Path
 
 # The https_enabled fixture below terminates real TLS with a short-lived,
 # self-signed test cert - there's no CA to verify it against, so requests
@@ -233,6 +234,10 @@ def casterpak_stack():
     shutil.rmtree(LOCAL_CONTAINERTEST_CACHE_DIR, ignore_errors=True)
     os.makedirs(LOCAL_CONTAINERTEST_CACHE_DIR)
     os.chmod(LOCAL_CONTAINERTEST_CACHE_DIR, 0o777)
+
+    #bail out fast if we find a docker-compose.override.yml
+    if Path("docker-compose.override.yml").exists():
+        pytest.exit("CRITICAL: Found docker-compose.override.yml, aborting test run.  Delete or move it away first")
 
     print("\n🚀 Building and starting CasterPak...")
     subprocess.run(["docker", "compose", "build", "--no-cache" ], check=True, env=test_env)
@@ -551,6 +556,20 @@ def test_route_csmil_parent_manifest(with_encodings):
 
     print("✅ CSMIL Master Manifest verified with 3 bitrates.")
 
+    # Renditions are segmented eagerly, (all renditions are segmented) with the master - into the directory the
+    # master's own URLs point at (<segments>/<csmil dirname>/<rendition>/), and
+    # nowhere else. (issue #54)
+    segment_root = "/var/cache/casterpak/segments"
+    container = client.containers.get("casterpak_server")
+
+    for rendition in ("test-video_360p.mp4", "test-video_480p.mp4", "test-video_720p.mp4"):
+        exit_code, _ = container.exec_run(
+            f"test -f {segment_root}/test-video.mp4.transcodes/{rendition}/index_0_av.m3u8")
+        assert exit_code == 0, f"{rendition} was not segmented into its served directory"
+    _, listing = container.exec_run(f"ls -A {segment_root}")
+    assert listing.decode().split() == ["test-video.mp4.transcodes"], \
+        f"stray entries in the segment cache root: {listing.decode()!r}"
+
     # Assert that the url's are well-formed
     assert "http://localhost/i/test-video.mp4.transcodes/test-video_360p.mp4/index_0_av.m3u8" in response.text
 
@@ -583,7 +602,6 @@ def test_route_csmil_parent_manifest(with_encodings):
 
     # 5. Test that nginx hasn't corrupted the binary (by gzip, bad mime header, or something else)
     # The paths to the exact same file
-    container = client.containers.get("casterpak_server")
     
     segment_path = "/var/cache/casterpak/segments/test-video.mp4.transcodes/test-video_360p.mp4/segment-0.ts"
     segment_url = "http://localhost/i/test-video.mp4.transcodes/test-video_360p.mp4/segment-0.ts"

@@ -6,7 +6,10 @@ import typing as t
 
 from . import ConfigurationError
 
+from werkzeug.utils import safe_join
+
 from config import get_config
+from pathsafety import InvalidPathError
 from version import CASTERPAK_VERSION
 from vodhls.factory import vodhls_media_playlist_factory
 from vodhls.media_manifest_base import OptionsConfig
@@ -18,8 +21,7 @@ logger = logging.getLogger('vodhls')
 class MultivariantManager(object):
     config = get_config()
 
-    def __init__(self, csmil_data, output_dir):
-        self.__master_playlist_dir = output_dir
+    def __init__(self, csmil_data):
         self.segment_managers = []
         self.baseurl = None
         self.input_files_processed = False
@@ -62,9 +64,9 @@ class MultivariantManager(object):
             a file list of [a,b,c,d] and a file list of [b,a,c,d] \
             should return the same manifest.
         """
-        #just ask the csmil descriptor for its safe, unique string
-    
-        return f"{self.csmil_data.csmil_string}.m3u8"
+        # just the filename - the directory is output_dir, which already
+        # carries the csmil's dirname. csmil_string would add it twice.
+        return f"{self.csmil_data.csmil_filename}.m3u8"
 
     def manifest_exists(self) -> bool:
         manifest_path = os.path.join(self.output_dir, self.master_playlist_name)
@@ -78,8 +80,10 @@ class MultivariantManager(object):
     @property
     def output_dir(self) -> t.Union[os.PathLike, str]:
         """
-        :return:  the directory name that will contain the master manifest file.
-        This is the full path to the specific hls stream of the input file.
+        :return: the directory that holds the master manifest and, beneath it,
+        one sub-directory per rendition: <segmentParentPath>/<csmil dirname>.
+        Built from the csmil alone - the same directory every rendition's
+        MediaManager.output_dir lives in.
         """
         try:
             path = self.config['output']['segmentParentPath']
@@ -88,7 +92,17 @@ class MultivariantManager(object):
             logger.error(msg)
             raise ConfigurationError(msg)
 
-        return os.path.join(path, self.__master_playlist_dir)
+        if not self.csmil_data.dirname:
+            # A flat file: renditions sit directly under the segment root.
+            return path
+
+        # Defense-in-depth, same as MediaManager.output_dir: dirname is
+        # validated by CsmilDescriptor.from_string, but never let it escape the
+        # segment root (os.path.join would silently accept an absolute path).
+        joined = safe_join(path, self.csmil_data.dirname)
+        if joined is None:
+            raise InvalidPathError(f"unsafe path: {self.csmil_data.dirname!r} escapes {path!r}")
+        return joined
 
     @property
     def manifest_files(self):
@@ -132,10 +146,7 @@ class MultivariantManager(object):
             media_source.has_video = False
 
         # create output directory from input file path
-        try:
-            os.makedirs(self.output_dir)
-        except FileExistsError:
-            pass
+        os.makedirs(self.output_dir, exist_ok=True)
 
         # create output subdirectories for successfully processed media files (renditions):
         for manager in self.segment_managers:

@@ -6,21 +6,21 @@ import typing as t
 import os
 
 from config import get_config
-from flask import current_app
 
 logger = logging.getLogger('vodhls')
 
 
 def vodhls_master_playlist_factory(csmil_descriptor):
     """
-    :param files: an iterable with full paths to all input files relative to the configured input directory
-    :param output_dir: output directory for segments relative to configured output directory (typically a common dirname of files)
+    :param csmil_descriptor: a CsmilDescriptor. This is all the manager is given:
+        the segment cache root comes from config, and everything beneath it
+        (output directory, master playlist name, renditions) is derived from the
+        descriptor.
     :return: an instance of a Multivariant 'master' HLS manager
     """
     from vodhls.master_manifest import MultivariantManager
-    output_dir = current_app.config['output']['segmentParentPath']
 
-    return MultivariantManager(csmil_descriptor, output_dir)
+    return MultivariantManager(csmil_descriptor)
 
 
 def vodhls_media_playlist_factory(filename):

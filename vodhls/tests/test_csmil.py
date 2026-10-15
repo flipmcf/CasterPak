@@ -152,3 +152,14 @@ def test_byo_url_round_trips_unchanged():
     url = "bbb.avi.transcodes/bbb_,360p,480p,720p,.avi.csmil"
 
     assert CsmilDescriptor.from_string(url).csmil_string == url
+
+
+def test_csmil_filename_has_no_dirname():
+    desc = CsmilDescriptor('cache/dir', 'movie_', '.mp4', ['720p', '480p'], append_csmil=True)
+    assert desc.csmil_filename == 'movie_,480p,720p,.mp4.csmil'
+    assert desc.csmil_string == 'cache/dir/movie_,480p,720p,.mp4.csmil'
+
+
+def test_csmil_filename_for_a_flat_file():
+    desc = CsmilDescriptor('', 'movie_', '.mp4', ['480p'])
+    assert desc.csmil_filename == desc.csmil_string == 'movie_,480p,.mp4'
