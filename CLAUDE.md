@@ -212,4 +212,4 @@ S3 is not implemented.
 
 ## Contact
 
-Michael McFadden (`@flipmcf`), OpenForge Solutions, openforgesolutions.com.
+Michael McFadden (`@flipmcf`, flipmcf@gmail.com), OpenForge Solutions, openforgesolutions.com.
