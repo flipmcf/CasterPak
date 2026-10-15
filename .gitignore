@@ -15,6 +15,7 @@ __pycache__/
 config.ini
 .env
 .claude.env
+docker-compose.override.yml
 
 # HOST_CACHE_PATH override for tests/containertests/run_tests.py - created
 # and removed by the casterpak_stack fixture, but survives a crashed run.
