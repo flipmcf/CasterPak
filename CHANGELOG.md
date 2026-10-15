@@ -26,6 +26,14 @@ Not tagged and no Docker image published yet.
   services, so container logs don't fill the disk.
 
 ### Fixed
+- **CSMIL/ABR renditions were segmented twice (#54).** Since `1c31f2d`, the
+  master manifest request wrote every rendition's segments into the segment
+  cache root, where nothing serves them, and the first child playlist request
+  segmented them again under `<name>.transcodes/`: about twice the segment disk,
+  and the root-level copies were never cleaned up. `MultivariantManager` no
+  longer takes an `output_dir`; its directory and master playlist name are built
+  from the CSMIL descriptor alone. **Existing installs:** delete the stray
+  rendition directories at the top of the segment cache.
 - JIT (emergency) streams are no longer cacheable. The JIT master manifest from
   `/i/abr/` is sent with `Cache-Control: no-cache, no-store, must-revalidate`
   (plus `Pragma` and `Expires`), so a cache can't keep serving the emergency

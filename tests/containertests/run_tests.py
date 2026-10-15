@@ -551,6 +551,20 @@ def test_route_csmil_parent_manifest(with_encodings):
 
     print("✅ CSMIL Master Manifest verified with 3 bitrates.")
 
+    # Renditions are segmented eagerly, with the master - into the directory the
+    # master's own URLs point at (<segments>/<csmil dirname>/<rendition>/), and
+    # nowhere else. (#54: they used to land in the segment root, unserved, and
+    # get segmented a second time on the first child playlist request.)
+    segment_root = "/var/cache/casterpak/segments"
+    eager_container = client.containers.get("casterpak_server")
+    for rendition in ("test-video_360p.mp4", "test-video_480p.mp4", "test-video_720p.mp4"):
+        exit_code, _ = eager_container.exec_run(
+            f"test -f {segment_root}/test-video.mp4.transcodes/{rendition}/index_0_av.m3u8")
+        assert exit_code == 0, f"{rendition} was not segmented into its served directory"
+    _, listing = eager_container.exec_run(f"ls -A {segment_root}")
+    assert listing.decode().split() == ["test-video.mp4.transcodes"], \
+        f"stray entries in the segment cache root: {listing.decode()!r}"
+
     # Assert that the url's are well-formed
     assert "http://localhost/i/test-video.mp4.transcodes/test-video_360p.mp4/index_0_av.m3u8" in response.text
 
