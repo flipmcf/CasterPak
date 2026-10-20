@@ -52,6 +52,18 @@ know before re-deriving it.
   project has no installed package (see below), so it depends on being launched with the repo root
   as `sys.path[0]`, same as gunicorn/flask/pytest already do.
 
+**Library service + S3 input (branch `s3-input-and-library`, see its PR):**
+- **Decision (user's, 2026-09-23): CasterPak does NOT grow an API.** It stays a bring-your-own-library
+  streamer. The library you bring is a *separate service* in `library/` (same repo, same image, own
+  gunicorn via `gunicorn.library.conf.py` - never `gunicorn.conf.py`, which starts cleanup/encoding
+  threads). Users, JWT auth, upload, per-user listing, embed URLs. Design: `library/DESIGN.md`.
+  It shares only the storage layout with CasterPak; each user gets a directory `<root>/<username>/`.
+- **S3 input:** `vodhls/media_manifest_s3.py`, `s3client.py` (shared boto3 client), `docs/s3-input.md`.
+  Not yet supported on S3: `/i/abr/` (route and `EncodingManager` read `[filesystem] videoParentPath`).
+- Single-bitrate URL is `/i/<path>/master.m3u8` (`index_0_av.m3u8` is the *child* playlist).
+- Tests need no AWS: moto (`requirements-dev.txt`). Real-S3 / production access: `docs/test-access.md`.
+- Never aim `library/smoke_test.py` or `api/postman/` at production - they create users and files.
+
 **Loose end:** `review_44.md` at the repo root is scratch PR-review notes, marked "never to be
 committed" by its own first line. Delete it once you're done referring back to it.
 

@@ -1,6 +1,8 @@
 # Upload New Video
 
-Status: **draft / planned.** Not implemented. Originally specified as Priority 3 in `CLAUDE.md`.
+Status: **implemented** in the library service - see [`library/DESIGN.md`](../library/DESIGN.md) for the
+actual contract (below is the original draft; the implementation uses `path` as the target directory,
+returns the video object flat, and per-user directories). Originally Priority 3 in `CLAUDE.md`.
 
 Accept a video upload into the library and return a playable URL.
 
@@ -20,7 +22,7 @@ Response 201:
   "size": 450000000,
   "urls": {
     "abr": "http://casterpak/i/abr/projects/2024/new_video.mp4/master.m3u8",
-    "single": "http://casterpak/i/projects/2024/new_video.mp4/index_0_av.m3u8"
+    "single": "http://casterpak/i/projects/2024/new_video.mp4/master.m3u8"
   }
 }
 ```

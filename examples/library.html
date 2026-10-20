@@ -1,0 +1,256 @@
+<!doctype html>
+<!--
+  A complete little front end for the CasterPak library: sign in, upload a video, see your
+  videos, play them, copy the embed code. One file, no build step. It talks only to the
+  documented API (see api/postman/), so it doubles as a worked example for your own site or Plone.
+
+  Open it from disk or any web server. Only UPLOADING needs an account - playing never does.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CasterPak library</title>
+<style>
+  :root { --line: #d0d7de; --muted: #57606a; --accent: #0969da; --bad: #b42318; --ok: #1a7f37; }
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 56rem; margin: 2rem auto; padding: 0 1rem; color: #1b1f24; }
+  fieldset { border: 1px solid var(--line); border-radius: 6px; margin: 1rem 0; padding: 1rem; }
+  legend { font-weight: 600; padding: 0 .4rem; }
+  label { display: block; margin: .5rem 0 .15rem; font-size: .9rem; color: var(--muted); }
+  input[type=text], input[type=password], input[type=email], input[type=url], input[type=file] { width: 100%; box-sizing: border-box; padding: .45rem; font: inherit; }
+  button { padding: .45rem .9rem; font: inherit; cursor: pointer; margin: .5rem .4rem 0 0; }
+  button.primary { background: var(--accent); color: #fff; border: 0; border-radius: 4px; }
+  button.link { background: none; border: 0; color: var(--accent); padding: 0; margin: 0 .6rem 0 0; }
+  .row { display: flex; gap: 1rem; flex-wrap: wrap; } .row > * { flex: 1 1 14rem; }
+  .msg { min-height: 1.3em; font-size: .9rem; } .msg.error { color: var(--bad); } .msg.ok { color: var(--ok); }
+  progress { width: 100%; } [hidden] { display: none !important; }
+  video { width: 100%; background: #000; border-radius: 6px; }
+  ul { list-style: none; padding: 0; } li { border-top: 1px solid var(--line); padding: .6rem 0; }
+  li small { color: var(--muted); display: block; }
+  textarea { width: 100%; box-sizing: border-box; font: .8rem ui-monospace, monospace; height: 9rem; }
+  details { margin: .5rem 0; }
+</style>
+</head>
+<body>
+<h1>CasterPak library</h1>
+
+<fieldset>
+  <legend>Server</legend>
+  <label for="api">Library API</label>
+  <input id="api" type="url" value="http://localhost:5001">
+  <div id="serverMsg" class="msg"></div>
+</fieldset>
+
+<section id="signedOut">
+  <div class="row">
+    <fieldset>
+      <legend>Sign in</legend>
+      <form id="loginForm">
+        <label for="lu">Username</label><input id="lu" type="text" autocomplete="username" required>
+        <label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password" required>
+        <button class="primary">Sign in</button>
+      </form>
+    </fieldset>
+    <fieldset id="registerBox" hidden>
+      <legend>Create account</legend>
+      <form id="registerForm">
+        <label for="ru">Username <small>(3-32: a-z, 0-9, _ -; this is your folder)</small></label>
+        <input id="ru" type="text" autocomplete="username" required>
+        <label for="re">Email (optional)</label><input id="re" type="email" autocomplete="email">
+        <label for="rp">Password (10+ characters)</label><input id="rp" type="password" autocomplete="new-password" required minlength="10">
+        <div id="inviteRow" hidden><label for="ri">Invite code</label><input id="ri" type="password"></div>
+        <button class="primary">Create account</button>
+      </form>
+    </fieldset>
+  </div>
+  <div id="authMsg" class="msg"></div>
+  <p>Just want to play a video? You don't need an account: <a href="player.html">player.html</a>.</p>
+</section>
+
+<section id="signedIn" hidden>
+  <p>Signed in as <strong id="who"></strong> <span id="usage"></span>
+     <button class="link" id="logout">Sign out</button></p>
+
+  <fieldset>
+    <legend>Upload a video</legend>
+    <form id="uploadForm">
+      <label for="file">Video file</label>
+      <input id="file" type="file" accept=".mp4,.m4v,.mov,.mkv,.webm,video/*" required>
+      <div class="row">
+        <div><label for="name">Save as <small>(letters, digits, _ - + . only)</small></label><input id="name" type="text"></div>
+        <div><label for="dir">Folder inside yours <small>(optional)</small></label><input id="dir" type="text" placeholder="trips/2026"></div>
+      </div>
+      <button class="primary" id="uploadBtn">Upload</button>
+      <progress id="bar" value="0" max="100" hidden></progress>
+    </form>
+    <div id="uploadMsg" class="msg"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Player</legend>
+    <video id="video" controls playsinline></video>
+    <div id="playMsg" class="msg"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>My videos <button class="link" id="reload">refresh</button></legend>
+    <ul id="videos"></ul>
+    <div id="listMsg" class="msg"></div>
+  </fieldset>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const state = { access: null, refresh: null, hls: null };
+
+// ---- tiny helpers -----------------------------------------------------------------------
+function say(id, text, kind) { const el = $(id); el.textContent = text || ''; el.className = 'msg ' + (kind || ''); }
+const api = () => $('api').value.replace(/\/+$/, '');
+function save() { try { sessionStorage.setItem('cp', JSON.stringify({ a: state.access, r: state.refresh, api: $('api').value })); } catch (e) {} }
+function load() { try { const s = JSON.parse(sessionStorage.getItem('cp') || 'null'); if (s) { state.access = s.a; state.refresh = s.r; $('api').value = s.api || $('api').value; } } catch (e) {} }
+function errText(body, status) { return (body && body.error && body.error.message) || ('HTTP ' + status); }
+
+// JSON call with the bearer token; on a 401 it trades the refresh token for a new access token once.
+async function call(path, options = {}, retry = true) {
+  const headers = Object.assign({}, options.headers);
+  if (state.access) headers.Authorization = 'Bearer ' + state.access;
+  const res = await fetch(api() + path, Object.assign({}, options, { headers }));
+  if (res.status === 401 && retry && state.refresh && !path.startsWith('/api/auth/')) {
+    const r = await fetch(api() + '/api/auth/refresh', { method: 'POST', headers: { Authorization: 'Bearer ' + state.refresh } });
+    if (r.ok) { state.access = (await r.json()).access_token; save(); return call(path, options, false); }
+    signOut();
+  }
+  const body = await res.json().catch(() => null);
+  return { ok: res.ok, status: res.status, body };
+}
+
+// ---- server info -------------------------------------------------------------------------
+async function checkServer() {
+  try {
+    const { ok, body } = await call('/api/health', {}, false);
+    if (!ok) throw new Error();
+    say('serverMsg', 'Connected. Storage: ' + body.storage + '. Sign-up: ' + body.registration + '.', 'ok');
+    $('registerBox').hidden = body.registration === 'closed';
+    $('inviteRow').hidden = body.registration !== 'invite';
+  } catch (e) {
+    say('serverMsg', 'Cannot reach the library API at ' + api() + ' (is it running? is the URL right?)', 'error');
+  }
+}
+
+// ---- auth ---------------------------------------------------------------------------------
+function showSignedIn(user) {
+  $('signedOut').hidden = true; $('signedIn').hidden = false; $('who').textContent = user.username;
+  refreshUsage(); loadVideos();
+}
+function signOut() {
+  state.access = state.refresh = null; save();
+  $('signedOut').hidden = false; $('signedIn').hidden = true;
+}
+async function signIn(username, password) {
+  const { ok, body, status } = await call('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }, false);
+  if (!ok) { say('authMsg', errText(body, status), 'error'); return; }
+  state.access = body.access_token; state.refresh = body.refresh_token; save();
+  say('authMsg', ''); showSignedIn(body.user);
+}
+$('loginForm').addEventListener('submit', (e) => { e.preventDefault(); signIn($('lu').value.trim().toLowerCase(), $('lp').value); });
+$('registerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = { username: $('ru').value.trim(), password: $('rp').value };
+  if ($('re').value) payload.email = $('re').value;
+  if (!$('inviteRow').hidden) payload.invite_code = $('ri').value;
+  const { ok, body, status } = await call('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, false);
+  if (!ok) { say('authMsg', errText(body, status), 'error'); return; }
+  signIn(payload.username, payload.password);
+});
+$('logout').addEventListener('click', async () => {
+  if (state.refresh) await fetch(api() + '/api/auth/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + state.refresh } }).catch(() => {});
+  signOut();
+});
+
+async function refreshUsage() {
+  const { ok, body } = await call('/api/me');
+  if (!ok) return;
+  const mb = (body.usage.bytes / 1048576).toFixed(1);
+  $('usage').textContent = '- ' + body.usage.videos + ' video(s), ' + mb + ' MB' + (body.usage.quota_bytes ? ' of ' + (body.usage.quota_bytes / 1048576) + ' MB' : '');
+}
+
+// ---- upload ---------------------------------------------------------------------------------
+// CasterPak validates names rather than rewriting them, so we suggest a valid one here.
+const suggestName = (n) => n.replace(/\s+/g, '_').replace(/[^A-Za-z0-9_+.-]/g, '').replace(/^-+/, '');
+$('file').addEventListener('change', () => { const f = $('file').files[0]; if (f) $('name').value = suggestName(f.name); });
+
+$('uploadForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const form = new FormData();
+  form.append('file', $('file').files[0]);
+  if ($('name').value) form.append('filename', $('name').value);
+  if ($('dir').value) form.append('path', $('dir').value);
+
+  // XMLHttpRequest, not fetch, because fetch cannot report upload progress.
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', api() + '/api/upload');
+  xhr.setRequestHeader('Authorization', 'Bearer ' + state.access);
+  xhr.upload.onprogress = (ev) => { if (ev.lengthComputable) { $('bar').hidden = false; $('bar').value = 100 * ev.loaded / ev.total; } };
+  xhr.onload = () => {
+    $('bar').hidden = true; $('uploadBtn').disabled = false;
+    let body = null; try { body = JSON.parse(xhr.responseText); } catch (err) {}
+    if (xhr.status === 201) {
+      say('uploadMsg', 'Uploaded ' + body.path, 'ok'); $('uploadForm').reset();
+      refreshUsage(); loadVideos(); play(body);
+    } else if (xhr.status === 401 && state.refresh) {
+      say('uploadMsg', 'Your session expired - press Upload again.', 'error');
+      call('/api/me');                                    // triggers the silent token refresh
+    } else {
+      say('uploadMsg', errText(body, xhr.status), 'error');
+    }
+  };
+  xhr.onerror = () => { $('bar').hidden = true; $('uploadBtn').disabled = false; say('uploadMsg', 'Network error during upload.', 'error'); };
+  $('uploadBtn').disabled = true; say('uploadMsg', 'Uploading...');
+  xhr.send(form);
+});
+
+// ---- list + play ------------------------------------------------------------------------------
+function play(video) {
+  const url = video.urls.hls;
+  const el = $('video');
+  if (state.hls) { state.hls.destroy(); state.hls = null; }
+  say('playMsg', 'Playing ' + video.path);
+  if (window.Hls && Hls.isSupported()) {
+    state.hls = new Hls();
+    state.hls.on(Hls.Events.ERROR, (ev, d) => { if (d.fatal) say('playMsg', 'Playback error: ' + d.details, 'error'); });
+    state.hls.on(Hls.Events.MANIFEST_PARSED, () => el.play().catch(() => {}));
+    state.hls.loadSource(url); state.hls.attachMedia(el);
+  } else if (el.canPlayType('application/vnd.apple.mpegurl')) { el.src = url; el.play().catch(() => {});
+  } else { say('playMsg', 'This browser cannot play HLS.', 'error'); }
+}
+
+function copyBox(title, text) {
+  const d = document.createElement('details'); const s = document.createElement('summary'); s.textContent = title;
+  const t = document.createElement('textarea'); t.readOnly = true; t.value = text; t.onfocus = () => t.select();
+  d.append(s, t); return d;
+}
+
+async function loadVideos() {
+  const { ok, body, status } = await call('/api/videos?limit=100');
+  const list = $('videos'); list.textContent = '';
+  if (!ok) { say('listMsg', errText(body, status), 'error'); return; }
+  say('listMsg', body.total ? '' : 'Nothing uploaded yet.');
+  for (const v of body.videos) {
+    const li = document.createElement('li');
+    const name = document.createElement('strong'); name.textContent = v.path;
+    const meta = document.createElement('small'); meta.textContent = (v.size / 1048576).toFixed(1) + ' MB - ' + new Date(v.created_at).toLocaleString();
+    const playBtn = document.createElement('button'); playBtn.className = 'link'; playBtn.textContent = 'Play'; playBtn.onclick = () => play(v);
+    li.append(name, meta, playBtn, copyBox('Stream URL', v.urls.hls), copyBox('Embed code (paste into any web page)', v.embed_html));
+    list.append(li);
+  }
+}
+$('reload').addEventListener('click', (e) => { e.preventDefault(); loadVideos(); });
+
+// ---- start ---------------------------------------------------------------------------------------
+load(); checkServer();
+$('api').addEventListener('change', checkServer);
+if (state.access) call('/api/me').then(({ ok, body }) => { if (ok) showSignedIn(body.user); else signOut(); });
+</script>
+</body>
+</html>
