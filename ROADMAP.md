@@ -10,7 +10,7 @@ Phase D is done.
 what the 1-5 checklist below is scored against. Local bare-metal is a debug tool only, never
 the pass/fail check.
 
-1. `docker-compose build --no-cache` → `docker-compose up -d` → run through checklist items 1-5.
+1. `docker compose build --no-cache` → `docker compose up -d` → run through checklist items 1-5.
 2. If an item fails: drop to `./bin/python -m flask run` locally (single-threaded dev server,
    real tracebacks — see `Readme.md` Debugging section) to find and fix the bug.
 3. Rebuild and re-verify the same item in Docker before checking it off. Never check off an

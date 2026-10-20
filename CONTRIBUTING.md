@@ -43,7 +43,12 @@ cp config_example.ini config.ini
 ./bin/pytest
 ```
 
+- On Python 3.13 and newer, `python3 -m venv .` overwrites the repo's tracked `.gitignore`. Use
+  `python3 -m venv --without-scm-ignore-files .` there (older Pythons don't have that flag), or
+  run `git checkout .gitignore` afterwards, and never commit the change.
 - `config.ini` is for local development only and is not tracked by git.
+- [`docs/development.md`](docs/development.md) has the full dev guide: configuration, running the
+  Flask dev server, cache cleanup and debugging.
 - The unit tests take a few seconds and need neither Docker nor the Bento4 binaries.
 - If pytest stops with "stray SQLite cache database in the repo tree", a `cacheDB.db` file is
   sitting in the repo root and would hide test-isolation bugs. Delete it and re-run:

@@ -24,6 +24,11 @@ Not tagged and no Docker image published yet.
   `./bin/python -m cleanup.cleaner` from the repo root.
 - `docker-compose.yml`: `json-file` log rotation (10 MB, 3 files) on both
   services, so container logs don't fill the disk.
+- README: the dev install, testing and debugging material moved to `docs/development.md`, and the
+  README now covers what CasterPak is, the URL endpoints and running it with Docker. Each concept
+  is explained once (the CSMIL URL grammar and the ABR endpoint were each explained three times).
+  Removed instructions that no longer matched the container-only design (a bare-metal "production"
+  gunicorn setup, `cacheDB.json`, `/var/log/casterpak.log`).
 
 ### Fixed
 - **`/i/abr/` works with every input type (#58).** It used to read `[filesystem] videoParentPath`
