@@ -14,17 +14,21 @@ import logging
 logger = logging.getLogger('encoder')
 
 class EncodingManager:
-    def __init__(self, filename):
+    def __init__(self, library_path):
         """
-        :param filename: The full path to the original video file (e.g., '/path/to/my_video.mp4')
+        :param library_path: the video's path in the library, which is also its URL path
+            (e.g. 'shows/2024/episode.mp4'). It is not a filesystem path: where the source
+            file actually lives is the input layer's business, and the caller hands the
+            local file to queue_background_encoding().
 
-        This manages the endoded renditions of 'filename' by 
-          1. epecting to find a directory '/path/to/my_video.mp4.transcodes' in the input file cache.
-          2. renditions in the form of my_video.{suffix}.mp4'
-          (e.g., '/path/to/my_video.mp4.transcodes/my_video_720p.mp4')
+        This manages the encoded renditions of 'library_path' by
+          1. expecting to find a directory '<videoCachePath>/shows/2024/episode.mp4.transcodes'
+             in the input file cache.
+          2. renditions in the form of episode_720p.mp4
+          (e.g., '<videoCachePath>/shows/2024/episode.mp4.transcodes/episode_720p.mp4')
         """
-        self.full_path_filename = filename
-        (self.dir_path, self.filename) = os.path.split(self.full_path_filename)
+        self.library_path = library_path
+        (self.dir_path, self.filename) = os.path.split(self.library_path)
         (self.file_basename, self.file_ext) = os.path.splitext(self.filename)
         
         self.app_config = get_config()
@@ -50,30 +54,21 @@ class EncodingManager:
         logger.debug(self.bitrates)
 
         video_output_cache = self.app_config.get('input', 'videoCachePath')
-        video_parent_path = self.app_config.get('filesystem', 'videoParentPath')
         logger.debug(f"Video output cache path from config: {video_output_cache}")
 
-        # The transcode cache mirrors the source video's path *relative to*
-        # videoParentPath: a source at
-        #     {videoParentPath}/shows/2024/episode.mp4
-        # gets its renditions under
+        # The transcode cache is keyed by the library path, whatever the input type:
+        # 'shows/2024/episode.mp4' gets its renditions under
         #     {videoCachePath}/shows/2024/episode.mp4.transcodes/
-        # This has to agree with what casterpak/routes.py:abr_manifest builds
-        # for the CSMIL redirect and what vodhls/media_manifest_filesystem.py
-        # resolves coming back in. os.path.split() (basename only) would
-        # collapse every sub-directory onto the cache root and silently
-        # mis-place renditions for any nested video.
-        relative_video_path = os.path.relpath(self.full_path_filename, video_parent_path)
-
-        # Defense-in-depth: routes.py already validates the path this was built
-        # from (see pathsafety.py), so this should never actually reject
-        # anything - but if the source somehow isn't under videoParentPath,
-        # relpath yields '../...' and safe_join returns None; refuse rather
-        # than escape videoCachePath.
-        transcode_output_dir = safe_join(video_output_cache, f"{relative_video_path}.transcodes")
+        # This has to agree with what casterpak/routes.py:abr_manifest builds for the
+        # CSMIL redirect and with where the input layer resolves renditions coming back in.
+        #
+        # Defense-in-depth: routes.py already validates the path this was built from
+        # (see pathsafety.py), so this should never actually reject anything - but if
+        # the path somehow escapes videoCachePath, safe_join returns None; refuse.
+        transcode_output_dir = safe_join(video_output_cache, f"{self.library_path}.transcodes")
         if transcode_output_dir is None:
             raise InvalidPathError(
-                f"unsafe path: {relative_video_path!r} escapes {video_output_cache!r}"
+                f"unsafe path: {self.library_path!r} escapes {video_output_cache!r}"
             )
         self.transcode_output_dir = transcode_output_dir
 
@@ -85,7 +80,7 @@ class EncodingManager:
     
     @property
     def _process_name(self):
-        return self.full_path_filename
+        return self.library_path
     
     def queue_encoding_job(self, command: list[str]) -> None:
         """
@@ -105,8 +100,11 @@ class EncodingManager:
         """
         return encoding_process_manager.in_progress(self._process_name)
 
-    def queue_background_encoding(self) -> None:
+    def queue_background_encoding(self, source_file: str) -> None:
         """
+        :param source_file: the local file to encode - what the input layer's
+            MediaManager.input_file returns once process_input() has run.
+
         Requests a heavy FFmpeg ABR encode for this video and returns
         immediately. Non-blocking, and doesn't spawn anything itself:
         EncodingManager's job is building the ffmpeg command; actually
@@ -118,24 +116,24 @@ class EncodingManager:
         directory gets created - losing the race should be a no-op, not
         wasted work.
         """
-        if not os.path.exists(self.full_path_filename):
-            raise FileNotFoundError(f"Source video {self.full_path_filename} not found.")
+        if not os.path.exists(source_file):
+            raise FileNotFoundError(f"Source video {source_file} not found.")
 
         # ###### SECURITY TODO (see banner in encoding/encoding_process_manager.py):
         # get_ffmpeg_command() is the ONLY trusted builder of encode argv. Its
         # output is about to be persisted and later exec'd from the DB, so this
         # must stay the only source of that argv until the dispatcher rebuilds it
         # itself instead of trusting a stored command. ######
-        command = self.get_ffmpeg_command()
+        command = self.get_ffmpeg_command(source_file)
 
         try:
             self.queue_encoding_job(command)
         except EncodingAlreadyInProgressError:
-            logger.info(f"ABR encoding already queued for {self.full_path_filename}, not queuing another.")
+            logger.info(f"ABR encoding already queued for {self.library_path}, not queuing another.")
             raise
 
         self._ensure_transcode_dir()
-        logger.info(f"Queued background ABR encoding for {self.full_path_filename}")
+        logger.info(f"Queued background ABR encoding for {self.library_path}")
 
     """ delimiter for renditions defined here."""
     rendition_delimiter = "_"
@@ -175,9 +173,9 @@ class EncodingManager:
         if not os.path.exists(self.transcode_output_dir):
             os.makedirs(self.transcode_output_dir, exist_ok=True)
 
-    def get_ffmpeg_command(self) -> list[str]:
+    def get_ffmpeg_command(self, source_file: str) -> list[str]:
         """
-        Generates the list-style command for subprocess.
+        Generates the list-style command for subprocess, encoding the local file `source_file`.
         Target this with test frameworks to verify the command structure without running FFmpeg.
 
         Each rendition is its own self-contained output stanza (audio settings, maps,
@@ -197,7 +195,7 @@ class EncodingManager:
         cmd = ["nice", "-n", "10",
             "ffmpeg", "-y",
             "-threads", str(max_threads),
-            "-i", self.full_path_filename,
+            "-i", source_file,
         ]
 
         files = self.list_rendition_files()

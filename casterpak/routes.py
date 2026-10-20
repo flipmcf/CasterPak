@@ -7,7 +7,6 @@ import typing as t
 from flask import Blueprint, Response, request
 from flask import abort, current_app, send_from_directory, send_file, make_response, redirect
 
-from werkzeug.utils import safe_join
 
 import cachedb
 from vodhls import EncodingError
@@ -109,19 +108,12 @@ def abr_manifest(dir_name: str):
 
     basename, ext = os.path.splitext(filename)
 
-    #determine input directory for original video file.
-    localdir = current_app.config['filesystem']['videoParentPath']
-    video_file = safe_join(localdir, dir_name)
-    if video_file is None:
-        # dir_name already passed validate_dirname/validate_filename above,
-        # so this should be unreachable - but safe_join returns None rather
-        # than raising, and a silent None here would crash downstream with
-        # a bare TypeError (os.path.split(None)) instead of a clean 422.
-        return abort(422, description="Invalid filename")
+    current_app.logger.info(f"abr route called for {dir_name}")
 
-    current_app.logger.info(f"abr route called for {video_file}")
-
-    encoder = EncodingManager(video_file)
+    try:
+        encoder = EncodingManager(dir_name)
+    except InvalidPathError as e:
+        return abort(422, description=str(e))
     try:
         #State 3 - encodings already exist.
         if encoder.renditions_exist():
@@ -136,18 +128,25 @@ def abr_manifest(dir_name: str):
         else:
             # TIER 3: No encodings exist. Emergency
 
+            # Both the background encode and the JIT stream read the source video, so ask
+            # the input layer for it. process_input() makes the source a local file
+            # (fetching it if the input type needs that) and raises FileNotFoundError if
+            # the library has no such video.
+            hls_manager = vodhls_media_playlist_factory(dir_name)
+            hls_manager.process_input()
+            source_file = hls_manager.input_file
+
             # First (why first?) We queue up the quality ABR encoding process.
             try:
-                encoder.queue_background_encoding()
+                encoder.queue_background_encoding(source_file)
             except EncodingAlreadyInProgressError:
                 current_app.logger.info("ABR encoding already queued, not queuing another.")
             except EncodingManagerError as e:
                 current_app.logger.error(f"Error queuing ABR encoding: {e}")
 
             #We then will provide the JIT stream until the real stream is ready (state 3 above)
-            hls_manager = vodhls_media_playlist_factory(dir_name)
             jit_manager = jit_manager_factory(dir_name=dir_name,
-                                              input_filepath=hls_manager.source_file,
+                                              input_filepath=source_file,
                                               output_dir=hls_manager.output_dir,
                                               manifest_path=hls_manager.output_manifest_filename)
 
@@ -174,7 +173,7 @@ def abr_manifest(dir_name: str):
             return response
 
     except FileNotFoundError:
-        return abort(404, description="Original source video at videoParentPath/{dir_name} not found.")
+        return abort(404, description=f"Source video {dir_name} not found.")
     except Exception as e:
         return abort(504, description=f"Encoding failed: {e}")
 

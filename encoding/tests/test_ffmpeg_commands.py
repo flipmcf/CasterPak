@@ -25,23 +25,22 @@ class TestFFmpegCommands(unittest.TestCase):
         # 2. Add ONLY the values EncodingManager needs (this helps find unused or new config dependencies)
         self.mock_config.add_section('input')
         self.mock_config.set('input', 'videoCachePath', self.output_dir)
-        self.mock_config.add_section('filesystem')
-        self.mock_config.set('filesystem', 'videoParentPath', self.input_dir)
                
         # 3. THIS IS THE KEY: Tell the mock function to return the config object
         self.mock_get_config.return_value = self.mock_config
         
         from encoding.encodingmanager import EncodingManager
-        self.manager = EncodingManager(
-            filename=os.path.join(self.input_dir, self.video_name)
-        )
+        # EncodingManager is keyed by the library path; the local file to encode
+        # is handed in separately (it comes from the input layer).
+        self.manager = EncodingManager(library_path=self.video_name)
+        self.source_file = os.path.join(self.input_dir, self.video_name)
 
     def tearDown(self):
         self.patcher.stop()
         
     def test_get_ffmpeg_command_default(self):
         self.maxDiff=None
-        generated_cmd = self.manager.get_ffmpeg_command()
+        generated_cmd = self.manager.get_ffmpeg_command(self.source_file)
         expected_output_dir = os.path.join(self.output_dir, f"{self.video_name}.transcodes")
 
         expected_cmd = ["nice", "-n", "10",

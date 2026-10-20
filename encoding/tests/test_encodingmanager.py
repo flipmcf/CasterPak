@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from encoding.encodingmanager import EncodingManager
 from encoding import EncodingAlreadyInProgressError
+from pathsafety import InvalidPathError
 
 class TestEncodingManagerMethods(unittest.TestCase):
     def setUp(self):
@@ -22,13 +23,11 @@ class TestEncodingManagerMethods(unittest.TestCase):
         self.mock_config = configparser.ConfigParser()
         self.mock_config.add_section('input')
         self.mock_config.set('input', 'videoCachePath', self.output_dir)
-        self.mock_config.add_section('filesystem')
-        self.mock_config.set('filesystem', 'videoParentPath', self.input_dir)
         self.mock_get_config.return_value = self.mock_config
-        
-        self.manager = EncodingManager(
-            filename=os.path.join(self.input_dir, self.video_name)
-        )
+
+        # keyed by library path; the local source file is passed to the queue call
+        self.manager = EncodingManager(library_path=self.video_name)
+        self.source_file = os.path.join(self.input_dir, self.video_name)
 
     def tearDown(self):
         self.patcher.stop()
@@ -54,11 +53,11 @@ class TestEncodingManagerMethods(unittest.TestCase):
         # only then ensures the transcode dir exists. It does NOT spawn
         # anything itself anymore - that's encoding_process_manager's
         # dispatcher's job.
-        self.manager.queue_background_encoding()
+        self.manager.queue_background_encoding(self.source_file)
 
         mock_queue_encoding_job.assert_called_once()
         (command,), _ = mock_queue_encoding_job.call_args
-        self.assertEqual(command, self.manager.get_ffmpeg_command())
+        self.assertEqual(command, self.manager.get_ffmpeg_command(self.source_file))
         mock_ensure_dir.assert_called_once()
 
     @patch.object(EncodingManager, '_ensure_transcode_dir')
@@ -72,14 +71,14 @@ class TestEncodingManagerMethods(unittest.TestCase):
         mock_queue_encoding_job.side_effect = EncodingAlreadyInProgressError()
 
         with self.assertRaises(EncodingAlreadyInProgressError):
-            self.manager.queue_background_encoding()
+            self.manager.queue_background_encoding(self.source_file)
 
         mock_ensure_dir.assert_not_called()
 
     @patch('os.path.exists', return_value=False)
     def test_queue_background_encoding_missing_source_file(self, mock_exists):
         with self.assertRaises(FileNotFoundError):
-            self.manager.queue_background_encoding()
+            self.manager.queue_background_encoding(self.source_file)
 
     @patch('encoding.encodingmanager.get_config')
     def test_custom_encoding_ladder_labels(self, mock_get_config):
@@ -91,8 +90,6 @@ class TestEncodingManagerMethods(unittest.TestCase):
         custom_config = configparser.ConfigParser()
         custom_config.add_section('input')
         custom_config.set('input', 'videoCachePath', '/tmp/test_output')
-        custom_config.add_section('filesystem')
-        custom_config.set('filesystem', 'videoParentPath', '/tmp/test_input')
 
         # 2. Add the custom ladder!
         custom_config.add_section('encoding_ladder')
@@ -104,7 +101,7 @@ class TestEncodingManagerMethods(unittest.TestCase):
         mock_get_config.return_value = custom_config
         
         # 4. Instantiate the manager and check the generated filenames
-        manager = EncodingManager('/tmp/test_input/test_video.mp4')
+        manager = EncodingManager('test_video.mp4')
         
         files = manager.list_rendition_files()
         
@@ -116,20 +113,19 @@ class TestEncodingManagerMethods(unittest.TestCase):
         # Assert it completely ignored the fallback defaults
         self.assertEqual(len(files), 3)
 
-    @patch('encoding.encodingmanager.get_config')
-    def test_transcode_output_dir_root_level_video(self, mock_get_config):
-        """Positive control / regression guard: a video sitting directly in
-        videoParentPath has no sub-path, so transcode_output_dir is just
-        {videoCachePath}/{name}.transcodes. Works today; must keep working
-        after the sub-directory fix below."""
+    def _manager_for(self, mock_get_config, library_path):
+        """A manager configured with ONLY [input]: no input-type section at all.
+        Keying by library path means EncodingManager never needs one."""
         cfg = configparser.ConfigParser()
         cfg.add_section('input')
         cfg.set('input', 'videoCachePath', '/var/cache')
-        cfg.add_section('filesystem')
-        cfg.set('filesystem', 'videoParentPath', '/mnt/library')
         mock_get_config.return_value = cfg
+        return EncodingManager(library_path)
 
-        mgr = EncodingManager('/mnt/library/movie.mp4')
+    @patch('encoding.encodingmanager.get_config')
+    def test_transcode_output_dir_root_level_video(self, mock_get_config):
+        """A video at the top of the library: {videoCachePath}/{name}.transcodes"""
+        mgr = self._manager_for(mock_get_config, 'movie.mp4')
 
         self.assertEqual(mgr.transcode_output_dir,
                          '/var/cache/movie.mp4.transcodes')
@@ -137,26 +133,14 @@ class TestEncodingManagerMethods(unittest.TestCase):
     @patch('encoding.encodingmanager.get_config')
     def test_transcode_output_dir_preserves_subdirectory(self, mock_get_config):
         """
-        A source video NESTED under videoParentPath keeps its sub-path in the
-        transcode cache:
+        A video in a library sub-directory keeps its sub-path in the transcode cache:
 
             {videoCachePath}/<subdir>/<name>.mp4.transcodes/
 
         That is exactly what abr_manifest builds for the CSMIL redirect
-        (os.path.join(dirname, f"{filename}.transcodes")) and what
-        MediaManager_filesystem resolves on the way back in (cached_filename /
-        source_file). Regression guard: os.path.split() (basename only) once
-        dropped the sub-directory here, so /abr/ for a nested video 302'd to a
-        CSMIL whose renditions had been written somewhere nothing looked.
+        (os.path.join(dirname, f"{filename}.transcodes")).
         """
-        cfg = configparser.ConfigParser()
-        cfg.add_section('input')
-        cfg.set('input', 'videoCachePath', '/var/cache')
-        cfg.add_section('filesystem')
-        cfg.set('filesystem', 'videoParentPath', '/mnt/library')
-        mock_get_config.return_value = cfg
-
-        mgr = EncodingManager('/mnt/library/shows/2024/episode.mp4')
+        mgr = self._manager_for(mock_get_config, 'shows/2024/episode.mp4')
 
         self.assertEqual(
             mgr.transcode_output_dir,
@@ -167,6 +151,20 @@ class TestEncodingManagerMethods(unittest.TestCase):
                 path.startswith('/var/cache/shows/2024/episode.mp4.transcodes/'),
                 path,
             )
+
+    @patch('encoding.encodingmanager.get_config')
+    def test_lock_name_is_the_library_path(self, mock_get_config):
+        """The queue lock is keyed by library path, so it is the same for every input type."""
+        mgr = self._manager_for(mock_get_config, 'shows/2024/episode.mp4')
+
+        self.assertEqual(mgr._process_name, 'shows/2024/episode.mp4')
+
+    @patch('encoding.encodingmanager.get_config')
+    def test_library_path_cannot_escape_the_cache(self, mock_get_config):
+        for evil in ('../../etc/passwd', '/etc/passwd'):
+            with self.subTest(library_path=evil):
+                with self.assertRaises(InvalidPathError):
+                    self._manager_for(mock_get_config, evil)
 
 
 if __name__ == "__main__":
