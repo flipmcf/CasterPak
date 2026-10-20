@@ -116,6 +116,8 @@ def abr_manifest(dir_name: str):
         return abort(422, description=str(e))
     try:
         #State 3 - encodings already exist.
+        # Note that this only checks the local input cache, not the library.
+        # Users should not call /abr if transcodes live in the library.  use csmil.
         if encoder.renditions_exist():
             current_app.logger.info(f"renditions exist - redirect to csmil")
             # TIER 2: Encodings are ready. Redirect to stateless CSMIL delivery.
