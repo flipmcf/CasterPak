@@ -28,6 +28,10 @@ test_env = os.environ.copy()
 # when testing, use video files here as the source.
 test_env["CASTERPAK_FILESYSTEM_VIDEOPARENTPATH"] = "/var/lib/casterpak/samples"
 
+# TODO: cover a non-filesystem input end to end. Consider running a mock S3 (e.g. moto's
+#   moto_server) beside the stack and pointing CASTERPAK_INPUT_INPUT_TYPE=s3 and
+#   CASTERPAK_S3_ENDPOINT_URL at it, then repeating the single-bitrate, CSMIL and /i/abr/ tests.
+
 # Bind-mount source for the app's cache volume (segments/, video_input/)
 # during container tests, in place of the real HOST_CACHE_PATH default
 # (/var/cache/casterpak).
@@ -143,6 +147,18 @@ def casterpak_forced_https():
     """Recreates casterpak_server with use_https=True for one test, then
     restores the baseline afterward (see casterpak_not_behind_nginx)."""
     _recreate_casterpak_server({"CASTERPAK_OUTPUT_USE_HTTPS": "True"})
+    try:
+        yield
+    finally:
+        _recreate_casterpak_server(None)
+
+
+@pytest.fixture(scope="function")
+def casterpak_cache_input():
+    """Recreates casterpak_server with [filesystem] cache_input=True for one test
+    (source videos are copied into the input cache), then restores the baseline
+    afterward (see casterpak_not_behind_nginx)."""
+    _recreate_casterpak_server({"CASTERPAK_FILESYSTEM_CACHE_INPUT": "True"})
     try:
         yield
     finally:
@@ -760,9 +776,10 @@ def test_route_abr_manifest_concurrent_requests_dont_race(casterpak_clean):
 
     # 1. The dedup guarantee, checked directly on the queue, right now -
     #    before the dispatcher has even polled. Exactly one row for this video.
+    #    The queue's lock_name is the video's library path (the URL path).
     _, out = container.exec_run(
         "sqlite3 /var/lib/casterpak/data/cacheDB.db "
-        "\"SELECT COUNT(*) FROM encodingqueue WHERE lock_name LIKE '%/test-video.mp4'\""
+        "\"SELECT COUNT(*) FROM encodingqueue WHERE lock_name = 'test-video.mp4'\""
     )
     queue_rows = out.decode().strip()
     assert queue_rows == "1", \
@@ -844,6 +861,70 @@ def test_route_abr_manifest_produces_renditions_from_scratch(casterpak_clean):
     )
     assert segment_response.status_code == 200
     assert len(segment_response.content) > 1000
+
+
+def input_cache_records(container):
+    """Filenames the cache database records for the input cache (what the cleaner may evict)."""
+    _, out = container.exec_run('sqlite3 /var/lib/casterpak/data/cacheDB.db "SELECT filename FROM inputfile"')
+    return out.decode().split()
+
+
+def test_route_abr_manifest_with_cache_input(casterpak_clean, casterpak_cache_input):
+    """
+    /i/abr/ with [filesystem] cache_input = True: the input layer copies the source video
+    into the input cache, and the background encode and the JIT stream read that local copy.
+    The auto-encoded renditions are written to the input cache too, and are recorded in the
+    cache database once they are served, so the cleaner can evict them.
+    """
+    container = client.containers.get("casterpak_server")
+    url = "http://localhost:80/i/abr/test-video.mp4/master.m3u8"
+    cached_source = "/var/cache/casterpak/video_input/test-video.mp4"
+
+    # First request: nothing is encoded yet, so this is the JIT emergency stream (200).
+    response = requests.get(url, allow_redirects=False)
+    assert response.status_code == 200, f"expected the JIT stream (200), got {response.status_code}"
+    assert "/i/JIT_test-video.mp4/index_0_av.m3u8" in response.text
+
+    # The input layer copied the source into the input cache and recorded it.
+    exit_code, _ = container.exec_run(f"test -f {cached_source}")
+    assert exit_code == 0, f"source video was not copied into the input cache ({cached_source})"
+    assert "test-video.mp4" in input_cache_records(container)
+
+    # The background encode finishes and the same URL becomes a redirect to a CSMIL.
+    location = None
+    deadline = time.time() + 120
+    while time.time() < deadline:
+        response = requests.get(url, allow_redirects=False)
+        if response.status_code == 302:
+            location = response.headers['Location']
+            break
+        assert response.status_code == 200, \
+            f"expected 200 (still encoding) or 302 (done), got {response.status_code}"
+        time.sleep(2)
+    assert location == "/i/test-video.mp4.transcodes/test-video_,360p,480p,720p,.mp4.csmil/master.m3u8", \
+        f"background encode never produced renditions within 120s (last redirect: {location})"
+
+    # The renditions were written to the input cache, keyed by the library path...
+    for label in ("360p", "480p", "720p"):
+        exit_code, _ = container.exec_run(
+            f"test -s /var/cache/casterpak/video_input/test-video.mp4.transcodes/test-video_{label}.mp4")
+        assert exit_code == 0, f"rendition {label} is not in the input cache"
+
+    # ...and serving them works: the CSMIL master, then a child playlist and a segment.
+    csmil_response = requests.get(f"http://localhost:80{location}")
+    assert csmil_response.status_code == 200
+    for label in ("360p", "480p", "720p"):
+        assert f"test-video_{label}.mp4" in csmil_response.text
+    child = requests.get("http://localhost:80/i/test-video.mp4.transcodes/test-video_360p.mp4/index_0_av.m3u8")
+    assert child.status_code == 200 and "segment-0.ts" in child.text
+    segment = requests.get("http://localhost:80/i/test-video.mp4.transcodes/test-video_360p.mp4/segment-0.ts")
+    assert segment.status_code == 200 and len(segment.content) > 1000
+
+    # Building the CSMIL master recorded the renditions, so the cleaner can evict them.
+    records = input_cache_records(container)
+    for label in ("360p", "480p", "720p"):
+        assert f"test-video.mp4.transcodes/test-video_{label}.mp4" in records, \
+            f"rendition {label} is in the input cache but not recorded for eviction: {records}"
 
 
 def test_route_abr_manifest_deep_directory_produces_reachable_renditions(casterpak_clean):

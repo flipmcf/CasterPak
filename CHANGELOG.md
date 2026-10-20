@@ -26,6 +26,14 @@ Not tagged and no Docker image published yet.
   services, so container logs don't fill the disk.
 
 ### Fixed
+- **`/i/abr/` works with every input type (#58).** It used to read `[filesystem] videoParentPath`
+  itself, so it worked only with `input_type = filesystem`. The source video now comes from the
+  input layer (`MediaManager.process_input()` / `input_file`), and `EncodingManager` is keyed by the
+  library path: it takes the library path, and the local file to encode is passed to
+  `queue_background_encoding()`. Transcodes still live at
+  `<videoCachePath>/<library path>.transcodes/`. Encode queue lock names are now library paths
+  (they were absolute file paths), so an encode queued before upgrading is not recognised as
+  in progress. The input cache directory is now always created at startup.
 - **CSMIL/ABR renditions were segmented twice (#54).** Since `1c31f2d`, the
   master manifest request wrote every rendition's segments into the segment
   cache root, where nothing serves them, and the first child playlist request

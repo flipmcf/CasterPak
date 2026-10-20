@@ -80,16 +80,12 @@ def create_app(test_config=None):
         app.logger.debug(f"created new output directory {app.config['output']['segmentParentPath']}")
     app.logger.info(f"output directory set to {app.config['output']['segmentParentPath']}")
 
-    # initialize input cache directory
-    if app.config['input']['input_type'] == 'filesystem' and \
-            app.config['filesystem'].getboolean('cache_input') is False:
-        app.logger.debug("input caching disabled")
-    else:
-        if not os.path.isdir(app.config['input']['videoCachePath']):
-            os.makedirs(app.config['input']['videoCachePath'], exist_ok=True)
-            app.logger.debug(f"created new input cache directory {app.config['input']['videoCachePath']}")
-        app.logger.info("input caching enabled")
-        app.logger.info(f"input caching to {app.config['input']['videoCachePath']}")
+    # initialize input cache directory. Every input type uses it: fetched source
+    # copies and auto-encoded renditions (transcodes) live here.
+    if not os.path.isdir(app.config['input']['videoCachePath']):
+        os.makedirs(app.config['input']['videoCachePath'], exist_ok=True)
+        app.logger.debug(f"created new input cache directory {app.config['input']['videoCachePath']}")
+    app.logger.info(f"input cache at {app.config['input']['videoCachePath']}")
 
     #print the entire config to info log on startup:
     app.logger.info(printable_config(app.config))    

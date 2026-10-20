@@ -12,6 +12,18 @@
   stops being true. Do not leave a note about the old behaviour.
 - Do not put snapshots, dates, or version numbers of "latest work" in this file.
 
+## Engineering principles
+
+Build the simple version first and measure before optimizing:
+
+> "We should forget about small efficiencies, say about 97% of the time: premature optimization is
+> the root of all evil. Yet we should not pass up our opportunities in that critical 3%."
+> - Donald Knuth
+
+Accepted trade-off: a request that needs a source video waits until the input layer has made it a
+local file, including the JIT stream's first segment. Do not add streaming reads or other
+latency work without a measured problem.
+
 ## Working in the container (claude-sandbox)
 
 This repo is worked on inside ephemeral containers started with `claude-here` (from
@@ -51,6 +63,26 @@ Services On Demand (MSOD) and accepts MSOD-style `.csmil` URLs.
   (`ProcessSource` in `vodhls/master_manifest.py`) so each rendition's playlist and segments exist
   before a player asks for them. Child-playlist and segment requests create missing segments on
   demand.
+- **The input layer is the only code that knows where source videos live.** A video is identified by
+  its *library path* (the URL path, e.g. `shows/2024/episode.mp4`). The `MediaManager` selected by
+  `[input] input_type` (`vodhls/media_manifest_<type>.py`) maps a library path to a local file
+  (`process_input()` makes it available, `input_file` returns it). Routes, `EncodingManager`,
+  `JitManager` and cleanup get source files from the input layer and key everything they own by the
+  library path: transcode directory, segment directory, cache records. Nothing outside the input
+  layer reads an input-type section (`[filesystem]`, `[http]`, ...) or assumes a source is a local
+  file under a configured directory. Every route, including `/i/abr/`, works with every input type.
+- **Renditions belong in the user's library; auto-encoding is the fallback.** CasterPak works best when
+  each video's renditions already exist in the user's library (S3, http, a filesystem, a FUSE or
+  NTFS mount): a `.csmil` URL names them, CasterPak packages them as they are, and nothing is
+  encoded. A library without renditions can serve only one bitrate. For that case `/i/abr/`
+  auto-encodes a ladder, and those renditions are written to the **input cache**
+  (`<videoCachePath>/<library path>.transcodes/`), not to the library. Input cache entries expire
+  (see Storage), so auto-encoded renditions are deleted and re-encoded on the next `/i/abr/` request.
+  Writing them back to the library is a planned, opt-in setting (see Planned work).
+- **Every write to a cache is recorded in the cache database.** The cleaner evicts only what the
+  database records. A file written to the input cache or segment cache and not recorded is never
+  evicted, and the cache fills up. Whatever writes into a cache records the file at write time:
+  fetched sources, auto-encoded renditions, segments.
 - **CSMIL is stateless.** A rendition list is encoded in the URL; no manifest-description file is
   stored. Rendition filenames are plain concatenation: `prefix + label + suffix`, nothing inserted
   between them (`vodhls/csmil.py`).
@@ -89,11 +121,14 @@ All streaming routes are in `casterpak/routes.py`.
 | `/d/...`, `/c/...` | Registered, `NotImplementedError`. |
 
 **ABR state manager** (`abr_manifest`):
-1. Renditions exist in `<video>.mp4.transcodes/` -> `302` to the `.csmil` URL.
+1. Renditions exist in the input cache at `<videoCachePath>/<library path>.transcodes/` -> `302` to
+   the `.csmil` URL. (`EncodingManager.renditions_exist` looks only in the input cache, not in the
+   library.)
 2. Otherwise queue the background FFmpeg ABR encode (no-op if already queued), then serve the
    **JIT emergency stream**: a low-quality 480p FFmpeg HLS stream written to a `JIT_<name>`
    directory, returned as a master manifest pointing at `/i/JIT_<dir>/index_0_av.m3u8`. The request
-   blocks until the first JIT segment exists (5 s timeout).
+   blocks until the first JIT segment exists (5 s timeout). Both the background encode and the JIT
+   stream read the source through the input layer.
 
 **Caching headers:** the JIT master manifest is `Cache-Control: no-cache, no-store, must-revalidate`
 (plus `Pragma`, `Expires`); JIT media playlists (`JIT_` dirs) are `no-cache`, because they are EVENT
@@ -113,12 +148,13 @@ Paths below are container defaults; each is configurable.
 
 | Layer | Default path | Config |
 |---|---|---|
-| Source library (read-only) | `/mnt/data` (compose) | `[filesystem] videoParentPath` |
+| Source library (read-only) | per input type (`/mnt/data` for the compose filesystem default) | the `[input] input_type` section, e.g. `[filesystem] videoParentPath` |
 | Input/transcode cache (read/write) | `/var/cache/casterpak/video_input` | `[input] videoCachePath` |
 | HLS segment cache (TTL) | `/var/cache/casterpak/segments` | `[output] segmentParentPath` |
 | Cache database | `/var/lib/casterpak/data/cacheDB.db` | env `CASTERPAK_DB_PATH` |
 
-- **Transcodes** mirror the source's path relative to `videoParentPath`:
+- **Transcodes** (auto-encoded renditions) are written only to the input cache, keyed by the library
+  path, whatever the input type:
   `{videoCachePath}/shows/2024/episode.mp4.transcodes/episode_720p.mp4`. Rendition names are
   `<basename>_<label><ext>` (`EncodingManager.rendition_prefix`).
 - **Segments** are at `{segmentParentPath}/<dirname>/<rendition>/{index_0_av.m3u8,segment-N.ts}`; the
@@ -127,7 +163,10 @@ Paths below are container defaults; each is configurable.
 - **Cache database** (SQLite, `cachedb.py`): tables `segmentfile` and `inputfile` track entries for
   TTL cleanup; the `encodingqueue` table is the encode queue.
 - **Cleanup** (`cleanup/cleaner.py`) deletes only paths recorded in the database, by TTL
-  (`segment_file_age`, `input_file_age`, minutes) and by size threshold. It runs every
+  (`segment_file_age`, `input_file_age`, minutes) and by size threshold. The input layer records an
+  input-cache file when it processes it (`process_input()`), which covers fetched sources and
+  auto-encoded renditions; both then expire like any input-cache file. Filesystem input with
+  `cache_input = False` records nothing, so files in the input cache are never expired. It runs every
   `[cache] cleanup_interval` seconds from gunicorn's master, and standalone with
   `./bin/python -m cleanup.cleaner`.
 
@@ -193,6 +232,8 @@ S3 is not implemented.
 - Management API (`GET /api/library`, `/api/video`, `/api/backends`, `POST /api/upload`, cache and
   transcode control, auth): designed in `api/*.md`, with open questions listed in each file.
 - S3 input backend and a storage abstraction layer.
+- Transcode writeback: an opt-in setting (off by default) that writes auto-encoded renditions back to
+  the user's library, so they outlive the input cache.
 - Plone integration: a metadata-only `casterpak.video` Dexterity type (`source_path`,
   `streaming_mode` of `single` or `abr`, cached duration/resolution/size/transcode status) and a
   computed HLS URL; a library-browser widget over `/api/library`; an upload handler over

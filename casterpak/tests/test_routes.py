@@ -28,8 +28,9 @@ class TestABRRoute(unittest.TestCase):
         self.app.register_blueprint(bp)
 
         # Inject configparser-based config matching the real app's format
+        # Deliberately NO 'filesystem' section: /i/abr/ gets its source from the input
+        # layer (mocked below) and must not read any input-type section itself.
         config = make_test_config()
-        self.app.config['filesystem'] = config['filesystem']
         self.app.config['output'] = config['output']
         
         # The test_client allows us to send simulated HTTP requests
@@ -92,7 +93,8 @@ class TestABRRoute(unittest.TestCase):
 
         # Mock the HLS factory so it doesn't try to read real files
         mock_hls_manager = MagicMock()
-        mock_hls_manager.source_file = '/tmp/mock_videos/test_file.mp4'
+        # the input layer's answer: process_input() makes the source local, input_file is where
+        mock_hls_manager.input_file = '/var/cache/video_input/test_file.mp4'
         mock_hls_manager.output_dir = '/tmp/mock_output'
         mock_hls_manager.output_manifest_filename = '/tmp/mock_output/index_0_av.m3u8'
         mock_playlist_factory.return_value = mock_hls_manager
@@ -123,17 +125,54 @@ class TestABRRoute(unittest.TestCase):
         self.assertEqual(response.headers.get('Expires'), '0')
 
         # VERIFY GATEKEEPER LOGIC:
-        # 1. Did it queue the heavy background worker?
-        mock_encoder.queue_background_encoding.assert_called_once()
+        # 0. The source came from the input layer, by library path
+        mock_playlist_factory.assert_called_once_with('test_file.mp4')
+        mock_hls_manager.process_input.assert_called_once()
+
+        # 1. Did it queue the heavy background worker, encoding the input layer's local file?
+        mock_encoder.queue_background_encoding.assert_called_once_with(mock_hls_manager.input_file)
 
         # 2. Did it build a JIT manager for this video, and start the lightweight JIT emergency stream?
         mock_jit_manager_factory.assert_called_once_with(
             dir_name='test_file.mp4',
-            input_filepath=mock_hls_manager.source_file,
+            input_filepath=mock_hls_manager.input_file,
             output_dir=mock_hls_manager.output_dir,
             manifest_path=mock_hls_manager.output_manifest_filename
         )
         mock_jit_manager.trigger_jit_encoding.assert_called_once()
+
+    @patch('casterpak.routes.jit_manager_factory')
+    @patch('casterpak.routes.vodhls_media_playlist_factory')
+    @patch('casterpak.routes.EncodingManager')
+    def test_abr_manifest_missing_source_is_404_and_queues_nothing(
+            self, mock_encoding_manager_class, mock_playlist_factory, mock_jit_manager_factory):
+        mock_encoder = MagicMock()
+        mock_encoder.renditions_exist.return_value = False
+        mock_encoding_manager_class.return_value = mock_encoder
+
+        mock_hls_manager = MagicMock()
+        mock_hls_manager.process_input.side_effect = FileNotFoundError
+        mock_playlist_factory.return_value = mock_hls_manager
+
+        response = self.client.get('/i/abr/no_such_video.mp4/master.m3u8')
+
+        self.assertEqual(response.status_code, 404)
+        mock_encoder.queue_background_encoding.assert_not_called()
+        mock_jit_manager_factory.assert_not_called()
+
+    @patch('casterpak.routes.EncodingManager')
+    def test_abr_manifest_keys_the_encoder_by_library_path(self, mock_encoding_manager_class):
+        """The encoder is built from the URL's library path, not a filesystem path."""
+        mock_encoder = MagicMock()
+        mock_encoder.renditions_exist.return_value = True
+        mock_encoder.bitrates = ['720p']
+        mock_encoder.rendition_prefix = 'episode_'
+        mock_encoding_manager_class.return_value = mock_encoder
+
+        self.client.get('/i/abr/shows/2024/episode.mp4/master.m3u8')
+
+        mock_encoding_manager_class.assert_called_once_with('shows/2024/episode.mp4')
+
 
 class TestChildManifestCaching(unittest.TestCase):
     """JIT media playlists are growing EVENT playlists and must never be served cacheable."""
