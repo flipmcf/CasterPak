@@ -776,9 +776,10 @@ def test_route_abr_manifest_concurrent_requests_dont_race(casterpak_clean):
 
     # 1. The dedup guarantee, checked directly on the queue, right now -
     #    before the dispatcher has even polled. Exactly one row for this video.
+    #    The queue's lock_name is the video's library path (the URL path).
     _, out = container.exec_run(
         "sqlite3 /var/lib/casterpak/data/cacheDB.db "
-        "\"SELECT COUNT(*) FROM encodingqueue WHERE lock_name LIKE '%/test-video.mp4'\""
+        "\"SELECT COUNT(*) FROM encodingqueue WHERE lock_name = 'test-video.mp4'\""
     )
     queue_rows = out.decode().strip()
     assert queue_rows == "1", \
