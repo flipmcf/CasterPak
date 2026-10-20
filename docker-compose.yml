@@ -37,6 +37,16 @@ services:
       - CASTERPAK_OUTPUT_SERVERNAME=${CASTERPAK_OUTPUT_SERVERNAME:-localhost}
       - CASTERPAK_INPUT_INPUT_TYPE=${CASTERPAK_INPUT_INPUT_TYPE:-filesystem}
       - CASTERPAK_FILESYSTEM_CACHE_INPUT=${CASTERPAK_FILESYSTEM_CACHE_INPUT:-False}
+      # S3 as the source library. Only used when CASTERPAK_INPUT_INPUT_TYPE=s3 - see
+      # docs/s3-input.md. Leave the two keys blank on EC2/ECS to use the instance/task IAM
+      # role (preferred: no secret on disk). Blank endpoint_url means AWS.
+      - CASTERPAK_S3_BUCKET=${CASTERPAK_S3_BUCKET:-}
+      - CASTERPAK_S3_PREFIX=${CASTERPAK_S3_PREFIX:-}
+      - CASTERPAK_S3_REGION=${CASTERPAK_S3_REGION:-us-east-1}
+      - CASTERPAK_S3_ENDPOINT_URL=${CASTERPAK_S3_ENDPOINT_URL:-}
+      - CASTERPAK_S3_ADDRESSING_STYLE=${CASTERPAK_S3_ADDRESSING_STYLE:-auto}
+      - CASTERPAK_S3_ACCESS_KEY_ID=${CASTERPAK_S3_ACCESS_KEY_ID:-}
+      - CASTERPAK_S3_SECRET_ACCESS_KEY=${CASTERPAK_S3_SECRET_ACCESS_KEY:-}
       # Sub-directories of the one Cache Volume mounted below - see
       # docs/Hosting-instructions. Fixed, matching config_example.ini.
       - CASTERPAK_INPUT_VIDEOCACHEPATH=/var/cache/casterpak/video_input
