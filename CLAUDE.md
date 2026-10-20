@@ -51,6 +51,14 @@ Services On Demand (MSOD) and accepts MSOD-style `.csmil` URLs.
   (`ProcessSource` in `vodhls/master_manifest.py`) so each rendition's playlist and segments exist
   before a player asks for them. Child-playlist and segment requests create missing segments on
   demand.
+- **The input layer is the only code that knows where source videos live.** A video is identified by
+  its *library path* (the URL path, e.g. `shows/2024/episode.mp4`). The `MediaManager` selected by
+  `[input] input_type` (`vodhls/media_manifest_<type>.py`) maps a library path to a local file
+  (`process_input()` makes it available, `input_file` returns it). Routes, `EncodingManager`,
+  `JitManager` and cleanup get source files from the input layer and key everything they own by the
+  library path: transcode directory, segment directory, cache records. Nothing outside the input
+  layer reads an input-type section (`[filesystem]`, `[http]`, ...) or assumes a source is a local
+  file under a configured directory. Every route, including `/i/abr/`, works with every input type.
 - **CSMIL is stateless.** A rendition list is encoded in the URL; no manifest-description file is
   stored. Rendition filenames are plain concatenation: `prefix + label + suffix`, nothing inserted
   between them (`vodhls/csmil.py`).
@@ -93,7 +101,8 @@ All streaming routes are in `casterpak/routes.py`.
 2. Otherwise queue the background FFmpeg ABR encode (no-op if already queued), then serve the
    **JIT emergency stream**: a low-quality 480p FFmpeg HLS stream written to a `JIT_<name>`
    directory, returned as a master manifest pointing at `/i/JIT_<dir>/index_0_av.m3u8`. The request
-   blocks until the first JIT segment exists (5 s timeout).
+   blocks until the first JIT segment exists (5 s timeout). Both the background encode and the JIT
+   stream read the source through the input layer.
 
 **Caching headers:** the JIT master manifest is `Cache-Control: no-cache, no-store, must-revalidate`
 (plus `Pragma`, `Expires`); JIT media playlists (`JIT_` dirs) are `no-cache`, because they are EVENT
@@ -113,12 +122,12 @@ Paths below are container defaults; each is configurable.
 
 | Layer | Default path | Config |
 |---|---|---|
-| Source library (read-only) | `/mnt/data` (compose) | `[filesystem] videoParentPath` |
+| Source library (read-only) | per input type (`/mnt/data` for the compose filesystem default) | the `[input] input_type` section, e.g. `[filesystem] videoParentPath` |
 | Input/transcode cache (read/write) | `/var/cache/casterpak/video_input` | `[input] videoCachePath` |
 | HLS segment cache (TTL) | `/var/cache/casterpak/segments` | `[output] segmentParentPath` |
 | Cache database | `/var/lib/casterpak/data/cacheDB.db` | env `CASTERPAK_DB_PATH` |
 
-- **Transcodes** mirror the source's path relative to `videoParentPath`:
+- **Transcodes** are keyed by the library path, whatever the input type:
   `{videoCachePath}/shows/2024/episode.mp4.transcodes/episode_720p.mp4`. Rendition names are
   `<basename>_<label><ext>` (`EncodingManager.rendition_prefix`).
 - **Segments** are at `{segmentParentPath}/<dirname>/<rendition>/{index_0_av.m3u8,segment-N.ts}`; the
