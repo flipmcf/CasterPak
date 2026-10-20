@@ -79,6 +79,10 @@ Services On Demand (MSOD) and accepts MSOD-style `.csmil` URLs.
   (`<videoCachePath>/<library path>.transcodes/`), not to the library. Input cache entries expire
   (see Storage), so auto-encoded renditions are deleted and re-encoded on the next `/i/abr/` request.
   Writing them back to the library is a planned, opt-in setting (see Planned work).
+- **Every write to a cache is recorded in the cache database.** The cleaner evicts only what the
+  database records. A file written to the input cache or segment cache and not recorded is never
+  evicted, and the cache fills up. Whatever writes into a cache records the file at write time:
+  fetched sources, auto-encoded renditions, segments.
 - **CSMIL is stateless.** A rendition list is encoded in the URL; no manifest-description file is
   stored. Rendition filenames are plain concatenation: `prefix + label + suffix`, nothing inserted
   between them (`vodhls/csmil.py`).
