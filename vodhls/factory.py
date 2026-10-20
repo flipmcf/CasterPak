@@ -43,6 +43,9 @@ def vodhls_media_playlist_factory(filename):
     elif input_type == 'http':
         from vodhls.media_manifest_http import MediaManager_http
         return MediaManager_http(filename)
+    elif input_type.lower() == 's3':
+        from vodhls.media_manifest_s3 import MediaManager_s3
+        return MediaManager_s3(filename)
     elif input_type == 'ftp':
         # return MediaManager_ftp(filename)
         raise NotImplementedError(f'{input_type} not implemented')

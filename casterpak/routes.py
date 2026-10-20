@@ -9,7 +9,7 @@ from flask import abort, current_app, send_from_directory, send_file, make_respo
 
 
 import cachedb
-from vodhls import EncodingError
+from vodhls import EncodingError, InputFetchError
 from vodhls.csmil import CsmilDescriptor
 from vodhls.factory import (vodhls_master_playlist_factory,
                             vodhls_media_playlist_factory)
@@ -176,6 +176,11 @@ def abr_manifest(dir_name: str):
 
     except FileNotFoundError:
         return abort(404, description=f"Source video {dir_name} not found.")
+    except InputFetchError as e:
+        # The input layer could not get the source (bad credentials, network, ...). The
+        # detail can name the bucket or host, so it goes to the log, not to the client.
+        current_app.logger.error(f"abr: cannot fetch the source for {dir_name}: {e}")
+        return abort(500, description=f"Could not fetch source video {dir_name}.")
     except Exception as e:
         return abort(504, description=f"Encoding failed: {e}")
 
