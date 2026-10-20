@@ -28,6 +28,10 @@ test_env = os.environ.copy()
 # when testing, use video files here as the source.
 test_env["CASTERPAK_FILESYSTEM_VIDEOPARENTPATH"] = "/var/lib/casterpak/samples"
 
+# TODO: cover a non-filesystem input end to end. Consider running a mock S3 (e.g. moto's
+#   moto_server) beside the stack and pointing CASTERPAK_INPUT_INPUT_TYPE=s3 and
+#   CASTERPAK_S3_ENDPOINT_URL at it, then repeating the single-bitrate, CSMIL and /i/abr/ tests.
+
 # Bind-mount source for the app's cache volume (segments/, video_input/)
 # during container tests, in place of the real HOST_CACHE_PATH default
 # (/var/cache/casterpak).
