@@ -319,7 +319,8 @@ curl -i http://localhost/i/abr/videos/video.mp4/master.m3u8
 
 The first call returns the JIT stream's manifest; once encoding finishes it returns a `302` to the
 `.csmil` URL.  Open the same URL in VLC (Media, Open Network Stream) or a browser capable of native
-HLS streaming and make sure the video plays.
+HLS streaming and make sure the video plays.  You should also see new directories and files appear
+under the `segments` directory of your cache.
 
 Or use the bench test that is part of this build:
 http://localhost/testing/test_player.html   ( security people don't like this - firewall it off from the dmz )
