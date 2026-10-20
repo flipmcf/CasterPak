@@ -54,6 +54,8 @@ Not tagged and no Docker image published yet.
 - Management API design docs in `api/` (library, video, upload, backends,
   transcode, cache, auth). Design only, nothing is implemented.
 - Docker Hub release process in `docs/pushing_to_docker_hub.md`.
+- `CONTRIBUTING.md` for new contributors, and `requirements-dev.txt` (adds `pytest`, which a
+  dev install needs for `./bin/pytest`).
 - Unit tests for the cache headers on JIT manifests, and a container-test
   assertion on the JIT master manifest headers.
 
