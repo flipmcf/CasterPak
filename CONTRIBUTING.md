@@ -73,7 +73,7 @@ Put an `.mp4` in the video directory you gave `./setup`, then open
 The container tests build and run the real stack, so they are slower and need Docker:
 
 ```bash
-./bin/pytest tests/containertests/run_tests.py -vv
+.venv/bin/pytest tests/containertests/run_tests.py -vv
 ```
 
 They refuse to run if a `docker-compose.override.yml` is present. Run them when your change touches
