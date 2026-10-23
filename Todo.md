@@ -38,3 +38,6 @@ of a ladder for now.
 
 Keep cache SMILs - when a ladder is edited for a video in a read-only library, the edit is written
 to a SMIL in the cache, which can be deleted. Work on keeping those edits durable.
+
+Make the bench test URL (`/testing/test_player.html`) optional when building the nginx container.
+It is on by default, and the README warns that security people dislike it.
