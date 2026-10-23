@@ -83,6 +83,13 @@ Services On Demand (MSOD) and accepts MSOD-style `.csmil` URLs.
   database records. A file written to the input cache or segment cache and not recorded is never
   evicted, and the cache fills up. Whatever writes into a cache records the file at write time:
   fetched sources, auto-encoded renditions, segments.
+- **An input file is fetched once, then shared.** Every input type's `fetch_and_cache` is decorated
+  with `@locked_fetch` and writes through `atomic_write` (`vodhls/media_manifest_base.py`).
+  `locked_fetch` holds `copy_input_file_lock` on `<cached file>.lock`, next to the file, and
+  re-checks the cache under it, so concurrent requests wait for one fetch instead of each fetching.
+  `atomic_write` writes a `.part-` temporary and renames it into place, so a reader never sees a
+  partial file. The lock file is deleted on release; a `.lock` file nobody holds is left over from a
+  crashed worker and is harmless (`lsof` shows the holder of a live one).
 - **CSMIL is stateless.** A rendition list is encoded in the URL; no manifest-description file is
   stored. Rendition filenames are plain concatenation: `prefix + label + suffix`, nothing inserted
   between them (`vodhls/csmil.py`).

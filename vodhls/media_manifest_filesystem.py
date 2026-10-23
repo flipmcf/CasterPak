@@ -8,7 +8,7 @@ import logging
 
 from werkzeug.utils import safe_join
 
-from vodhls.media_manifest_base import MediaManager_Base
+from vodhls.media_manifest_base import MediaManager_Base, atomic_write, locked_fetch
 from vodhls.media_manifest_base import ConfigurationError
 from pathsafety import InvalidPathError
 
@@ -69,10 +69,11 @@ class MediaManager_filesystem(MediaManager_Base):
 
     process_input = manage_input_file
 
+    @locked_fetch
     def fetch_and_cache(self):
         logger.debug(f"copy {self.source_file}, {self.cached_filename}")
-        os.makedirs(os.path.dirname(self.cached_filename), exist_ok=True)
-        shutil.copy(self.source_file, self.cached_filename)
+        with atomic_write(self.cached_filename) as tmp:
+            shutil.copy(self.source_file, tmp)
 
     @property
     def source_file(self) -> t.Union[os.PathLike, str]:

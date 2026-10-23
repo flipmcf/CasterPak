@@ -3,8 +3,12 @@
 #See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
 import typing as t
 import os
+import fcntl
+import functools
 import logging
+import uuid
 
+from contextlib import contextmanager
 from urllib.parse import urljoin
 from werkzeug.utils import safe_join
 from bento4.mp4utils import Mp42Hls
@@ -33,6 +37,65 @@ class OptionsConfig(object):
             return None
 
 
+@contextmanager
+def copy_input_file_lock(lock_path: t.Union[os.PathLike, str]):
+    """
+    Hold an exclusive flock on lock_path. Waiters sleep in flock() until it is released.
+    The lock file is deleted on release. If a worker dies, the kernel releases its lock and
+    the leftover file is reused and deleted by the next holder.
+    """
+    while True:
+        fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o644)
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        # While we waited, the holder may have deleted the file we locked, and a newcomer may
+        # have created and locked a new one at the same path. Only the file at the path counts.
+        try:
+            same_file = os.fstat(fd).st_ino == os.stat(lock_path).st_ino
+        except FileNotFoundError:
+            same_file = False
+        if same_file:
+            break
+        os.close(fd)
+
+    try:
+        yield
+    finally:
+        # unlink before releasing, so nobody can lock this file once we let go
+        os.unlink(lock_path)
+        os.close(fd)
+
+
+@contextmanager
+def atomic_write(destination: t.Union[os.PathLike, str]):
+    """
+    Yield a temporary path next to destination. If the body succeeds, the temporary file
+    replaces destination in one rename, so a reader never sees a partial file.
+    """
+    tmp = f"{destination}.part-{os.getpid()}-{uuid.uuid4().hex[:8]}"
+    try:
+        yield tmp
+        os.replace(tmp, destination)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
+def locked_fetch(fetch):
+    """
+    Decorate fetch_and_cache so concurrent requests for one video fetch it once.
+    The others wait for the lock, find the file in the cache, and return.
+    """
+    @functools.wraps(fetch)
+    def wrapper(self):
+        os.makedirs(os.path.dirname(self.cached_filename), exist_ok=True)
+        with copy_input_file_lock(self.cached_filename + '.lock'):
+            if os.path.exists(self.cached_filename):
+                logger.debug(f"{self.cached_filename} was fetched while waiting for the lock")
+                return
+            fetch(self)
+    return wrapper
+
+
 class MediaManager_Base(object):
     """
         base class for media manifest segment managers / generators.
@@ -52,7 +115,8 @@ class MediaManager_Base(object):
 
     def fetch_and_cache(self):
         """ This is where the input file is moved to the local filesystem if necessary
-        Override in base class as appropriate
+        Override in base class as appropriate. Decorate the override with @locked_fetch
+        and write the file through atomic_write(self.cached_filename).
         """
         raise NotImplementedError("Base Class Exception")
 

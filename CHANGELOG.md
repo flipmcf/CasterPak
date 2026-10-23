@@ -26,6 +26,12 @@ Not tagged and no Docker image published yet.
   services, so container logs don't fill the disk.
 
 ### Fixed
+- **Concurrent requests fetch an input file once (#65).** Many requests for a video that is not in
+  the input cache each fetched it, writing into the same file. Now the first fetches it under a
+  per-video lock (`<cached file>.lock`, deleted on release) and the others wait, then use the cached
+  file. The file is written to a `.part-` temporary and renamed into place, so a reader never sees a
+  partial file and a failed fetch leaves nothing in the cache. Applies to `filesystem` (with
+  `cache_input = True`) and `http` input.
 - **`/i/abr/` works with every input type (#58).** It used to read `[filesystem] videoParentPath`
   itself, so it worked only with `input_type = filesystem`. The source video now comes from the
   input layer (`MediaManager.process_input()` / `input_file`), and `EncodingManager` is keyed by the
