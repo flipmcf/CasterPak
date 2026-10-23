@@ -24,6 +24,11 @@ Not tagged and no Docker image published yet.
   `./bin/python -m cleanup.cleaner` from the repo root.
 - `docker-compose.yml`: `json-file` log rotation (10 MB, 3 files) on both
   services, so container logs don't fill the disk.
+- README: the dev install, testing and debugging material moved to `docs/development.md`, and the
+  README now covers what CasterPak is, the URL endpoints and running it with Docker. Each concept
+  is explained once (the CSMIL URL grammar and the ABR endpoint were each explained three times).
+  Removed instructions that no longer matched the container-only design (a bare-metal "production"
+  gunicorn setup, `cacheDB.json`, `/var/log/casterpak.log`).
 
 ### Fixed
 - **Concurrent requests fetch an input file once (#65).** Many requests for a video that is not in
@@ -60,6 +65,8 @@ Not tagged and no Docker image published yet.
 - Management API design docs in `api/` (library, video, upload, backends,
   transcode, cache, auth). Design only, nothing is implemented.
 - Docker Hub release process in `docs/pushing_to_docker_hub.md`.
+- `CONTRIBUTING.md` for new contributors, and `requirements-dev.txt` (adds `pytest`, which a
+  dev install needs for `./bin/pytest`).
 - Unit tests for the cache headers on JIT manifests, and a container-test
   assertion on the JIT master manifest headers.
 

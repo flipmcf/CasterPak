@@ -9,6 +9,8 @@ __pycache__/
 
 # Sqlite database files
 *.db
+*.db-wal
+*.db-shm
 *.sqlite3
 
 #local configuration files
