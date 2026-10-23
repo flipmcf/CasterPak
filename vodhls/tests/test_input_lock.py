@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from vodhls.media_manifest_base import atomic_write, copy_input_file_lock
+from vodhls.media_manifest_base import atomic_write, create_copy_lock
 from vodhls.media_manifest_filesystem import MediaManager_filesystem
 from vodhls.media_manifest_http import MediaManager_http
 
@@ -24,7 +24,7 @@ VIDEO = 'shows/2024/episode.mp4'
 CONTENT = b'not really an mp4'
 
 
-# --- copy_input_file_lock -------------------------------------------------------------------
+# --- create_copy_lock -------------------------------------------------------------------
 
 def test_lock_admits_one_holder_at_a_time(tmp_path):
     lock_path = str(tmp_path / 'episode.mp4.lock')
@@ -32,7 +32,7 @@ def test_lock_admits_one_holder_at_a_time(tmp_path):
     guard = threading.Lock()
 
     def hold():
-        with copy_input_file_lock(lock_path):
+        with create_copy_lock(lock_path):
             with guard:
                 inside.append(1)
                 if len(inside) > 1:
@@ -51,7 +51,7 @@ def test_lock_admits_one_holder_at_a_time(tmp_path):
 def test_lock_file_is_deleted_on_release_even_after_an_error(tmp_path):
     lock_path = str(tmp_path / 'episode.mp4.lock')
     with pytest.raises(RuntimeError):
-        with copy_input_file_lock(lock_path):
+        with create_copy_lock(lock_path):
             assert os.path.exists(lock_path)
             raise RuntimeError
     assert not os.path.exists(lock_path)
@@ -61,7 +61,7 @@ def test_a_stale_lock_file_left_by_a_crash_does_not_block(tmp_path):
     lock_path = tmp_path / 'episode.mp4.lock'
     lock_path.write_bytes(b'')          # nobody holds it, as after a worker was killed
 
-    with copy_input_file_lock(str(lock_path)):
+    with create_copy_lock(str(lock_path)):
         pass
 
     assert not lock_path.exists()

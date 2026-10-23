@@ -38,7 +38,7 @@ class OptionsConfig(object):
 
 
 @contextmanager
-def copy_input_file_lock(lock_path: t.Union[os.PathLike, str]):
+def create_copy_lock(lock_path: t.Union[os.PathLike, str]):
     """
     Hold an exclusive flock on lock_path. Waiters sleep in flock() until it is released.
     The lock file is deleted on release. If a worker dies, the kernel releases its lock and
@@ -88,7 +88,7 @@ def locked_fetch(fetch):
     @functools.wraps(fetch)
     def wrapper(self):
         os.makedirs(os.path.dirname(self.cached_filename), exist_ok=True)
-        with copy_input_file_lock(self.cached_filename + '.lock'):
+        with create_copy_lock(self.cached_filename + '.lock'):
             if os.path.exists(self.cached_filename):
                 logger.debug(f"{self.cached_filename} was fetched while waiting for the lock")
                 return
