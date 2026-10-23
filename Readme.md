@@ -1,11 +1,15 @@
 # CasterPak
 
+
+Quick install: run this to setup, build a container, and host the service.
+
 ```bash
 curl -sL https://raw.githubusercontent.com/flipmcf/casterpak/master/install | bash
 ```
 
-The best way to approach this software is with a filesystem containing pre-encoded Adaptive Bitrate renditions that can be mounted over slow NFS or SSHFS.
-This software creates a web server and predictable URLs based on YOUR library.
+The best way to approach this software is with a filesystem containing pre-encoded Adaptive Bitrate renditions from a remote library.  This can be setup to fetch video files from S3 or HTTP, or a filesystem mounted locally via SSHFS.
+
+This software creates a web server and predictable streaming URLs based on YOUR library.
 
 Let's say, your video archive has this already:
 ```
@@ -26,27 +30,30 @@ No migration needed.  It just works.  Read on for the details if this didn't imm
 
 This software provides HLS Stream packaging for Video-On-Demand (VOD) with a built in cache.
 
-The problem this solves is to balance your CPU and Storage costs for streaming Video-on-demand.
+The problem this solves is to balance your CPU and storage costs for streaming Video-on-demand.
 Creating an HLS (m3u8) stream from a video file (mp4, et. al.) is CPU cheap and fast compared to video encoding.
 
 This is designed to be a migrationless "Just connect to your existing video library" solution for streaming video-on-demand.  Rather than pay someone to store, encode and deliver your videos, you can drop this into your stack yourself.
-
-This was originally designed to only create HLS streams, but has grown to become both a rendition encoder and JIT encoder to make your videos play on any website.  You don't need to provide encoded renditions; encoding can happen on your server and this software will happily peg 16 CPU cores to serve an anonymous web request.  Tune your cache, save your renditions, learn the software. Watch your costs.  You have been warned.
 
 It's a great fit for those who own a large 'archive' video file on inexpensive, slow-access storage like AWS S3 Glacier or Microsoft Azure Archive.  
 CasterPak can retrieve source video files from network addresses, copy them locally, and then deliver.
 
 Casterpak is a very good fit for use cases where videos serve the 'popular' model of access.  Videos that are frequently accessed remain cached at this server and videos that are not accessed are deleted from cache.
 
+This was originally designed to only create HLS streams, but has grown to become both a rendition encoder and JIT encoder for users who don't have pre-encoded renditions.  You don't need to provide encoded renditions; encoding can happen on your server.  Be aware that this software will happily peg 16 CPU cores to serve an anonymous web request.  Tune your cache, save your renditions, learn the software. Watch your costs.  You have been warned.
+
 Bottom line: If you haven't encoded your videos for Adaptive Bitrate streaming yet, this package can do that for you too, on your own CPU and storage.  See [The ABR endpoint](#the-abr-endpoint---the-one-that-encodes-for-you).
 
 This package is a good drop-in replacement for Akamai Media Services On Demand (MSOD) for video streaming.  It supports the '.csmil' endpoint that Akamai used to support to generate master manifests of renditions, and creates media playlists and segments from your renditions.
 
+## Configuration
+
+config.ini was and still is the foundation for default configuration.   As this has migrated to docker, more and more configuration is done in .env and in docker-compose.yml.  config.ini still works and remains the source of documentation and format of configuration variables.  see config_example.ini as the source of truth for config documentation as you venture into container configuration.
 
 ## Caching recipes & tuning
 
 You don't want to store your HLS streams forever, neither do you want to re-create a stream package for every request.
-This software lets you configure how long to keep original video files locally (`input_file_age`) and files ready for streaming (`segment_file_age`), both in minutes under `[cache]` in `config_example.ini`, and it creates stream packages on-demand from your encoded renditions if the files don't exist in the cache.
+This software lets you configure how long to keep original video files locally (`input_file_age`) and files ready for streaming (`segment_file_age`).  Configurable in config.ini or your local .env as `[cache]` in `config.ini`
 
 By design, master playlists are never cleaned up because they are very small to store.  Deleting them is not a problem, as casterpak will re-create them if necessary.
 
@@ -136,7 +143,7 @@ and gets out of the way.  Nothing is encoded.  This is the happy path, and it's 
 `.csmil` endpoint is the one that actually serves your traffic.
  
 **No renditions, nothing in progress** - it queues a full background ABR encode of your
-configured bitrate ladder, and then, so your viewer isn't staring at a spinner for ten
+configured bitrate ladder (see config.ini), and then, so your viewer isn't staring at a spinner for ten
 minutes, it fires off a fast, low-quality JIT (Just In Time) encode and hands back a
 single-rendition master manifest pointing at that.  Your viewer starts watching in a few
 seconds.  The good renditions keep building in the background.
@@ -157,6 +164,8 @@ library.  The cache is a cache - it has a TTL and a size limit, and the cleanup 
 eventually delete things out of it.  If you let `/i/abr/` be your production endpoint, you are
 signing up to re-encode the same videos forever, every time the cache evicts them, on your own
 CPU, triggered by anonymous web requests.  Do not do this.
+
+There are plans for 'writeback' of encoded renditions if your video library supports writing.  This will be opt-in and not default configuration.
  
 The intended workflow is:
  
