@@ -12,18 +12,15 @@ Related reading: [CONTRIBUTING.md](../CONTRIBUTING.md) for how to submit a chang
 You need Python 3.10 or newer (the Docker image uses 3.10).
 
 ```bash
-python3 -m venv .
-./bin/pip install -r requirements-dev.txt
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
 cp config_example.ini config.ini
 ```
 
-On Python 3.13 and newer, `python3 -m venv .` overwrites the repo's tracked `.gitignore` with its
-own. Use `python3 -m venv --without-scm-ignore-files .` there (older Pythons don't have that flag),
-or run `git checkout .gitignore` afterwards. Never commit that change.
+`.venv/bin/python -m pip install --upgrade pip` 
+`.venv/bin/pip install -r requirements-dev.txt`
 
-If pip is old, `./bin/python -m pip install --upgrade pip` first.
-
-`./bin/pytest` is enough to run the unit tests: they need neither Docker nor the Bento4 binaries.
+`.venv/bin/pytest` is enough to run the unit tests: they need neither Docker nor the Bento4 binaries.
 To actually serve video from a dev install you also need the Bento4 binaries (`mp42hls`, `mp4info`
 and friends) and FFmpeg. The exact versions and install steps are in the `Dockerfile`. The
 `sqlite3` command-line tool is optional and only useful for poking at the cache database.
@@ -77,7 +74,7 @@ that only resolves when the repo root is on `sys.path`. `-m` puts your current d
 running the file by its path does not.
 
 ```bash
-./bin/python -m cleanup.cleaner                              # dev install
+.venv/bin/python -m cleanup.cleaner                              # dev install
 docker exec -it casterpak_server python -m cleanup.cleaner   # running container
 ```
 
@@ -94,7 +91,7 @@ Before you open a pull request:
 1. Unit tests (a few seconds, no Docker):
 
    ```bash
-   ./bin/pytest
+   .venv/bin/pytest
    ```
 
 2. If you touched routes, encoding, caching, nginx, `docker-compose.yml` or the `Dockerfile`, the
@@ -102,7 +99,7 @@ Before you open a pull request:
    refuse to start if a `docker-compose.override.yml` exists:
 
    ```bash
-   ./bin/pytest tests/containertests/run_tests.py -vv
+   .venv/bin/pytest tests/containertests/run_tests.py -vv
    ```
 
 3. If you changed the `Dockerfile`, compose file or dependencies, make sure the images build and
@@ -164,7 +161,7 @@ The second is the simplest real request: it packages one file as a single-bitrat
 repo root:
 
 ```bash
-./bin/python -m gunicorn -b :5000 --workers 1 app:app
+.venv/bin/python -m gunicorn -b :5000 --workers 1 app:app
 ```
 
 (`gunicorn-debug.conf.py` exists but currently contains only the license header.)
