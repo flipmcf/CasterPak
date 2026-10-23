@@ -37,15 +37,12 @@ You need Python 3.10 or newer (the Docker image uses 3.10) and git.
 ```bash
 git clone https://github.com/<your-fork>/casterpak
 cd casterpak
-python3 -m venv .
-./bin/pip install -r requirements-dev.txt
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
 cp config_example.ini config.ini
-./bin/pytest
+.venv/bin/pytest
 ```
 
-- On Python 3.13 and newer, `python3 -m venv .` overwrites the repo's tracked `.gitignore`. Use
-  `python3 -m venv --without-scm-ignore-files .` there (older Pythons don't have that flag), or
-  run `git checkout .gitignore` afterwards, and never commit the change.
 - `config.ini` is for local development only and is not tracked by git.
 - [`docs/development.md`](docs/development.md) has the full dev guide: configuration, running the
   Flask dev server, cache cleanup and debugging.
