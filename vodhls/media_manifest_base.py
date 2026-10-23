@@ -82,7 +82,7 @@ def atomic_write(destination: t.Union[os.PathLike, str]):
 
 def locked_fetch(fetch):
     """
-    Decorate fetch_and_cache so concurrent requests for one video fetch it once.
+    Decorator for fetch_and_cache so concurrent requests for one video don't start multiple fetches.
     The others wait for the lock, find the file in the cache, and return.
     """
     @functools.wraps(fetch)
@@ -113,6 +113,7 @@ class MediaManager_Base(object):
         # which will contain the segment files and media manifest
         self.filename = filename
 
+    #@locked_fetch
     def fetch_and_cache(self):
         """ This is where the input file is moved to the local filesystem if necessary
         Override in base class as appropriate. Decorate the override with @locked_fetch
