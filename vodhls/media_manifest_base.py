@@ -61,7 +61,10 @@ def get_fetch_lock(lock_path: t.Union[os.PathLike, str]):
         yield
     finally:
         # unlink before releasing, so nobody can lock this file once we let go
-        os.unlink(lock_path)
+        try:
+            os.unlink(lock_path)
+        except FileNotFoundError:
+            pass
         os.close(fd)
 
 
@@ -113,7 +116,6 @@ class MediaManager_Base(object):
         # which will contain the segment files and media manifest
         self.filename = filename
 
-    #@locked_fetch
     def fetch_and_cache(self):
         """ This is where the input file is moved to the local filesystem if necessary
         Override in base class as appropriate. Decorate the override with @locked_fetch
