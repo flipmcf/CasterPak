@@ -1,14 +1,13 @@
 #Copyright (c) 2022, Michael McFadden & Radio Free Asia
 #GNU GENERAL PUBLIC LICENSE Version 2
 #See file LICENCE or visit https://github.com/flipmcf/CasterPak/blob/master/LICENSE
-import os
 import re
 
 import requests
 import urllib
 import logging
 
-from vodhls.media_manifest_base import MediaManager_Base
+from vodhls.media_manifest_base import MediaManager_Base, atomic_write, locked_fetch
 logger = logging.getLogger('vodhls')
 
 
@@ -18,16 +17,16 @@ class MediaManager_http(MediaManager_Base):
     gets the input file from a http:// url and saves it to local input cache.
     """
 
+    @locked_fetch
     def fetch_and_cache(self):
         logger.debug(f"requesting {self.source_url}")
-        os.makedirs(os.path.dirname(self.cached_filename), exist_ok=True)
 
         with requests.get(self.source_url, (self.connect_timeout, self.transfer_timeout), stream=True) as response:
             if response.status_code != 200:
                 logger.error(f"error {response.status_code} while requesting {self.source_url}")
                 raise FileNotFoundError
 
-            with open(self.cached_filename, "wb") as f:
+            with atomic_write(self.cached_filename) as tmp, open(tmp, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
 
